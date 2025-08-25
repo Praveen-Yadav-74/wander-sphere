@@ -38,7 +38,7 @@ export const endpoints = {
   users: {
     profile: '/users/profile',
     updateProfile: '/users/profile',
-    uploadAvatar: '/users/avatar',
+    uploadAvatar: '/media/avatar',
     followers: '/users/followers',
     following: '/users/following',
     follow: (userId: string) => `/users/${userId}/follow`,
@@ -124,8 +124,14 @@ export const endpoints = {
 
   // Media
   media: {
-    upload: '/media/upload',
-    delete: (mediaId: string) => `/media/${mediaId}`,
+    avatar: '/media/avatar',
+    tripImages: '/media/trip-images',
+    temp: '/media/temp',
+    deleteTripImage: (cloudinaryId: string) => `/media/trip-image/${cloudinaryId}`,
+    deleteTemp: (cloudinaryId: string) => `/media/temp/${cloudinaryId}`,
+    cleanup: '/media/cleanup-temp',
+    info: (type: string, cloudinaryId: string) => `/media/info/${type}/${cloudinaryId}`,
+    health: '/media/health',
   },
 
   // Map/Location
