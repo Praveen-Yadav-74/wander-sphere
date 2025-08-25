@@ -303,38 +303,28 @@ router.get('/health', (req, res) => {
   });
 });
 
-// @route   DELETE /api/media/trip-image/:filename
-// @desc    Delete trip image
+// @route   DELETE /api/media/trip-image/:cloudinary_id
+// @desc    Delete trip image from Cloudinary
 // @access  Private
-router.delete('/trip-image/:filename', auth, async (req, res) => {
+router.delete('/trip-image/:cloudinary_id', auth, async (req, res) => {
   try {
-    const filename = req.params.filename;
-    const filePath = path.join(uploadDirs.trips, filename);
-
-    // Check if file exists
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({
-        success: false,
-        message: 'File not found'
-      });
-    }
+    const cloudinaryId = req.params.cloudinary_id;
 
     // Check if user owns any trip that uses this image
-    const imageUrl = getFileUrl(filename, 'trips');
-    const trip = await SupabaseTrip.findByOrganizerAndImage(req.user.id, imageUrl);
+    const trip = await SupabaseTrip.findByOrganizerAndCloudinaryId(req.user.id, cloudinaryId);
 
     if (!trip) {
       return res.status(403).json({
         success: false,
-        message: 'You do not have permission to delete this image'
+        message: 'You do not have permission to delete this image or image not found'
       });
     }
 
-    // Delete file
-    deleteFile(filePath);
+    // Delete from Cloudinary
+    await cloudinary.uploader.destroy(cloudinaryId);
 
     // Remove image from trip
-    await SupabaseTrip.removeImage(trip.id, imageUrl);
+    await SupabaseTrip.removeImageByCloudinaryId(trip.id, cloudinaryId);
 
     res.json({
       success: true,
@@ -349,24 +339,22 @@ router.delete('/trip-image/:filename', auth, async (req, res) => {
   }
 });
 
-// @route   DELETE /api/media/temp/:filename
-// @desc    Delete temporary file
+// @route   DELETE /api/media/temp/:cloudinary_id
+// @desc    Delete temporary file from Cloudinary
 // @access  Private
-router.delete('/temp/:filename', auth, (req, res) => {
+router.delete('/temp/:cloudinary_id', auth, async (req, res) => {
   try {
-    const filename = req.params.filename;
-    const filePath = path.join(uploadDirs.temp, filename);
+    const cloudinaryId = req.params.cloudinary_id;
 
-    // Check if file exists
-    if (!fs.existsSync(filePath)) {
+    // Delete from Cloudinary
+    const result = await cloudinary.uploader.destroy(cloudinaryId);
+
+    if (result.result === 'not found') {
       return res.status(404).json({
         success: false,
         message: 'File not found'
       });
     }
-
-    // Delete file
-    deleteFile(filePath);
 
     res.json({
       success: true,
@@ -382,29 +370,35 @@ router.delete('/temp/:filename', auth, (req, res) => {
 });
 
 // @route   POST /api/media/cleanup-temp
-// @desc    Cleanup old temporary files
+// @desc    Cleanup old temporary files from Cloudinary
 // @access  Private (Admin only)
-router.post('/cleanup-temp', auth, (req, res) => {
+router.post('/cleanup-temp', auth, async (req, res) => {
   try {
     // Only allow admin users (you can implement role-based auth)
     // For now, any authenticated user can trigger cleanup
     
-    const tempDir = uploadDirs.temp;
-    const files = fs.readdirSync(tempDir);
-    const now = Date.now();
     const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+    const cutoffDate = new Date(Date.now() - maxAge);
     
-    let deletedCount = 0;
+    // Get list of resources in temp folder older than 24 hours
+    const result = await cloudinary.search
+      .expression('folder:wandersphere/temp AND created_at<' + cutoffDate.toISOString())
+      .sort_by([['created_at', 'desc']])
+      .max_results(500)
+      .execute();
     
-    files.forEach(filename => {
-      const filePath = path.join(tempDir, filename);
-      const stats = fs.statSync(filePath);
-      
-      if (now - stats.mtime.getTime() > maxAge) {
-        deleteFile(filePath);
-        deletedCount++;
-      }
-    });
+    if (result.resources.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No old temporary files found to cleanup.'
+      });
+    }
+    
+    // Delete old files
+    const publicIds = result.resources.map(resource => resource.public_id);
+    const deleteResult = await cloudinary.api.delete_resources(publicIds);
+    
+    const deletedCount = Object.keys(deleteResult.deleted).length;
 
     res.json({
       success: true,
@@ -419,12 +413,12 @@ router.post('/cleanup-temp', auth, (req, res) => {
   }
 });
 
-// @route   GET /api/media/info/:type/:filename
-// @desc    Get file information
+// @route   GET /api/media/info/:type/:cloudinary_id
+// @desc    Get file information from Cloudinary
 // @access  Public
-router.get('/info/:type/:filename', (req, res) => {
+router.get('/info/:type/:cloudinary_id', async (req, res) => {
   try {
-    const { type, filename } = req.params;
+    const { type, cloudinary_id } = req.params;
     
     if (!['avatars', 'trips', 'temp'].includes(type)) {
       return res.status(400).json({
@@ -433,31 +427,38 @@ router.get('/info/:type/:filename', (req, res) => {
       });
     }
     
-    const filePath = path.join(uploadDirs[type], filename);
+    // Get resource info from Cloudinary
+    const result = await cloudinary.api.resource(cloudinary_id);
     
-    if (!fs.existsSync(filePath)) {
+    if (!result) {
       return res.status(404).json({
         success: false,
         message: 'File not found'
       });
     }
     
-    const stats = fs.statSync(filePath);
-    const ext = path.extname(filename).toLowerCase();
-    
     res.json({
       success: true,
       data: {
-        filename,
+        public_id: result.public_id,
         type,
-        size: stats.size,
-        extension: ext,
-        created: stats.birthtime,
-        modified: stats.mtime,
-        url: getFileUrl(filename, type)
+        size: result.bytes,
+        format: result.format,
+        width: result.width,
+        height: result.height,
+        created: result.created_at,
+        url: result.secure_url,
+        version: result.version
       }
     });
   } catch (error) {
+    if (error.http_code === 404) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found'
+      });
+    }
+    
     console.error('Get file info error:', error);
     res.status(500).json({
       success: false,
