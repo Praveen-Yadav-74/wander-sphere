@@ -6,7 +6,7 @@
 import { supabase } from './supabase';
 
 // Environment variables with fallbacks
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://wander-sphere-ue7e.onrender.com/api';
 const API_TIMEOUT = parseInt(import.meta.env.VITE_API_TIMEOUT || '10000');
 const ENABLE_API_LOGGING = import.meta.env.VITE_ENABLE_API_LOGGING === 'true';
 
