@@ -1,77 +1,40 @@
 const express = require('express');
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const { v4: uuidv4 } = require('uuid');
+const cloudinary = require('cloudinary').v2;
 const { auth } = require('../middleware/supabaseAuth');
 const SupabaseUser = require('../models/SupabaseUser');
 const SupabaseTrip = require('../models/SupabaseTrip');
 
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
 const router = express.Router();
 
-// Ensure upload directories exist
-const uploadDirs = {
-  avatars: path.join(__dirname, '../uploads/avatars'),
-  trips: path.join(__dirname, '../uploads/trips'),
-  temp: path.join(__dirname, '../uploads/temp')
+// Helper function to validate file types
+const isValidImageType = (mimetype) => {
+  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+  return allowedTypes.includes(mimetype);
 };
-
-Object.values(uploadDirs).forEach(dir => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-});
 
 // File filter function
 const fileFilter = (req, file, cb) => {
-  // Check file type
-  const allowedTypes = /jpeg|jpg|png|gif|webp/;
-  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-  const mimetype = allowedTypes.test(file.mimetype);
-
-  if (mimetype && extname) {
-    return cb(null, true);
+  if (isValidImageType(file.mimetype)) {
+    cb(null, true);
   } else {
-    cb(new Error('Only image files (JPEG, JPG, PNG, GIF, WebP) are allowed'));
+    cb(new Error('Only image files are allowed!'), false);
   }
 };
 
-// Storage configuration for avatars
-const avatarStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDirs.avatars);
-  },
-  filename: (req, file, cb) => {
-    const uniqueName = `${req.user.id}_${Date.now()}${path.extname(file.originalname)}`;
-    cb(null, uniqueName);
-  }
-});
-
-// Storage configuration for trip images
-const tripStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDirs.trips);
-  },
-  filename: (req, file, cb) => {
-    const uniqueName = `${uuidv4()}_${Date.now()}${path.extname(file.originalname)}`;
-    cb(null, uniqueName);
-  }
-});
-
-// Storage configuration for temporary uploads
-const tempStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDirs.temp);
-  },
-  filename: (req, file, cb) => {
-    const uniqueName = `temp_${uuidv4()}_${Date.now()}${path.extname(file.originalname)}`;
-    cb(null, uniqueName);
-  }
-});
+// Memory storage for Cloudinary uploads
+const memoryStorage = multer.memoryStorage();
 
 // Multer configurations
 const uploadAvatar = multer({
-  storage: avatarStorage,
+  storage: memoryStorage,
   limits: {
     fileSize: 5 * 1024 * 1024 // 5MB limit
   },
@@ -79,7 +42,7 @@ const uploadAvatar = multer({
 });
 
 const uploadTripImages = multer({
-  storage: tripStorage,
+  storage: memoryStorage,
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit per file
     files: 10 // Maximum 10 files
@@ -88,29 +51,14 @@ const uploadTripImages = multer({
 });
 
 const uploadTemp = multer({
-  storage: tempStorage,
+  storage: memoryStorage,
   limits: {
     fileSize: 10 * 1024 * 1024 // 10MB limit
   },
   fileFilter
 });
 
-// Helper function to delete file
-const deleteFile = (filePath) => {
-  try {
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-  } catch (error) {
-    console.error('Error deleting file:', error);
-  }
-};
 
-// Helper function to get file URL
-const getFileUrl = (filename, type = 'trips') => {
-  if (!filename) return null;
-  return `${process.env.FRONTEND_URL || 'http://localhost:3000'}/api/media/${type}/${filename}`;
-};
 
 // @route   POST /api/media/avatar
 // @desc    Upload user avatar
@@ -143,22 +91,34 @@ router.post('/avatar', auth, (req, res) => {
       // Update user avatar in database
       const user = await SupabaseUser.findById(req.user.id);
       if (!user) {
-        // Delete uploaded file if user not found
-        deleteFile(req.file.path);
         return res.status(404).json({
           success: false,
           message: 'User not found'
         });
       }
 
-      // Delete old avatar file if exists
-      if (user.avatar) {
-        const oldAvatarPath = path.join(uploadDirs.avatars, path.basename(user.avatar));
-        deleteFile(oldAvatarPath);
-      }
+      // Upload to Cloudinary
+      const uploadResult = await new Promise((resolve, reject) => {
+        cloudinary.uploader.upload_stream(
+          {
+            resource_type: 'image',
+            folder: 'wandersphere/avatars',
+            public_id: `avatar_${req.user.id}_${Date.now()}`,
+            transformation: [
+              { width: 300, height: 300, crop: 'fill', gravity: 'face' },
+              { quality: 'auto', fetch_format: 'auto' }
+            ]
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        ).end(req.file.buffer);
+      });
+
+      const avatarUrl = uploadResult.secure_url;
 
       // Update user with new avatar URL
-      const avatarUrl = getFileUrl(req.file.filename, 'avatars');
       await SupabaseUser.updateById(req.user.id, { avatar: avatarUrl });
 
       res.json({
@@ -166,14 +126,10 @@ router.post('/avatar', auth, (req, res) => {
         message: 'Avatar uploaded successfully',
         data: {
           avatar: avatarUrl,
-          filename: req.file.filename
+          cloudinary_id: uploadResult.public_id
         }
       });
     } catch (error) {
-      // Delete uploaded file on error
-      if (req.file) {
-        deleteFile(req.file.path);
-      }
       console.error('Upload avatar error:', error);
       res.status(500).json({
         success: false,
@@ -217,12 +173,36 @@ router.post('/trip-images', auth, (req, res) => {
         });
       }
 
-      // Generate URLs for uploaded files
-      const uploadedImages = req.files.map(file => ({
-        filename: file.filename,
-        originalName: file.originalname,
-        url: getFileUrl(file.filename, 'trips'),
-        size: file.size
+      // Upload all images to Cloudinary
+      const uploadPromises = req.files.map((file, index) => {
+        return new Promise((resolve, reject) => {
+          cloudinary.uploader.upload_stream(
+            {
+              resource_type: 'image',
+              folder: 'wandersphere/trips',
+              public_id: `trip_${req.user.id}_${Date.now()}_${index}`,
+              transformation: [
+                { width: 1200, height: 800, crop: 'limit' },
+                { quality: 'auto', fetch_format: 'auto' }
+              ]
+            },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result);
+            }
+          ).end(file.buffer);
+        });
+      });
+
+      const uploadResults = await Promise.all(uploadPromises);
+      
+      // Generate response data
+      const uploadedImages = uploadResults.map((result, index) => ({
+        filename: result.public_id,
+        originalName: req.files[index].originalname,
+        url: result.secure_url,
+        size: req.files[index].size,
+        cloudinary_id: result.public_id
       }));
 
       res.json({
@@ -233,10 +213,6 @@ router.post('/trip-images', auth, (req, res) => {
         }
       });
     } catch (error) {
-      // Delete uploaded files on error
-      if (req.files) {
-        req.files.forEach(file => deleteFile(file.path));
-      }
       console.error('Upload trip images error:', error);
       res.status(500).json({
         success: false,
@@ -274,20 +250,37 @@ router.post('/temp', auth, (req, res) => {
         });
       }
 
+      // Upload to Cloudinary
+      const uploadResult = await new Promise((resolve, reject) => {
+        cloudinary.uploader.upload_stream(
+          {
+            resource_type: 'auto',
+            folder: 'wandersphere/temp',
+            public_id: `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            transformation: req.file.mimetype.startsWith('image/') ? [
+              { width: 1200, height: 800, crop: 'limit' },
+              { quality: 'auto', fetch_format: 'auto' }
+            ] : undefined
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        ).end(req.file.buffer);
+      });
+
       res.json({
         success: true,
         message: 'File uploaded successfully',
         data: {
-          filename: req.file.filename,
+          filename: uploadResult.public_id,
           originalName: req.file.originalname,
-          url: getFileUrl(req.file.filename, 'temp'),
-          size: req.file.size
+          url: uploadResult.secure_url,
+          size: req.file.size,
+          cloudinary_id: uploadResult.public_id
         }
       });
     } catch (error) {
-      if (req.file) {
-        deleteFile(req.file.path);
-      }
       console.error('Upload temp file error:', error);
       res.status(500).json({
         success: false,
@@ -297,126 +290,17 @@ router.post('/temp', auth, (req, res) => {
   });
 });
 
-// @route   GET /api/media/avatars/:filename
-// @desc    Serve avatar files
+// @route   GET /api/media/health
+// @desc    Health check endpoint
 // @access  Public
-router.get('/avatars/:filename', (req, res) => {
-  try {
-    const filename = req.params.filename;
-    const filePath = path.join(uploadDirs.avatars, filename);
-
-    // Check if file exists
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({
-        success: false,
-        message: 'File not found'
-      });
+router.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    message: 'Media service is running',
+    cloudinary: {
+      configured: !!(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET)
     }
-
-    // Set appropriate headers
-    const ext = path.extname(filename).toLowerCase();
-    const mimeTypes = {
-      '.jpg': 'image/jpeg',
-      '.jpeg': 'image/jpeg',
-      '.png': 'image/png',
-      '.gif': 'image/gif',
-      '.webp': 'image/webp'
-    };
-
-    const mimeType = mimeTypes[ext] || 'application/octet-stream';
-    res.setHeader('Content-Type', mimeType);
-    res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
-
-    // Send file
-    res.sendFile(filePath);
-  } catch (error) {
-    console.error('Serve avatar error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error while serving file'
-    });
-  }
-});
-
-// @route   GET /api/media/trips/:filename
-// @desc    Serve trip image files
-// @access  Public
-router.get('/trips/:filename', (req, res) => {
-  try {
-    const filename = req.params.filename;
-    const filePath = path.join(uploadDirs.trips, filename);
-
-    // Check if file exists
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({
-        success: false,
-        message: 'File not found'
-      });
-    }
-
-    // Set appropriate headers
-    const ext = path.extname(filename).toLowerCase();
-    const mimeTypes = {
-      '.jpg': 'image/jpeg',
-      '.jpeg': 'image/jpeg',
-      '.png': 'image/png',
-      '.gif': 'image/gif',
-      '.webp': 'image/webp'
-    };
-
-    const mimeType = mimeTypes[ext] || 'application/octet-stream';
-    res.setHeader('Content-Type', mimeType);
-    res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
-
-    // Send file
-    res.sendFile(filePath);
-  } catch (error) {
-    console.error('Serve trip image error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error while serving file'
-    });
-  }
-});
-
-// @route   GET /api/media/temp/:filename
-// @desc    Serve temporary files
-// @access  Private
-router.get('/temp/:filename', auth, (req, res) => {
-  try {
-    const filename = req.params.filename;
-    const filePath = path.join(uploadDirs.temp, filename);
-
-    // Check if file exists
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({
-        success: false,
-        message: 'File not found'
-      });
-    }
-
-    // Set appropriate headers
-    const ext = path.extname(filename).toLowerCase();
-    const mimeTypes = {
-      '.jpg': 'image/jpeg',
-      '.jpeg': 'image/jpeg',
-      '.png': 'image/png',
-      '.gif': 'image/gif',
-      '.webp': 'image/webp'
-    };
-
-    const mimeType = mimeTypes[ext] || 'application/octet-stream';
-    res.setHeader('Content-Type', mimeType);
-
-    // Send file
-    res.sendFile(filePath);
-  } catch (error) {
-    console.error('Serve temp file error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error while serving file'
-    });
-  }
+  });
 });
 
 // @route   DELETE /api/media/trip-image/:filename
