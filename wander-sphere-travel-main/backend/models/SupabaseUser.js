@@ -1,4 +1,4 @@
-const supabase = require('../config/supabase');
+import supabase from '../config/supabase.js';
 
 class SupabaseUser {
   // Create a new user (used internally, registration handled by auth service)
@@ -356,4 +356,4 @@ class SupabaseUser {
   }
 }
 
-module.exports = SupabaseUser;
+export default SupabaseUser;

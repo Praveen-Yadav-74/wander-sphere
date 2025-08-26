@@ -1,10 +1,10 @@
-const express = require('express');
-const multer = require('multer');
-const supabase = require('../config/supabase');
-const { auth } = require('../middleware/supabaseAuth');
-const SupabaseUser = require('../models/SupabaseUser');
-const SupabaseTrip = require('../models/SupabaseTrip');
-const { v4: uuidv4 } = require('uuid');
+import express from 'express';
+import multer from 'multer';
+import supabase from '../config/supabase.js';
+import { auth } from '../middleware/supabaseAuth.js';
+import SupabaseUser from '../models/SupabaseUser.js';
+import SupabaseTrip from '../models/SupabaseTrip.js';
+import { v4 as uuidv4 } from 'uuid';
 
 const router = express.Router();
 
@@ -527,4 +527,4 @@ router.get('/info/:type/*', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

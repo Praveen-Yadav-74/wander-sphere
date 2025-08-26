@@ -1,20 +1,21 @@
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const compression = require('compression');
-const rateLimit = require('express-rate-limit');
-require('dotenv').config();
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import compression from 'compression';
+import rateLimit from 'express-rate-limit';
+import dotenv from 'dotenv';
+dotenv.config();
 
 // Import routes
-const authRoutes = require('./routes/supabaseAuth');
-const userRoutes = require('./routes/users');
-const tripRoutes = require('./routes/trips');
-const clubRoutes = require('./routes/clubs');
-const journeyRoutes = require('./routes/journeys');
-const { router: notificationRoutes } = require('./routes/notifications');
-const searchRoutes = require('./routes/search');
-const mediaRoutes = require('./routes/media');
-const mapRoutes = require('./routes/maps');
+import authRoutes from './routes/supabaseAuth.js';
+import userRoutes from './routes/users.js';
+import tripRoutes from './routes/trips.js';
+import clubRoutes from './routes/clubs.js';
+import journeyRoutes from './routes/journeys.js';
+import notificationRoutes from './routes/notifications.js';
+import searchRoutes from './routes/search.js';
+import mediaRoutes from './routes/media.js';
+import mapRoutes from './routes/maps.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -105,4 +106,4 @@ app.listen(PORT, () => {
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
-module.exports = app;
+export default app;

@@ -1,8 +1,8 @@
-const express = require('express');
-const { query, validationResult } = require('express-validator');
-const { optionalAuth } = require('../middleware/supabaseAuth');
-const SupabaseTrip = require('../models/SupabaseTrip');
-const { Client } = require('@googlemaps/google-maps-services-js');
+import express from 'express';
+import { query, validationResult } from 'express-validator';
+import { optionalAuth } from '../middleware/supabaseAuth.js';
+import SupabaseTrip from '../models/SupabaseTrip.js';
+import { Client } from '@googlemaps/google-maps-services-js';
 
 const router = express.Router();
 
@@ -431,4 +431,4 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return distance;
 }
 
-module.exports = router;
+export default router;

@@ -1,4 +1,4 @@
-const supabase = require('../config/supabase');
+import supabase from '../config/supabase.js';
 
 class SupabaseTrip {
   // Create a new trip
@@ -561,4 +561,4 @@ class SupabaseTrip {
   }
 }
 
-module.exports = SupabaseTrip;
+export default SupabaseTrip;

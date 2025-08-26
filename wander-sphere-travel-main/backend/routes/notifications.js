@@ -1,6 +1,6 @@
-const express = require('express');
-const { body, query, validationResult } = require('express-validator');
-const { auth: supabaseAuth } = require('../middleware/supabaseAuth');
+import express from 'express';
+import { body, query, validationResult } from 'express-validator';
+import { auth as supabaseAuth } from '../middleware/supabaseAuth.js';
 
 const router = express.Router();
 
@@ -358,7 +358,19 @@ const notificationHelpers = {
 };
 
 // Export router and helpers
-module.exports = {
-  router,
-  ...notificationHelpers
+export default router;
+export {
+  sendNotification,
+  createNotification,
+  notificationHelpers
 };
+
+// Export individual helper functions
+export const {
+  sendLikeNotification,
+  sendCommentNotification,
+  sendFollowNotification,
+  sendTripUpdateNotification,
+  sendTripInviteNotification,
+  sendSystemNotification
+} = notificationHelpers;

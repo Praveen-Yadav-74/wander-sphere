@@ -1,8 +1,8 @@
-const express = require('express');
-const { body, query, validationResult } = require('express-validator');
-const SupabaseUser = require('../models/SupabaseUser');
-const SupabaseTrip = require('../models/SupabaseTrip');
-const { auth, optionalAuth } = require('../middleware/supabaseAuth');
+import express from 'express';
+import { body, query, validationResult } from 'express-validator';
+import SupabaseUser from '../models/SupabaseUser.js';
+import SupabaseTrip from '../models/SupabaseTrip.js';
+import { auth, optionalAuth } from '../middleware/supabaseAuth.js';
 
 const router = express.Router();
 
@@ -540,4 +540,4 @@ router.post('/block/:id', auth, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

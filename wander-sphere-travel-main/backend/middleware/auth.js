@@ -1,5 +1,5 @@
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
 
 // Authentication middleware
 const auth = async (req, res, next) => {
@@ -191,9 +191,4 @@ const checkOwnership = (resourceModel, resourceIdParam = 'id') => {
   };
 };
 
-module.exports = {
-  auth,
-  optionalAuth,
-  authorize,
-  checkOwnership
-};
+export { auth, optionalAuth, authorize, checkOwnership };

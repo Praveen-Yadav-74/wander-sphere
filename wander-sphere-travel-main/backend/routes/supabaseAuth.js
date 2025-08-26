@@ -1,8 +1,8 @@
-const express = require('express');
-const { body, validationResult } = require('express-validator');
-const authService = require('../services/authService');
-const { auth } = require('../middleware/supabaseAuth');
-const rateLimit = require('express-rate-limit');
+import express from 'express';
+import { body, validationResult } from 'express-validator';
+import authService from '../services/authService.js';
+import { auth } from '../middleware/supabaseAuth.js';
+import rateLimit from 'express-rate-limit';
 
 const router = express.Router();
 
@@ -418,4 +418,4 @@ router.post('/reset-password', [
   }
 });
 
-module.exports = router;
+export default router;

@@ -1,9 +1,9 @@
-const express = require('express');
-const jwt = require('jsonwebtoken');
-const { body, validationResult } = require('express-validator');
-const User = require('../models/User');
-const { auth } = require('../middleware/auth');
-const rateLimit = require('express-rate-limit');
+import express from 'express';
+import jwt from 'jsonwebtoken';
+import { body, validationResult } from 'express-validator';
+import User from '../models/User.js';
+import { auth } from '../middleware/auth.js';
+import rateLimit from 'express-rate-limit';
 
 const router = express.Router();
 
@@ -421,4 +421,4 @@ router.put('/profile', auth, [
   }
 });
 
-module.exports = router;
+export default router;

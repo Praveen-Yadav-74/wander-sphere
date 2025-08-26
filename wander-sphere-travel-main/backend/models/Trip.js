@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const tripSchema = new mongoose.Schema({
   title: {
@@ -398,4 +398,4 @@ tripSchema.methods.incrementViews = function() {
   return this.save();
 };
 
-module.exports = mongoose.model('Trip', tripSchema);
+export default mongoose.model('Trip', tripSchema);

@@ -1,5 +1,5 @@
-const supabase = require('../config/supabase');
-const jwt = require('jsonwebtoken');
+import supabase from '../config/supabase.js';
+import jwt from 'jsonwebtoken';
 
 class AuthService {
   // Register a new user with Supabase Auth
@@ -214,4 +214,4 @@ class AuthService {
   }
 }
 
-module.exports = new AuthService();
+export default new AuthService();

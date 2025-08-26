@@ -1,6 +1,7 @@
 {
   "name": "wander-sphere-backend",
   "version": "1.0.0",
+  "type": "module",
   "description": "Backend API for Wander Sphere travel application",
   "main": "server.js",
   "scripts": {

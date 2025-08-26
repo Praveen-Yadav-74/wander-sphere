@@ -1,8 +1,8 @@
-const express = require('express');
-const { body, query, validationResult } = require('express-validator');
-const SupabaseTrip = require('../models/SupabaseTrip');
-const SupabaseUser = require('../models/SupabaseUser');
-const { auth, optionalAuth } = require('../middleware/supabaseAuth');
+import express from 'express';
+import { body, query, validationResult } from 'express-validator';
+import SupabaseTrip from '../models/SupabaseTrip.js';
+import SupabaseUser from '../models/SupabaseUser.js';
+import { auth, optionalAuth } from '../middleware/supabaseAuth.js';
 
 const router = express.Router();
 
@@ -534,4 +534,4 @@ router.post('/:id/comments', auth, [
   }
 });
 
-module.exports = router;
+export default router;

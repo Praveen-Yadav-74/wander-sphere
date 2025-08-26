@@ -1,5 +1,5 @@
-const supabase = require('../config/supabase');
-const authService = require('../services/authService');
+import supabase from '../config/supabase.js';
+import authService from '../services/authService.js';
 
 // Middleware to authenticate requests using Supabase
 const auth = async (req, res, next) => {
@@ -101,8 +101,4 @@ const adminAuth = async (req, res, next) => {
   }
 };
 
-module.exports = {
-  auth,
-  optionalAuth,
-  adminAuth
-};
+export { auth, optionalAuth, adminAuth };
