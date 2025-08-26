@@ -675,7 +675,7 @@ const Home: FC = () => {
             <div className="space-y-4 lg:space-y-6">
               {/* Stories */}
               {isLoadingStories ? (
-                <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-4">
+                <div className="grid grid-cols-3 sm:flex sm:gap-4 gap-3 sm:overflow-x-auto pb-4">
                   {[...Array(5)].map((_, i) => (
                     <div key={i} className="flex flex-col items-center gap-1 sm:gap-2 min-w-fit">
                       <div className="w-14 h-14 sm:w-16 sm:h-16 lg:w-18 lg:h-18 rounded-full bg-gray-200 animate-pulse"></div>
@@ -684,7 +684,7 @@ const Home: FC = () => {
                   ))}
                 </div>
               ) : (
-                <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 scrollbar-hide">
+                <div className="grid grid-cols-3 sm:flex sm:gap-4 gap-3 sm:overflow-x-auto pb-4 scrollbar-hide">
                   {stories.map((story, index) => (
                     <div key={story.id} className="flex flex-col items-center gap-1 sm:gap-2 min-w-fit cursor-pointer" onClick={() => openStory(index)}>
                       <div className={`p-[2px] rounded-full ${story.isOwn ? '' : 'bg-gradient-to-tr from-yellow-400 to-purple-600'}`}>

@@ -127,10 +127,10 @@ export const endpoints = {
     avatar: '/media/avatar',
     tripImages: '/media/trip-images',
     temp: '/media/temp',
-    deleteTripImage: (cloudinaryId: string) => `/media/trip-image/${cloudinaryId}`,
-    deleteTemp: (cloudinaryId: string) => `/media/temp/${cloudinaryId}`,
+    deleteTripImage: (storagePath: string) => `/media/trip-image/${storagePath}`,
+    deleteTemp: (storagePath: string) => `/media/temp/${storagePath}`,
     cleanup: '/media/cleanup-temp',
-    info: (type: string, cloudinaryId: string) => `/media/info/${type}/${cloudinaryId}`,
+    info: (storagePath: string) => `/media/info/${storagePath}`,
     health: '/media/health',
   },
 

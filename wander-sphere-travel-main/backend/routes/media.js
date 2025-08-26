@@ -1,16 +1,10 @@
 const express = require('express');
 const multer = require('multer');
-const cloudinary = require('cloudinary').v2;
+const supabase = require('../config/supabase');
 const { auth } = require('../middleware/supabaseAuth');
 const SupabaseUser = require('../models/SupabaseUser');
 const SupabaseTrip = require('../models/SupabaseTrip');
-
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
+const { v4: uuidv4 } = require('uuid');
 
 const router = express.Router();
 
@@ -29,7 +23,7 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-// Memory storage for Cloudinary uploads
+// Memory storage for file uploads
 const memoryStorage = multer.memoryStorage();
 
 // Multer configurations
@@ -88,6 +82,31 @@ router.post('/avatar', auth, (req, res) => {
         });
       }
 
+      // Generate unique filename
+      const fileExtension = req.file.originalname.split('.').pop();
+      const fileName = `avatars/${req.user.id}/${uuidv4()}.${fileExtension}`;
+
+      // Upload to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('media')
+        .upload(fileName, req.file.buffer, {
+          contentType: req.file.mimetype,
+          upsert: true
+        });
+
+      if (uploadError) {
+        console.error('Supabase upload error:', uploadError);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to upload file to storage'
+        });
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('media')
+        .getPublicUrl(fileName);
+
       // Update user avatar in database
       const user = await SupabaseUser.findById(req.user.id);
       if (!user) {
@@ -97,36 +116,15 @@ router.post('/avatar', auth, (req, res) => {
         });
       }
 
-      // Upload to Cloudinary
-      const uploadResult = await new Promise((resolve, reject) => {
-        cloudinary.uploader.upload_stream(
-          {
-            resource_type: 'image',
-            folder: 'wandersphere/avatars',
-            public_id: `avatar_${req.user.id}_${Date.now()}`,
-            transformation: [
-              { width: 300, height: 300, crop: 'fill', gravity: 'face' },
-              { quality: 'auto', fetch_format: 'auto' }
-            ]
-          },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          }
-        ).end(req.file.buffer);
-      });
-
-      const avatarUrl = uploadResult.secure_url;
-
       // Update user with new avatar URL
-      await SupabaseUser.updateById(req.user.id, { avatar: avatarUrl });
+      await SupabaseUser.updateById(req.user.id, { avatar: publicUrl });
 
       res.json({
         success: true,
         message: 'Avatar uploaded successfully',
         data: {
-          avatar: avatarUrl,
-          cloudinary_id: uploadResult.public_id
+          avatar: publicUrl,
+          storage_path: fileName
         }
       });
     } catch (error) {
@@ -173,36 +171,43 @@ router.post('/trip-images', auth, (req, res) => {
         });
       }
 
-      // Upload all images to Cloudinary
-      const uploadPromises = req.files.map((file, index) => {
-        return new Promise((resolve, reject) => {
-          cloudinary.uploader.upload_stream(
-            {
-              resource_type: 'image',
-              folder: 'wandersphere/trips',
-              public_id: `trip_${req.user.id}_${Date.now()}_${index}`,
-              transformation: [
-                { width: 1200, height: 800, crop: 'limit' },
-                { quality: 'auto', fetch_format: 'auto' }
-              ]
-            },
-            (error, result) => {
-              if (error) reject(error);
-              else resolve(result);
-            }
-          ).end(file.buffer);
-        });
+      // Upload all images to Supabase Storage
+      const uploadPromises = req.files.map(async (file, index) => {
+        const fileExtension = file.originalname.split('.').pop();
+        const fileName = `trips/${req.user.id}/${uuidv4()}.${fileExtension}`;
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('media')
+          .upload(fileName, file.buffer, {
+            contentType: file.mimetype,
+            upsert: true
+          });
+
+        if (uploadError) {
+          throw new Error(`Failed to upload ${file.originalname}: ${uploadError.message}`);
+        }
+
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('media')
+          .getPublicUrl(fileName);
+
+        return {
+          path: fileName,
+          publicUrl,
+          originalName: file.originalname
+        };
       });
 
       const uploadResults = await Promise.all(uploadPromises);
       
       // Generate response data
       const uploadedImages = uploadResults.map((result, index) => ({
-        filename: result.public_id,
-        originalName: req.files[index].originalname,
-        url: result.secure_url,
+        filename: result.path.split('/').pop(),
+        originalName: result.originalName,
+        url: result.publicUrl,
         size: req.files[index].size,
-        cloudinary_id: result.public_id
+        storage_path: result.path
       }));
 
       res.json({
@@ -250,34 +255,40 @@ router.post('/temp', auth, (req, res) => {
         });
       }
 
-      // Upload to Cloudinary
-      const uploadResult = await new Promise((resolve, reject) => {
-        cloudinary.uploader.upload_stream(
-          {
-            resource_type: 'auto',
-            folder: 'wandersphere/temp',
-            public_id: `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            transformation: req.file.mimetype.startsWith('image/') ? [
-              { width: 1200, height: 800, crop: 'limit' },
-              { quality: 'auto', fetch_format: 'auto' }
-            ] : undefined
-          },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          }
-        ).end(req.file.buffer);
-      });
+      // Generate unique filename
+      const fileExtension = req.file.originalname.split('.').pop();
+      const fileName = `temp/${uuidv4()}.${fileExtension}`;
+
+      // Upload to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('media')
+        .upload(fileName, req.file.buffer, {
+          contentType: req.file.mimetype,
+          upsert: true
+        });
+
+      if (uploadError) {
+        console.error('Supabase upload error:', uploadError);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to upload file to storage'
+        });
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('media')
+        .getPublicUrl(fileName);
 
       res.json({
         success: true,
         message: 'File uploaded successfully',
         data: {
-          filename: uploadResult.public_id,
+          filename: fileName.split('/').pop(),
           originalName: req.file.originalname,
-          url: uploadResult.secure_url,
+          url: publicUrl,
           size: req.file.size,
-          cloudinary_id: uploadResult.public_id
+          storage_path: fileName
         }
       });
     } catch (error) {
@@ -297,21 +308,22 @@ router.get('/health', (req, res) => {
   res.json({
     status: 'ok',
     message: 'Media service is running',
-    cloudinary: {
-      configured: !!(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET)
+    storage: {
+      provider: 'supabase',
+      configured: !!(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY)
     }
   });
 });
 
-// @route   DELETE /api/media/trip-image/:cloudinary_id
-// @desc    Delete trip image from Cloudinary
+// @route   DELETE /api/media/trip-image/:storage_path
+// @desc    Delete trip image from Supabase Storage
 // @access  Private
-router.delete('/trip-image/:cloudinary_id', auth, async (req, res) => {
+router.delete('/trip-image/*', auth, async (req, res) => {
   try {
-    const cloudinaryId = req.params.cloudinary_id;
+    const storagePath = req.params[0]; // Get the full path after /trip-image/
 
     // Check if user owns any trip that uses this image
-    const trip = await SupabaseTrip.findByOrganizerAndCloudinaryId(req.user.id, cloudinaryId);
+    const trip = await SupabaseTrip.findByOrganizerAndStoragePath(req.user.id, storagePath);
 
     if (!trip) {
       return res.status(403).json({
@@ -320,11 +332,21 @@ router.delete('/trip-image/:cloudinary_id', auth, async (req, res) => {
       });
     }
 
-    // Delete from Cloudinary
-    await cloudinary.uploader.destroy(cloudinaryId);
+    // Delete from Supabase Storage
+    const { error: deleteError } = await supabase.storage
+      .from('media')
+      .remove([storagePath]);
+
+    if (deleteError) {
+      console.error('Supabase delete error:', deleteError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to delete file from storage'
+      });
+    }
 
     // Remove image from trip
-    await SupabaseTrip.removeImageByCloudinaryId(trip.id, cloudinaryId);
+    await SupabaseTrip.removeImageByStoragePath(trip.id, storagePath);
 
     res.json({
       success: true,
@@ -339,20 +361,23 @@ router.delete('/trip-image/:cloudinary_id', auth, async (req, res) => {
   }
 });
 
-// @route   DELETE /api/media/temp/:cloudinary_id
-// @desc    Delete temporary file from Cloudinary
+// @route   DELETE /api/media/temp/:storage_path
+// @desc    Delete temporary file from Supabase Storage
 // @access  Private
-router.delete('/temp/:cloudinary_id', auth, async (req, res) => {
+router.delete('/temp/*', auth, async (req, res) => {
   try {
-    const cloudinaryId = req.params.cloudinary_id;
+    const storagePath = `temp/${req.params[0]}`; // Get the filename and prepend temp/
 
-    // Delete from Cloudinary
-    const result = await cloudinary.uploader.destroy(cloudinaryId);
+    // Delete from Supabase Storage
+    const { error: deleteError } = await supabase.storage
+      .from('media')
+      .remove([storagePath]);
 
-    if (result.result === 'not found') {
+    if (deleteError) {
+      console.error('Supabase delete error:', deleteError);
       return res.status(404).json({
         success: false,
-        message: 'File not found'
+        message: 'File not found or failed to delete'
       });
     }
 
@@ -370,7 +395,7 @@ router.delete('/temp/:cloudinary_id', auth, async (req, res) => {
 });
 
 // @route   POST /api/media/cleanup-temp
-// @desc    Cleanup old temporary files from Cloudinary
+// @desc    Cleanup old temporary files from Supabase Storage
 // @access  Private (Admin only)
 router.post('/cleanup-temp', auth, async (req, res) => {
   try {
@@ -380,14 +405,29 @@ router.post('/cleanup-temp', auth, async (req, res) => {
     const maxAge = 24 * 60 * 60 * 1000; // 24 hours
     const cutoffDate = new Date(Date.now() - maxAge);
     
-    // Get list of resources in temp folder older than 24 hours
-    const result = await cloudinary.search
-      .expression('folder:wandersphere/temp AND created_at<' + cutoffDate.toISOString())
-      .sort_by([['created_at', 'desc']])
-      .max_results(500)
-      .execute();
+    // List files in temp folder
+    const { data: files, error: listError } = await supabase.storage
+      .from('media')
+      .list('temp', {
+        limit: 500,
+        sortBy: { column: 'created_at', order: 'desc' }
+      });
     
-    if (result.resources.length === 0) {
+    if (listError) {
+      console.error('Error listing temp files:', listError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to list temporary files'
+      });
+    }
+    
+    // Filter files older than 24 hours
+    const oldFiles = files.filter(file => {
+      const fileDate = new Date(file.created_at);
+      return fileDate < cutoffDate;
+    });
+    
+    if (oldFiles.length === 0) {
       return res.json({
         success: true,
         message: 'No old temporary files found to cleanup.'
@@ -395,14 +435,22 @@ router.post('/cleanup-temp', auth, async (req, res) => {
     }
     
     // Delete old files
-    const publicIds = result.resources.map(resource => resource.public_id);
-    const deleteResult = await cloudinary.api.delete_resources(publicIds);
+    const filePaths = oldFiles.map(file => `temp/${file.name}`);
+    const { error: deleteError } = await supabase.storage
+      .from('media')
+      .remove(filePaths);
     
-    const deletedCount = Object.keys(deleteResult.deleted).length;
+    if (deleteError) {
+      console.error('Error deleting temp files:', deleteError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to delete some temporary files'
+      });
+    }
 
     res.json({
       success: true,
-      message: `Cleanup completed. ${deletedCount} old temporary files deleted.`
+      message: `Cleanup completed. ${oldFiles.length} old temporary files deleted.`
     });
   } catch (error) {
     console.error('Cleanup temp files error:', error);
@@ -413,12 +461,13 @@ router.post('/cleanup-temp', auth, async (req, res) => {
   }
 });
 
-// @route   GET /api/media/info/:type/:cloudinary_id
-// @desc    Get file information from Cloudinary
+// @route   GET /api/media/info/:type/*
+// @desc    Get file information from Supabase Storage
 // @access  Public
-router.get('/info/:type/:cloudinary_id', async (req, res) => {
+router.get('/info/:type/*', async (req, res) => {
   try {
-    const { type, cloudinary_id } = req.params;
+    const { type } = req.params;
+    const fileName = req.params[0]; // Get the filename after /info/:type/
     
     if (!['avatars', 'trips', 'temp'].includes(type)) {
       return res.status(400).json({
@@ -427,38 +476,49 @@ router.get('/info/:type/:cloudinary_id', async (req, res) => {
       });
     }
     
-    // Get resource info from Cloudinary
-    const result = await cloudinary.api.resource(cloudinary_id);
+    const storagePath = `${type}/${fileName}`;
     
-    if (!result) {
+    // Get file info from Supabase Storage
+    const { data: files, error: listError } = await supabase.storage
+      .from('media')
+      .list(type, {
+        search: fileName
+      });
+    
+    if (listError || !files || files.length === 0) {
       return res.status(404).json({
         success: false,
         message: 'File not found'
       });
     }
+    
+    const fileInfo = files.find(file => file.name === fileName);
+    
+    if (!fileInfo) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found'
+      });
+    }
+    
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('media')
+      .getPublicUrl(storagePath);
     
     res.json({
       success: true,
       data: {
-        public_id: result.public_id,
+        storage_path: storagePath,
         type,
-        size: result.bytes,
-        format: result.format,
-        width: result.width,
-        height: result.height,
-        created: result.created_at,
-        url: result.secure_url,
-        version: result.version
+        size: fileInfo.metadata?.size || 0,
+        created: fileInfo.created_at,
+        updated: fileInfo.updated_at,
+        url: publicUrl,
+        name: fileInfo.name
       }
     });
   } catch (error) {
-    if (error.http_code === 404) {
-      return res.status(404).json({
-        success: false,
-        message: 'File not found'
-      });
-    }
-    
     console.error('Get file info error:', error);
     res.status(500).json({
       success: false,

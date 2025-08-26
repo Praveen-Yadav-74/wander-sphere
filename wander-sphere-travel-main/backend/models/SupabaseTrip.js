@@ -514,6 +514,51 @@ class SupabaseTrip {
       throw new Error(`Failed to get user trips: ${error.message}`);
     }
   }
+
+  // Find trip by organizer and storage path
+  static async findByOrganizerAndStoragePath(organizerId, storagePath) {
+    try {
+      const { data, error } = await supabase
+        .from('trips')
+        .select('*')
+        .eq('organizer_id', organizerId)
+        .eq('is_active', true)
+        .contains('images', [storagePath])
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      return data;
+    } catch (error) {
+      throw new Error(`Failed to find trip by storage path: ${error.message}`);
+    }
+  }
+
+  // Remove image by storage path from trip
+  static async removeImageByStoragePath(tripId, storagePath) {
+    try {
+      // First get the current trip to access its images
+      const trip = await this.findById(tripId);
+      if (!trip) {
+        throw new Error('Trip not found');
+      }
+
+      // Remove the storage path from images array
+      const updatedImages = (trip.images || []).filter(img => img !== storagePath);
+
+      // Update the trip with the new images array
+      const { data, error } = await supabase
+        .from('trips')
+        .update({ images: updatedImages })
+        .eq('id', tripId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      throw new Error(`Failed to remove image from trip: ${error.message}`);
+    }
+  }
 }
 
 module.exports = SupabaseTrip;

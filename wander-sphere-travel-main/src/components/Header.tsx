@@ -94,7 +94,7 @@ const Header = () => {
           {/* Network Status */}
           <NetworkStatus className="hidden sm:flex" />
           
-          {/* Pack Your Bags Button */}
+          {/* Bookings Button */}
           <Button 
             asChild
             size="sm"
@@ -102,7 +102,7 @@ const Header = () => {
           >
             <Link to="/booking" className="flex items-center gap-2">
               <Luggage className="w-4 h-4" />
-              <span className="text-sm">Pack Your Bags</span>
+              <span className="text-sm">Bookings</span>
             </Link>
           </Button>
 

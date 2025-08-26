@@ -66,7 +66,7 @@ const BookingSpace = () => {
       {/* Hero Section */}
       <div className="text-center mb-12">
         <div className="bg-gradient-primary rounded-2xl p-8 text-white mb-8">
-          <h1 className="text-4xl font-bold mb-4">Ready to Pack Your Bags?</h1>
+          <h1 className="text-4xl font-bold mb-4">Ready to Book?</h1>
           <p className="text-xl opacity-90 mb-6">
             Book your next adventure with our trusted travel partners
           </p>
