@@ -64,7 +64,10 @@ class AuthService {
       .single();
 
     if (error) {
-      console.error('Error fetching user data:', error);
+      // Only log non-PGRST116 errors (PGRST116 means no rows found, which is expected for new users)
+      if (error.code !== 'PGRST116') {
+        console.error('Error fetching user data:', error);
+      }
       // Fallback to basic user data from Supabase auth
       return {
         id: supabaseUser.id,

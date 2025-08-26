@@ -641,15 +641,15 @@ const Home: FC = () => {
 
       {/* Mobile Tab Navigation - Visible only on mobile */}
       <div className="lg:hidden bg-background/95 backdrop-blur-md sticky top-0 z-40 shadow-sm">
-        <div className="flex justify-around py-3 px-2">
-          <Button variant="ghost" size="sm" className={`flex-1 py-2 mx-1 rounded-lg transition-all duration-200 ${activeTab === 'feed' ? 'bg-primary/10 text-primary shadow-sm' : 'hover:bg-muted/50'}`} onClick={() => setActiveTab('feed')}>
-            <HomeIcon className="w-4 h-4 sm:mr-1" /> <span className="hidden sm:inline text-xs">Feed</span>
+        <div className="flex flex-col gap-2 py-3 px-2">
+          <Button variant="ghost" size="sm" className={`w-full py-2 rounded-lg transition-all duration-200 justify-start ${activeTab === 'feed' ? 'bg-primary/10 text-primary shadow-sm' : 'hover:bg-muted/50'}`} onClick={() => setActiveTab('feed')}>
+            <HomeIcon className="w-4 h-4 mr-2" /> <span className="text-sm">Feed</span>
           </Button>
-          <Button variant="ghost" size="sm" className={`flex-1 py-2 mx-1 rounded-lg transition-all duration-200 ${activeTab === 'explore' ? 'bg-primary/10 text-primary shadow-sm' : 'hover:bg-muted/50'}`} onClick={() => setActiveTab('explore')}>
-            <Compass className="w-4 h-4 sm:mr-1" /> <span className="hidden sm:inline text-xs">Explore</span>
+          <Button variant="ghost" size="sm" className={`w-full py-2 rounded-lg transition-all duration-200 justify-start ${activeTab === 'explore' ? 'bg-primary/10 text-primary shadow-sm' : 'hover:bg-muted/50'}`} onClick={() => setActiveTab('explore')}>
+            <Compass className="w-4 h-4 mr-2" /> <span className="text-sm">Explore</span>
           </Button>
-          <Button variant="ghost" size="sm" className={`flex-1 py-2 mx-1 rounded-lg transition-all duration-200 ${activeTab === 'reels' ? 'bg-primary/10 text-primary shadow-sm' : 'hover:bg-muted/50'}`} onClick={() => setActiveTab('reels')}>
-            <Film className="w-4 h-4 sm:mr-1" /> <span className="hidden sm:inline text-xs">Reels</span>
+          <Button variant="ghost" size="sm" className={`w-full py-2 rounded-lg transition-all duration-200 justify-start ${activeTab === 'reels' ? 'bg-primary/10 text-primary shadow-sm' : 'hover:bg-muted/50'}`} onClick={() => setActiveTab('reels')}>
+            <Film className="w-4 h-4 mr-2" /> <span className="text-sm">Reels</span>
           </Button>
         </div>
       </div>
