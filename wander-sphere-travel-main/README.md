@@ -2,6 +2,8 @@
 
 A modern travel social platform built with React, TypeScript, and Tailwind CSS.
 
+<!-- Last deployment trigger: 2025-01-25 -->
+
 ## Features
 
 - Social feed with stories and posts
