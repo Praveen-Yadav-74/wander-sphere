@@ -593,7 +593,9 @@ const BudgetGrid = ({ budgets, currency }: { budgets: BudgetItem[], currency: st
             <CardHeader className="pb-3">
               <div className="flex justify-between items-start">
                 <CardTitle className="text-lg line-clamp-1">{budget.title}</CardTitle>
-                <Badge className={getStatusColor(budget.status)}>
+                <Badge className={`${budget.status === "active" ? "bg-success text-success-foreground" : 
+                                   budget.status === "upcoming" ? "bg-primary text-primary-foreground" : 
+                                   "bg-muted text-muted-foreground"}`}>
                   {budget.status.charAt(0).toUpperCase() + budget.status.slice(1)}
                 </Badge>
               </div>

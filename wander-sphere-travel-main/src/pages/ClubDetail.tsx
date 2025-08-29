@@ -309,7 +309,7 @@ const ClubDetail = () => {
                         <p className="text-sm text-muted-foreground">{member.username || `@${member.name?.toLowerCase().replace(/\s+/g, '_')}`}</p>
                       </div>
                     </div>
-                    <Badge variant={member.role === 'admin' ? 'default' : member.role === 'moderator' ? 'secondary' : 'outline'}>
+                    <Badge variant={member.role === 'admin' ? 'default' : member.role === 'organizer' ? 'secondary' : 'outline'}>
                       {member.role?.charAt(0).toUpperCase() + member.role?.slice(1) || 'Member'}
                     </Badge>
                   </div>

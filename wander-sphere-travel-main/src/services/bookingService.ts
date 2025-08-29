@@ -88,12 +88,12 @@ class BookingService {
     
     return await cachedApiRequest<PaginatedResponse<BookingPartner>>(
       url,
+      CacheKeys.BOOKING_PARTNERS,
       {
         method: 'GET',
         headers: getAuthHeaderSync(),
-      },
-      CacheKeys.BOOKING_PARTNERS,
-      CacheTTL.MEDIUM
+        ttl: CacheTTL.MEDIUM
+      }
     );
   }
 
@@ -105,12 +105,12 @@ class BookingService {
     
     return await cachedApiRequest<ApiResponse<BookingFeature[]>>(
       url,
+      CacheKeys.BOOKING_FEATURES,
       {
         method: 'GET',
         headers: getAuthHeaderSync(),
-      },
-      CacheKeys.BOOKING_FEATURES,
-      CacheTTL.LONG
+        ttl: CacheTTL.LONG
+      }
     );
   }
 
