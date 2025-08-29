@@ -14,13 +14,14 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/utils/api";
 import { endpoints, apiConfig } from "@/config/api";
 import { handleImageError } from "@/utils/imageUtils";
+import { ApiResponse, Trip, TripsListResponse, CreateTripRequest, CreateTripResponse } from "@/types/api";
 import heroBeach from "@/assets/hero-beach.jpg";
 
 const FindTrips = () => {
   const [searchDestination, setSearchDestination] = useState("");
   const [selectedDates, setSelectedDates] = useState("");
   const [tripType, setTripType] = useState("any");
-  const [trips, setTrips] = useState([]);
+  const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateTripOpen, setIsCreateTripOpen] = useState(false);
   const [newTrip, setNewTrip] = useState({
@@ -40,10 +41,12 @@ const FindTrips = () => {
   const fetchTrips = useCallback(async () => {
     try {
       setLoading(true);
-      // TODO: Replace with actual API call
-      // const response = await apiRequest(endpoints.trips.getAll);
-      // setTrips(response.data);
-      setTrips([]); // Empty array until API is integrated
+      const response = await apiRequest<ApiResponse<TripsListResponse>>(endpoints.trips.list);
+      if (response.success && response.data) {
+        setTrips(response.data.trips || []);
+      } else {
+        setTrips([]);
+      }
     } catch (error) {
       console.error('Error fetching trips:', error);
       toast({
@@ -51,6 +54,7 @@ const FindTrips = () => {
         description: "Failed to load trips. Please try again.",
         variant: "destructive"
       });
+      setTrips([]);
     } finally {
       setLoading(false);
     }
@@ -61,44 +65,73 @@ const FindTrips = () => {
   }, [fetchTrips]);
 
   // Handle create trip
-  const handleCreateTrip = async (e) => {
+  const handleCreateTrip = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // TODO: Replace with actual API call
-      // const response = await apiRequest(endpoints.trips.create, {
-      //   method: 'POST',
-      //   body: JSON.stringify({
-      //     ...newTrip,
-      //     maxParticipants: parseInt(newTrip.maxParticipants),
-      //     tags: newTrip.tags.split(',').map(tag => tag.trim()).filter(Boolean)
-      //   })
-      // });
-      
-      toast({
-        title: "Success",
-        description: "Trip created successfully! (API integration pending)",
+      // Parse destination to extract country and city
+      const destinationParts = newTrip.destination.split(',').map(part => part.trim());
+      const city = destinationParts[0] || newTrip.destination;
+      const country = destinationParts[1] || 'Unknown';
+
+      const tripData: CreateTripRequest = {
+        title: newTrip.title,
+        description: newTrip.description,
+        destination: {
+          country,
+          city,
+          coordinates: {
+            latitude: 0, // Default coordinates - should be enhanced with geocoding
+            longitude: 0
+          }
+        },
+        dates: {
+          startDate: newTrip.startDate,
+          endDate: newTrip.endDate
+        },
+        budget: {
+          total: parseFloat(newTrip.budget.replace(/[^\d.]/g, '')) || 0,
+          currency: 'USD'
+        },
+        maxParticipants: parseInt(newTrip.maxParticipants),
+        category: newTrip.type,
+        tags: newTrip.tags.split(',').map(tag => tag.trim()).filter(Boolean),
+        visibility: 'public'
+      };
+
+      const response = await apiRequest<ApiResponse<CreateTripResponse>>(endpoints.trips.create, {
+        method: 'POST',
+        body: JSON.stringify(tripData)
       });
       
-      setIsCreateTripOpen(false);
-      setNewTrip({
-        title: "",
-        destination: "",
-        startDate: "",
-        endDate: "",
-        maxParticipants: "",
-        budget: "",
-        type: "",
-        description: "",
-        tags: ""
-      });
-      
-      // Refresh trips list
-      fetchTrips();
-    } catch (error) {
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: "Trip created successfully!",
+        });
+        
+        setIsCreateTripOpen(false);
+        setNewTrip({
+          title: "",
+          destination: "",
+          startDate: "",
+          endDate: "",
+          maxParticipants: "",
+          budget: "",
+          type: "",
+          description: "",
+          tags: ""
+        });
+        
+        // Refresh trips list
+        fetchTrips();
+      } else {
+        throw new Error(response.message || 'Failed to create trip');
+      }
+    } catch (error: any) {
       console.error('Error creating trip:', error);
       toast({
         title: "Error",
-        description: "Failed to create trip. Please try again.",
+        description: error.message || "Failed to create trip. Please try again.",
         variant: "destructive"
       });
     }
@@ -321,81 +354,95 @@ const FindTrips = () => {
             </Button>
           </div>
         ) : (
-          trips.map((trip) => (
-          <Card key={trip.id} className="overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer group">
-            <Link to={`/trips/${trip.id}`}>
-              <div className="aspect-video overflow-hidden relative">
-                <img 
-                  src={trip.image} 
-                  alt={trip.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-                <Badge className={`absolute top-3 right-3 ${getStatusColor(trip.status)}`}>
-                  {trip.status}
-                </Badge>
-              </div>
-              <CardHeader className="pb-3">
-                <div className="flex justify-between items-start">
-                  <CardTitle className="text-xl line-clamp-1">{trip.title}</CardTitle>
-                  <Badge variant="outline" className="text-xs">
-                    {trip.type}
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-2 mt-2">
-                  <Avatar className="w-6 h-6">
-                    <AvatarImage src={trip.organizerAvatar} />
-                    <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                      {trip.organizer.split(' ').map(n => n[0]).join('')}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="text-sm text-muted-foreground">by {trip.organizer}</span>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground text-sm mb-4 line-clamp-2">
-                  {trip.description}
-                </p>
-                
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-sm">
-                    <MapPin className="w-4 h-4 text-primary" />
-                    <span>{trip.destination}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <Calendar className="w-4 h-4 text-primary" />
-                    <span>{trip.dates} ({trip.duration})</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <Users className="w-4 h-4 text-primary" />
-                    <span>{trip.participants}/{trip.maxParticipants} travelers</span>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-1 mt-4 mb-4">
-                  {trip.tags.map((tag) => (
-                    <Badge key={tag} variant="secondary" className="text-xs">
-                      {tag}
+          trips.map((trip) => {
+            const destinationText = typeof trip.destination === 'string' 
+              ? trip.destination 
+              : `${trip.destination.city}, ${trip.destination.country}`;
+            
+            const startDate = new Date(trip.dates?.startDate || '');
+            const endDate = new Date(trip.dates?.endDate || '');
+            const dateText = startDate.toLocaleDateString() + ' - ' + endDate.toLocaleDateString();
+            
+            const organizerName = trip.organizer || 'Unknown Organizer';
+            const budgetText = trip.budget ? `$${trip.budget.total} ${trip.budget.currency}` : 'Budget TBD';
+            
+            return (
+              <Card key={trip.id} className="overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer group">
+                <Link to={`/trips/${trip.id}`}>
+                  <div className="aspect-video overflow-hidden relative">
+                    <img 
+                      src={trip.images?.[0] || heroBeach} 
+                      alt={trip.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      onError={handleImageError}
+                    />
+                    <Badge className={`absolute top-3 right-3 ${getStatusColor(trip.status || 'planning')}`}>
+                      {trip.status || 'Planning'}
                     </Badge>
-                  ))}
-                </div>
+                  </div>
+                  <CardHeader className="pb-3">
+                    <div className="flex justify-between items-start">
+                      <CardTitle className="text-xl line-clamp-1">{trip.title}</CardTitle>
+                      <Badge variant="outline" className="text-xs">
+                        {trip.category}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Avatar className="w-6 h-6">
+                        <AvatarImage src={trip.organizerAvatar} />
+                        <AvatarFallback className="text-xs bg-primary text-primary-foreground">
+                          {organizerName.split(' ').map(n => n[0]).join('')}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-sm text-muted-foreground">by {organizerName}</span>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground text-sm mb-4 line-clamp-2">
+                      {trip.description}
+                    </p>
+                    
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-sm">
+                        <MapPin className="w-4 h-4 text-primary" />
+                        <span>{destinationText}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <Calendar className="w-4 h-4 text-primary" />
+                        <span>{dateText}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <Users className="w-4 h-4 text-primary" />
+                        <span>{trip.participantCount || 0}/{trip.maxParticipants} travelers</span>
+                      </div>
+                    </div>
 
-                <div className="flex justify-between items-center pt-3 bg-muted/10 rounded-lg px-3 mt-3">
-                  <span className="font-semibold text-sm">{trip.budget}</span>
-                  <Button 
-                    size="sm" 
-                    className="bg-gradient-primary text-white"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      console.log('Express interest in trip:', trip.title);
-                    }}
-                  >
-                    I'm Interested
-                  </Button>
-                </div>
-              </CardContent>
-            </Link>
-          </Card>
-        ))
+                    <div className="flex flex-wrap gap-1 mt-4 mb-4">
+                      {(trip.tags || []).map((tag, index) => (
+                        <Badge key={index} variant="secondary" className="text-xs">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+
+                    <div className="flex justify-between items-center pt-3 bg-muted/10 rounded-lg px-3 mt-3">
+                      <span className="font-semibold text-sm">{budgetText}</span>
+                      <Button 
+                        size="sm" 
+                        className="bg-gradient-primary text-white"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          console.log('Express interest in trip:', trip.title);
+                        }}
+                      >
+                        I'm Interested
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Link>
+              </Card>
+            );
+          })
         )}
       </div>
     </div>

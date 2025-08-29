@@ -61,7 +61,7 @@ class NotificationService {
 
   // Get unread notification count
   async getUnreadCount(): Promise<UnreadCountResponse> {
-    const response = await cachedApiRequest(`${endpoints.notifications.list}/unread-count`, 'notifications_unread_count', {
+    const response = await cachedApiRequest(endpoints.notifications.unreadCount, 'notifications_unread_count', {
       ttl: CacheTTL.SHORT,
       headers: getAuthHeaderSync()
     });

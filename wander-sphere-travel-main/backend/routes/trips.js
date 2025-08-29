@@ -125,6 +125,41 @@ router.get('/', optionalAuth, [
   }
 });
 
+// @route   GET /api/trips/featured
+// @desc    Get featured trips
+// @access  Public
+router.get('/featured', optionalAuth, async (req, res) => {
+  try {
+    const {
+      limit = 10
+    } = req.query;
+
+    const trips = await SupabaseTrip.getFeatured(parseInt(limit));
+
+    // Add computed fields
+    const tripsWithExtras = trips.map(trip => ({
+      ...trip,
+      participantCount: trip.participants ? trip.participants.filter(p => p.status === 'accepted').length : 0,
+      likeCount: trip.likes ? trip.likes.length : 0,
+      commentCount: trip.comments ? trip.comments.length : 0,
+      isLiked: req.user ? (trip.likes || []).includes(req.user.id) : false
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        trips: tripsWithExtras
+      }
+    });
+  } catch (error) {
+    console.error('Get featured trips error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching featured trips'
+    });
+  }
+});
+
 // @route   GET /api/trips/:id
 // @desc    Get single trip by ID
 // @access  Public

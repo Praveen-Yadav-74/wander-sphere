@@ -440,12 +440,35 @@ class SupabaseTrip {
         .select('*', { count: 'exact', head: true })
         .eq('is_active', true);
 
-      // Apply filters
-      Object.keys(filters).forEach(key => {
-        if (filters[key] !== undefined && filters[key] !== null) {
-          query = query.eq(key, filters[key]);
-        }
-      });
+      // Apply filters (same logic as find method)
+      if (filters.organizer_id) {
+        query = query.eq('organizer_id', filters.organizer_id);
+      }
+      if (filters.category) {
+        query = query.eq('category', filters.category);
+      }
+      if (filters.status) {
+        query = query.eq('status', filters.status);
+      }
+      if (filters.visibility) {
+        query = query.eq('visibility', filters.visibility);
+      }
+      if (filters.featured !== undefined) {
+        query = query.eq('featured', filters.featured);
+      }
+      if (filters.startDate) {
+        query = query.gte('start_date', filters.startDate);
+      }
+      if (filters.endDate) {
+        query = query.lte('end_date', filters.endDate);
+      }
+      if (filters.country) {
+        query = query.eq('destination->>country', filters.country);
+      }
+      if (filters.city) {
+        query = query.eq('destination->>city', filters.city);
+      }
+      // Note: minBudget, maxBudget, and sort are not applied to count queries
 
       const { count, error } = await query;
 

@@ -130,9 +130,14 @@ export async function apiRequest<T>(url: string, options: ApiOptions = {}): Prom
     if (!response.ok) {
       let errorData;
       try {
-        errorData = await response.json();
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          errorData = await response.json();
+        } else {
+          errorData = { message: await response.text() || `HTTP ${response.status}` };
+        }
       } catch {
-        errorData = { message: await response.text() || `HTTP ${response.status}` };
+        errorData = { message: `HTTP ${response.status}` };
       }
       
       const error = new Error(errorData.message || `HTTP ${response.status}`);
