@@ -113,7 +113,9 @@ class JourneyService {
       }
     });
 
-    const url = `${buildUrl(endpoints.journeys.list)}?${queryParams.toString()}`;
+    const url = queryParams.toString() 
+      ? `${buildUrl(endpoints.journeys.list)}?${queryParams.toString()}`
+      : buildUrl(endpoints.journeys.list);
     const cacheKey = `journeys_list_${queryParams.toString()}`;
     
     return await cachedApiRequest<PaginatedResponse<Journey>>(url, cacheKey, {

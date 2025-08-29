@@ -119,7 +119,9 @@ class TripService {
       }
     });
 
-    const url = `${buildUrl(endpoints.trips.list)}?${queryParams.toString()}`;
+    const url = queryParams.toString() 
+      ? `${buildUrl(endpoints.trips.list)}?${queryParams.toString()}`
+      : buildUrl(endpoints.trips.list);
     
     return await apiRequest<PaginatedResponse<Trip>>(url, {
       method: 'GET',

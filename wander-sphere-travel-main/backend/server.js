@@ -15,6 +15,8 @@ import notificationRoutes from './routes/notifications.js';
 import searchRoutes from './routes/search.js';
 import mediaRoutes from './routes/media.js';
 import mapRoutes from './routes/maps.js';
+import budgetRoutes from './routes/budget.js';
+import bookingRoutes from './routes/booking.js';
 
 const app = express();
 const PORT = config.PORT;
@@ -60,6 +62,8 @@ app.get('/', (req, res) => {
       search: '/api/search',
       media: '/api/media',
       map: '/api/map',
+      budget: '/api/budget',
+      booking: '/api/booking',
       health: '/health'
     },
     timestamp: new Date().toISOString()
@@ -85,6 +89,8 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/media', mediaRoutes);
 app.use('/api/map', mapRoutes);
+app.use('/api/budget', budgetRoutes);
+app.use('/api/booking', bookingRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

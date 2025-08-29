@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { ArrowLeft, Plus, DollarSign, Calendar, MapPin, TrendingUp, PieChart, Edit, Trash2, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { budgetService, Budget, BudgetExpense, CreateExpenseData } from "@/services/budgetService";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -10,22 +12,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { apiRequest } from "@/utils/api";
-import { apiConfig, endpoints } from "@/config/api";
 
 const BudgetDetail = () => {
   const { id } = useParams();
-  const [budget, setBudget] = useState(null);
+  const [budget, setBudget] = useState<Budget | null>(null);
+  const [expenses, setExpenses] = useState<BudgetExpense[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
   const [isLoadingExpenses, setIsLoadingExpenses] = useState(false);
-  const [newExpense, setNewExpense] = useState({
+  const [newExpense, setNewExpense] = useState<Partial<CreateExpenseData>>({
     category: "",
-    amount: "",
+    amount: 0,
     description: "",
     date: "",
   });
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchBudgetData = async () => {
@@ -33,19 +35,27 @@ const BudgetDetail = () => {
         setIsLoading(true);
         setError(null);
         
-        // TODO: Replace with actual API calls
-        // const budgetResponse = await apiRequest(`${apiConfig.baseURL}${endpoints.budgets}/${id}`);
-        // setBudget(budgetResponse.data);
+        if (!id) {
+          setError('Budget ID is required');
+          return;
+        }
+
+        // Fetch budget details and expenses concurrently
+        const [budgetData, expensesData] = await Promise.all([
+          budgetService.getBudgetById(id),
+          budgetService.getBudgetExpenses(id)
+        ]);
         
-        // Temporary: Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // TODO: Replace with actual API integration
-        // For now, set budget to null to show "not found" state
-        setBudget(null);
+        setBudget(budgetData);
+        setExpenses(expensesData);
       } catch (err) {
         setError('Failed to load budget details');
         console.error('Error fetching budget data:', err);
+        toast({
+          title: "Error",
+          description: "Failed to load budget details. Please try again.",
+          variant: "destructive",
+        });
       } finally {
         setIsLoading(false);
       }
@@ -54,7 +64,7 @@ const BudgetDetail = () => {
     if (id) {
       fetchBudgetData();
     }
-  }, [id]);
+  }, [id, toast]);
   
   const [currency, setCurrency] = useState(budget?.currency || 'USD');
   
@@ -109,89 +119,82 @@ const BudgetDetail = () => {
     }
   };
 
-  const categories = [
-    { name: "Accommodation", spent: 450, budget: 600, color: "bg-primary" },
-    { name: "Food", spent: 320, budget: 400, color: "bg-success" },
-    { name: "Transport", spent: 280, budget: 350, color: "bg-warning" },
-    { name: "Activities", spent: 200, budget: 300, color: "bg-accent" },
-    { name: "Shopping", spent: 0, budget: 200, color: "bg-destructive" },
-    { name: "Miscellaneous", spent: 0, budget: 150, color: "bg-muted" },
-  ];
+  // Calculate category spending from expenses
+  const categoryColors = {
+    "Accommodation": "bg-primary",
+    "Food": "bg-success",
+    "Transport": "bg-warning",
+    "Activities": "bg-accent",
+    "Shopping": "bg-destructive",
+    "Miscellaneous": "bg-muted",
+  };
 
-  const expenses = [
-    {
-      id: 1,
-      date: "2024-01-15",
-      category: "Accommodation",
-      description: "Hotel Villa Taman - 3 nights",
-      amount: 180,
-    },
-    {
-      id: 2,
-      date: "2024-01-15",
-      category: "Transport",
-      description: "Airport transfer",
-      amount: 25,
-    },
-    {
-      id: 3,
-      date: "2024-01-16",
-      category: "Food",
-      description: "Dinner at Sarong Restaurant",
-      amount: 45,
-    },
-    {
-      id: 4,
-      date: "2024-01-16",
-      category: "Activities",
-      description: "Ubud Monkey Forest entrance",
-      amount: 5,
-    },
-    {
-      id: 5,
-      date: "2024-01-17",
-      category: "Accommodation",
-      description: "Ubud Treehouse - 2 nights",
-      amount: 120,
-    },
-    {
-      id: 6,
-      date: "2024-01-17",
-      category: "Food",
-      description: "Traditional Balinese cooking class",
-      amount: 35,
-    },
-    {
-      id: 7,
-      date: "2024-01-18",
-      category: "Activities",
-      description: "Rice terrace trekking tour",
-      amount: 40,
-    },
-    {
-      id: 8,
-      date: "2024-01-18",
-      category: "Transport",
-      description: "Scooter rental - 3 days", 
-      amount: 30,
-    },
-  ];
+  const categories = Object.keys(categoryColors).map(categoryName => {
+    const categoryExpenses = expenses.filter(expense => expense.category === categoryName);
+    const spent = categoryExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+    return {
+      name: categoryName,
+      spent,
+      budget: budget?.totalBudget ? Math.floor(budget.totalBudget / 6) : 0, // Distribute budget evenly
+      color: categoryColors[categoryName as keyof typeof categoryColors],
+    };
+  });
+
+  // Format date helper
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
 
   const handleAddExpense = async () => {
+    if (!id || !newExpense.category || !newExpense.amount || !newExpense.description || !newExpense.date) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setIsLoadingExpenses(true);
-      // TODO: Replace with actual API call
-      // await apiRequest(`${apiConfig.baseURL}${endpoints.budgets}/${id}/expenses`, {
-      //   method: 'POST',
-      //   body: JSON.stringify(newExpense)
-      // });
       
-      console.log("Adding expense:", newExpense);
+      const expenseData: CreateExpenseData = {
+        category: newExpense.category!,
+        amount: Number(newExpense.amount),
+        description: newExpense.description!,
+        date: newExpense.date!,
+      };
       
-      setNewExpense({ category: "", amount: "", description: "", date: "" });
+      const createdExpense = await budgetService.addBudgetExpense(id, expenseData);
+      setExpenses(prev => [createdExpense, ...prev]);
+      
+      // Update budget spent amount
+      if (budget) {
+        setBudget(prev => prev ? {
+          ...prev,
+          spent: prev.spent + Number(newExpense.amount),
+          remaining: prev.noMaxBudget ? prev.remaining : prev.remaining - Number(newExpense.amount)
+        } : null);
+      }
+      
+      setNewExpense({ category: "", amount: 0, description: "", date: "" });
       setIsAddExpenseOpen(false);
+      
+      toast({
+        title: "Success",
+        description: "Expense added successfully!",
+      });
     } catch (err) {
       console.error('Error adding expense:', err);
+      toast({
+        title: "Error",
+        description: "Failed to add expense. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoadingExpenses(false);
     }
@@ -282,10 +285,10 @@ const BudgetDetail = () => {
           </div>
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4" />
-            {budget.dates}
+            {formatDate(budget.startDate)} - {formatDate(budget.endDate)}
           </div>
-          <Badge variant={budget.status === "Active" ? "default" : "secondary"}>
-            {budget.status}
+          <Badge variant={budget.status === "active" ? "default" : "secondary"}>
+            {budget.status.charAt(0).toUpperCase() + budget.status.slice(1)}
           </Badge>
           {budget.noMaxBudget && (
             <Badge variant="outline" className="bg-warning/10 text-warning">
@@ -349,8 +352,8 @@ const BudgetDetail = () => {
                         id="amount"
                         type="number"
                         placeholder="0.00"
-                        value={newExpense.amount}
-                        onChange={(e) => setNewExpense({...newExpense, amount: e.target.value})}
+                        value={newExpense.amount || ''}
+                        onChange={(e) => setNewExpense({...newExpense, amount: Number(e.target.value)})}
                       />
                     </div>
                   </div>
@@ -374,7 +377,7 @@ const BudgetDetail = () => {
                   </div>
                   <Button 
                     onClick={handleAddExpense} 
-                    disabled={isLoadingExpenses || !newExpense.category || !newExpense.amount || !newExpense.description}
+                    disabled={isLoadingExpenses || !newExpense.category || !newExpense.amount || !newExpense.description || !newExpense.date}
                     className="w-full bg-gradient-primary text-white"
                   >
                     {isLoadingExpenses ? (
@@ -498,32 +501,39 @@ const BudgetDetail = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {expenses.slice(0, 10).map((expense) => (
-                <div key={expense.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${getCategoryColor(expense.category)}`}></div>
-                    <div>
-                      <p className="font-medium text-sm">{expense.description}</p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>{expense.category}</span>
-                        <span>•</span>
-                        <span>{new Date(expense.date).toLocaleDateString()}</span>
+              {expenses.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>No expenses recorded yet.</p>
+                  <p className="text-sm">Add your first expense to start tracking your budget.</p>
+                </div>
+              ) : (
+                expenses.slice(0, 10).map((expense) => (
+                  <div key={expense.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-3 h-3 rounded-full ${getCategoryColor(expense.category)}`}></div>
+                      <div>
+                        <p className="font-medium text-sm">{expense.description}</p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>{expense.category}</span>
+                          <span>•</span>
+                          <span>{formatDate(expense.date)}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">{getCurrencySymbol(budget?.currency || 'USD')}{convertCurrency(expense.amount, budget?.currency || 'USD', currency).toFixed(2)}</span>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" className="h-6 w-6">
+                          <Edit className="w-3 h-3" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive">
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold">${expense.amount}</span>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-6 w-6">
-                        <Edit className="w-3 h-3" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive">
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
@@ -547,31 +557,40 @@ const BudgetDetail = () => {
                 </tr>
               </thead>
               <tbody>
-                {expenses.map((expense) => (
-                  <tr key={expense.id} className="hover:bg-muted/10 transition-colors">
-                    <td className="p-2 text-sm text-muted-foreground">
-                      {new Date(expense.date).toLocaleDateString()}
-                    </td>
-                    <td className="p-2">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${getCategoryColor(expense.category)}`}></div>
-                        <span className="text-sm">{expense.category}</span>
-                      </div>
-                    </td>
-                    <td className="p-2 text-sm">{expense.description}</td>
-                    <td className="p-2 text-right font-medium">${expense.amount}</td>
-                    <td className="p-2 text-center">
-                      <div className="flex justify-center gap-1">
-                        <Button variant="ghost" size="icon" className="h-7 w-7">
-                          <Edit className="w-3 h-3" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive">
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      </div>
+                {expenses.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="p-8 text-center text-muted-foreground">
+                      <p>No expenses recorded yet.</p>
+                      <p className="text-sm">Add your first expense to start tracking your budget.</p>
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  expenses.map((expense) => (
+                    <tr key={expense.id} className="hover:bg-muted/10 transition-colors">
+                      <td className="p-2 text-sm text-muted-foreground">
+                        {formatDate(expense.date)}
+                      </td>
+                      <td className="p-2">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${getCategoryColor(expense.category)}`}></div>
+                          <span className="text-sm">{expense.category}</span>
+                        </div>
+                      </td>
+                      <td className="p-2 text-sm">{expense.description}</td>
+                      <td className="p-2 text-right font-medium">{getCurrencySymbol(budget?.currency || 'USD')}{convertCurrency(expense.amount, budget?.currency || 'USD', currency).toFixed(2)}</td>
+                      <td className="p-2 text-center">
+                        <div className="flex justify-center gap-1">
+                          <Button variant="ghost" size="icon" className="h-7 w-7">
+                            <Edit className="w-3 h-3" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive">
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

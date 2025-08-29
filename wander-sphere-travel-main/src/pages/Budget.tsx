@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Plus, DollarSign, Calendar, MapPin, TrendingUp, PieChart, Loader2 } from "lucide-react";
-import { apiRequest } from "@/utils/api";
-import { apiConfig, endpoints } from "@/config/api";
+import { useToast } from "@/hooks/use-toast";
+import { budgetService, Budget as BudgetType, CreateBudgetData } from "@/services/budgetService";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,47 +13,50 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-interface BudgetItem {
-  id: string;
-  title: string;
-  totalBudget: number;
-  spent: number;
-  remaining: number;
-  destination: string;
-  startDate: string;
-  endDate: string;
-  status: 'active' | 'upcoming' | 'completed';
-  currency: string;
-}
+// Use the Budget interface from budgetService
+type BudgetItem = BudgetType;
 
 const Budget = () => {
   const [currency, setCurrency] = useState("USD");
-  const [budgets, setBudgets] = useState([]);
+  const [budgets, setBudgets] = useState<BudgetItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [newBudget, setNewBudget] = useState<Partial<CreateBudgetData>>({
+    title: '',
+    destination: '',
+    totalBudget: 0,
+    startDate: '',
+    endDate: '',
+    status: 'active',
+    currency: 'USD',
+    noMaxBudget: false,
+  });
+  const { toast } = useToast();
   
   useEffect(() => {
     const fetchBudgets = async () => {
       try {
         setIsLoading(true);
         setError(null);
-        // TODO: Replace with actual API call
-        // const response = await apiRequest(`${apiConfig.baseURL}${endpoints.budgets}`);
-        // setBudgets(response.data);
-        
-        // Temporary: Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setBudgets([]); // Will show empty state until API is connected
+        const budgetsData = await budgetService.getBudgets();
+        setBudgets(budgetsData);
       } catch (err) {
         setError('Failed to load budgets');
         console.error('Error fetching budgets:', err);
+        toast({
+          title: "Error",
+          description: "Failed to load budgets. Please try again.",
+          variant: "destructive",
+        });
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchBudgets();
-  }, []);
+  }, [toast]);
   
   // Get currency symbol
   const getCurrencySymbol = (currency: string) => {
@@ -80,18 +83,72 @@ const Budget = () => {
     }
   };
 
+  // Handle create budget
+  const handleCreateBudget = async () => {
+    if (!newBudget.title || !newBudget.destination || !newBudget.startDate || !newBudget.endDate) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsCreating(true);
+      const budgetData: CreateBudgetData = {
+        title: newBudget.title!,
+        destination: newBudget.destination!,
+        totalBudget: newBudget.noMaxBudget ? undefined : newBudget.totalBudget || 0,
+        startDate: newBudget.startDate!,
+        endDate: newBudget.endDate!,
+        status: newBudget.status as 'active' | 'upcoming',
+        currency: newBudget.currency || 'USD',
+        noMaxBudget: newBudget.noMaxBudget,
+      };
+      
+      const createdBudget = await budgetService.createBudget(budgetData);
+      setBudgets(prev => [createdBudget, ...prev]);
+      setIsDialogOpen(false);
+      setNewBudget({
+        title: '',
+        destination: '',
+        totalBudget: 0,
+        startDate: '',
+        endDate: '',
+        status: 'active',
+        currency: 'USD',
+        noMaxBudget: false,
+      });
+      
+      toast({
+        title: "Success",
+        description: "Budget created successfully!",
+      });
+    } catch (err) {
+      console.error('Error creating budget:', err);
+      toast({
+        title: "Error",
+        description: "Failed to create budget. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   // Budget statistics
   const totalBudgets = budgets.length;
-  const activeBudgetsCount = budgets.filter(b => b.status === 'Active').length;
+  const activeBudgetsCount = budgets.filter(b => b.status === 'active').length;
   const totalSpent = budgets.reduce((sum, b) => sum + (b.spent || 0), 0);
   const totalRemaining = budgets.reduce((sum, b) => sum + (b.remaining || 0), 0);
 
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "Active": return "bg-success text-success-foreground";
-      case "Upcoming": return "bg-primary text-primary-foreground";
-      case "Completed": return "bg-muted text-muted-foreground";
+      case "active": return "bg-success text-success-foreground";
+      case "upcoming": return "bg-primary text-primary-foreground";
+      case "completed": return "bg-muted text-muted-foreground";
       default: return "bg-muted text-muted-foreground";
     }
   };
@@ -102,9 +159,9 @@ const Budget = () => {
     return "bg-destructive";
   };
 
-  const activeBudgets = budgets.filter(b => b.status === "Active");
-  const upcomingBudgets = budgets.filter(b => b.status === "Upcoming");
-  const completedBudgets = budgets.filter(b => b.status === "Completed");
+  const activeBudgets = budgets.filter(b => b.status === "active");
+  const upcomingBudgets = budgets.filter(b => b.status === "upcoming");
+  const completedBudgets = budgets.filter(b => b.status === "completed");
 
   // Calculate summary statistics for each category
   const calculateSummary = (budgetList: BudgetItem[]) => {
@@ -149,7 +206,7 @@ const Budget = () => {
                 <SelectItem value="BRL">BRL (R$)</SelectItem>
               </SelectContent>
             </Select>
-            <Dialog>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button className="bg-gradient-primary text-white shadow-primary">
                   <Plus className="w-4 h-4 mr-2" />
@@ -163,47 +220,96 @@ const Budget = () => {
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="title">Trip Title</Label>
-                    <Input id="title" placeholder="Enter trip title" />
+                    <Input 
+                      id="title" 
+                      placeholder="Enter trip title" 
+                      value={newBudget.title || ''}
+                      onChange={(e) => setNewBudget(prev => ({ ...prev, title: e.target.value }))}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="destination">Destination</Label>
-                    <Input id="destination" placeholder="Enter destination" />
+                    <Input 
+                      id="destination" 
+                      placeholder="Enter destination" 
+                      value={newBudget.destination || ''}
+                      onChange={(e) => setNewBudget(prev => ({ ...prev, destination: e.target.value }))}
+                    />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="startDate">Start Date</Label>
-                      <Input id="startDate" type="date" />
+                      <Input 
+                        id="startDate" 
+                        type="date" 
+                        value={newBudget.startDate || ''}
+                        onChange={(e) => setNewBudget(prev => ({ ...prev, startDate: e.target.value }))}
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="endDate">End Date</Label>
-                      <Input id="endDate" type="date" />
+                      <Input 
+                        id="endDate" 
+                        type="date" 
+                        value={newBudget.endDate || ''}
+                        onChange={(e) => setNewBudget(prev => ({ ...prev, endDate: e.target.value }))}
+                      />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <Label htmlFor="budget">Budget Amount ({currency})</Label>
                       <div className="flex items-center">
-                        <input type="checkbox" id="noMaxBudget" className="mr-2" />
+                        <input 
+                          type="checkbox" 
+                          id="noMaxBudget" 
+                          className="mr-2" 
+                          checked={newBudget.noMaxBudget || false}
+                          onChange={(e) => setNewBudget(prev => ({ ...prev, noMaxBudget: e.target.checked }))}
+                        />
                         <Label htmlFor="noMaxBudget" className="text-sm">No Max Budget</Label>
                       </div>
                     </div>
-                    <Input id="budget" type="number" placeholder="0.00" />
+                    <Input 
+                      id="budget" 
+                      type="number" 
+                      placeholder="0.00" 
+                      value={newBudget.totalBudget || ''}
+                      onChange={(e) => setNewBudget(prev => ({ ...prev, totalBudget: Number(e.target.value) }))}
+                      disabled={newBudget.noMaxBudget}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="status">Status</Label>
-                    <Select defaultValue="Active">
+                    <Select 
+                      value={newBudget.status || 'active'} 
+                      onValueChange={(value) => setNewBudget(prev => ({ ...prev, status: value as 'active' | 'upcoming' }))}
+                    >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Active">Active</SelectItem>
-                        <SelectItem value="Upcoming">Upcoming</SelectItem>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="upcoming">Upcoming</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="flex justify-end gap-2 pt-4">
-                    <Button variant="outline">Cancel</Button>
-                    <Button className="bg-gradient-primary text-white">Create Budget</Button>
+                    <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                    <Button 
+                      className="bg-gradient-primary text-white" 
+                      onClick={handleCreateBudget}
+                      disabled={isCreating}
+                    >
+                      {isCreating ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Creating...
+                        </>
+                      ) : (
+                        'Create Budget'
+                      )}
+                    </Button>
                   </div>
                 </div>
               </DialogContent>
@@ -487,8 +593,8 @@ const BudgetGrid = ({ budgets, currency }: { budgets: BudgetItem[], currency: st
             <CardHeader className="pb-3">
               <div className="flex justify-between items-start">
                 <CardTitle className="text-lg line-clamp-1">{budget.title}</CardTitle>
-                <Badge className={`text-xs ${budget.status === "Active" ? "bg-success text-success-foreground" : budget.status === "Upcoming" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-                  {budget.status}
+                <Badge className={getStatusColor(budget.status)}>
+                  {budget.status.charAt(0).toUpperCase() + budget.status.slice(1)}
                 </Badge>
               </div>
               <div className="flex items-center gap-1 text-sm text-muted-foreground">

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { User, Lock, Shield, Bell, LogOut, Camera, Save } from "lucide-react";
+import { useState, useEffect } from "react";
+import { User, Lock, Shield, Bell, LogOut, Camera, Save, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,15 +10,25 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { userService } from "@/services/userService";
+import { authService } from "@/services/authService";
 
 const Settings = () => {
   const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState({
+    profile: false,
+    notifications: false,
+    privacy: false,
+    password: false,
+  });
+  
   const [profile, setProfile] = useState({
-    name: "Alex Wanderer",
-    username: "alex_wanderers",
-    email: "alex@example.com",
-    bio: "Chasing sunsets and street food around the globe. ✈️🍜 Currently exploring: Bali, Indonesia 🌴",
-    location: "San Francisco, CA",
+    name: "",
+    username: "",
+    email: "",
+    bio: "",
+    location: "",
     avatar: "",
   });
 
@@ -39,37 +49,175 @@ const Settings = () => {
     allowTagging: true,
   });
 
-  const handleSaveProfile = () => {
-    console.log("Saving profile:", profile);
-    toast({
-      title: "Profile updated",
-      description: "Your profile has been successfully updated.",
-    });
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+
+  // Load user data on component mount
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        setLoading(true);
+        const [userProfile, notificationSettings] = await Promise.all([
+          userService.getProfile(),
+          userService.getNotificationSettings().catch(() => notifications), // fallback to default
+        ]);
+        
+        setProfile({
+          name: userProfile.name || "",
+          username: userProfile.username || "",
+          email: userProfile.email || "",
+          bio: userProfile.bio || "",
+          location: userProfile.location || "",
+          avatar: userProfile.avatar || "",
+        });
+        
+        if (notificationSettings && typeof notificationSettings === 'object') {
+          setNotifications(prev => ({ ...prev, ...notificationSettings }));
+        }
+      } catch (error) {
+        console.error('Error loading user data:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load user settings. Please refresh the page.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadUserData();
+  }, [toast]);
+
+  const handleSaveProfile = async () => {
+    try {
+      setSaving(prev => ({ ...prev, profile: true }));
+      await userService.updateProfile(profile);
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been successfully updated.",
+      });
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update profile. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(prev => ({ ...prev, profile: false }));
+    }
   };
 
-  const handleSaveNotifications = () => {
-    console.log("Saving notifications:", notifications);
-    toast({
-      title: "Notifications updated",
-      description: "Your notification preferences have been saved.",
-    });
+  const handleSaveNotifications = async () => {
+    try {
+      setSaving(prev => ({ ...prev, notifications: true }));
+      await userService.updateNotificationSettings(notifications);
+      toast({
+        title: "Notifications updated",
+        description: "Your notification preferences have been saved.",
+      });
+    } catch (error) {
+      console.error('Error updating notifications:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update notification settings. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(prev => ({ ...prev, notifications: false }));
+    }
   };
 
-  const handleSavePrivacy = () => {
-    console.log("Saving privacy:", privacy);
-    toast({
-      title: "Privacy settings updated",
-      description: "Your privacy preferences have been saved.",
-    });
+  const handleSavePrivacy = async () => {
+    try {
+      setSaving(prev => ({ ...prev, privacy: true }));
+      await userService.updatePrivacySettings(privacy);
+      toast({
+        title: "Privacy settings updated",
+        description: "Your privacy preferences have been saved.",
+      });
+    } catch (error) {
+      console.error('Error updating privacy settings:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update privacy settings. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(prev => ({ ...prev, privacy: false }));
+    }
   };
 
-  const handleLogout = () => {
-    console.log("Logging out...");
-    toast({
-      title: "Logged out",
-      description: "You have been successfully logged out.",
-    });
+  const handleChangePassword = async () => {
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast({
+        title: "Error",
+        description: "New passwords do not match.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      toast({
+        title: "Error",
+        description: "Password must be at least 6 characters long.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setSaving(prev => ({ ...prev, password: true }));
+      await userService.changePassword(passwordData.currentPassword, passwordData.newPassword);
+      setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      toast({
+        title: "Password updated",
+        description: "Your password has been successfully changed.",
+      });
+    } catch (error) {
+      console.error('Error changing password:', error);
+      toast({
+        title: "Error",
+        description: "Failed to change password. Please check your current password and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(prev => ({ ...prev, password: false }));
+    }
   };
+
+  const handleLogout = async () => {
+    try {
+      await authService.logout();
+      toast({
+        title: "Logged out",
+        description: "You have been successfully logged out.",
+      });
+      // Redirect will be handled by auth context
+    } catch (error) {
+      console.error('Error logging out:', error);
+      toast({
+        title: "Error",
+        description: "Failed to log out. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-6">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="w-8 h-8 animate-spin" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
@@ -165,9 +313,22 @@ const Settings = () => {
                 </div>
               </div>
 
-              <Button onClick={handleSaveProfile} className="bg-gradient-primary text-white">
-                <Save className="w-4 h-4 mr-2" />
-                Save Changes
+              <Button 
+                onClick={handleSaveProfile} 
+                disabled={saving.profile}
+                className="bg-gradient-primary text-white"
+              >
+                {saving.profile ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Save Changes
+                  </>
+                )}
               </Button>
             </CardContent>
           </Card>
@@ -182,19 +343,48 @@ const Settings = () => {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="current-password">Current Password</Label>
-                  <Input id="current-password" type="password" />
+                  <Input 
+                    id="current-password" 
+                    type="password" 
+                    value={passwordData.currentPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="new-password">New Password</Label>
-                  <Input id="new-password" type="password" />
+                  <Input 
+                    id="new-password" 
+                    type="password" 
+                    value={passwordData.newPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="confirm-password">Confirm New Password</Label>
-                  <Input id="confirm-password" type="password" />
+                  <Input 
+                    id="confirm-password" 
+                    type="password" 
+                    value={passwordData.confirmPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                  />
                 </div>
               </div>
-              <Button className="bg-gradient-primary text-white">
-                Update Password
+              <Button 
+                onClick={handleChangePassword} 
+                disabled={saving.password}
+                className="bg-gradient-primary text-white"
+              >
+                {saving.password ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Update Password
+                  </>
+                )}
               </Button>
             </CardContent>
           </Card>
@@ -283,9 +473,22 @@ const Settings = () => {
                   />
                 </div>
               </div>
-              <Button onClick={handleSavePrivacy} className="bg-gradient-primary text-white">
-                <Save className="w-4 h-4 mr-2" />
-                Save Privacy Settings
+              <Button 
+                onClick={handleSavePrivacy} 
+                disabled={saving.privacy}
+                className="bg-gradient-primary text-white"
+              >
+                {saving.privacy ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Save Privacy Settings
+                  </>
+                )}
               </Button>
             </CardContent>
           </Card>
@@ -373,9 +576,22 @@ const Settings = () => {
                   />
                 </div>
               </div>
-              <Button onClick={handleSaveNotifications} className="bg-gradient-primary text-white">
-                <Save className="w-4 h-4 mr-2" />
-                Save Notification Settings
+              <Button 
+                onClick={handleSaveNotifications} 
+                disabled={saving.notifications}
+                className="bg-gradient-primary text-white"
+              >
+                {saving.notifications ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Save Notification Settings
+                  </>
+                )}
               </Button>
             </CardContent>
           </Card>

@@ -7,7 +7,7 @@ import { supabase } from './supabase';
 
 // Environment variables with fallbacks
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://wander-sphere-ue7e.onrender.com/api';
-const API_TIMEOUT = parseInt(import.meta.env.VITE_API_TIMEOUT || '10000');
+const API_TIMEOUT = parseInt(import.meta.env.VITE_API_TIMEOUT || '20000');
 const ENABLE_API_LOGGING = import.meta.env.VITE_ENABLE_API_LOGGING === 'true';
 
 // API Configuration
@@ -101,6 +101,15 @@ export const endpoints = {
     addExpense: (budgetId: string) => `/budget/${budgetId}/expenses`,
     updateExpense: (budgetId: string, expenseId: string) => `/budget/${budgetId}/expenses/${expenseId}`,
     deleteExpense: (budgetId: string, expenseId: string) => `/budget/${budgetId}/expenses/${expenseId}`,
+  },
+
+  // Booking
+  booking: {
+    partners: '/booking/partners',
+    partnerDetail: (partnerId: string) => `/booking/partners/${partnerId}`,
+    features: '/booking/features',
+    featureDetail: (featureId: string) => `/booking/features/${featureId}`,
+    trackVisit: (partnerId: string) => `/booking/partners/${partnerId}/visit`,
   },
 
   // Notifications

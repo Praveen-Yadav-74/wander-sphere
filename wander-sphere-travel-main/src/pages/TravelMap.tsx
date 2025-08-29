@@ -6,9 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/utils/api";
-import { endpoints, apiConfig } from "@/config/api";
 import { handleImageError } from "@/utils/imageUtils";
+import { userService } from "@/services/userService";
+import { journeyService } from "@/services/journeyService";
 import heroBeach from "@/assets/hero-beach.jpg";
 
 // Map imports removed due to dependency issues
@@ -33,15 +33,40 @@ const TravelMap = () => {
   // Fetch user achievements
   const fetchAchievements = useCallback(async () => {
     try {
-      // TODO: Replace with actual API call
-      // const response = await apiRequest(endpoints.user.achievements, {
-      //   method: 'GET',
-      //   headers: apiConfig.headers
-      // });
-      // setAchievements(response.data);
-      setAchievements([]); // Empty for now
+      const stats = await userService.getUserStats();
+      
+      // Transform stats into achievement format
+      const achievementData = [
+        {
+          icon: Globe,
+          value: stats.countriesVisited || 0,
+          label: "Countries Visited",
+          color: "text-blue-500"
+        },
+        {
+          icon: MapPin,
+          value: stats.citiesVisited || 0,
+          label: "Cities Explored",
+          color: "text-green-500"
+        },
+        {
+          icon: Navigation,
+          value: `${Math.round((stats.totalDistance || 0) / 1000)}k`,
+          label: "KM Traveled",
+          color: "text-purple-500"
+        },
+        {
+          icon: Camera,
+          value: stats.totalTrips || 0,
+          label: "Trips Completed",
+          color: "text-orange-500"
+        }
+      ];
+      
+      setAchievements(achievementData);
     } catch (error) {
       console.error('Error fetching achievements:', error);
+      setAchievements([]);
       toast({
         title: "Error",
         description: "Failed to load achievements",
@@ -54,15 +79,24 @@ const TravelMap = () => {
   const fetchJourneys = useCallback(async () => {
     try {
       setLoading(true);
-      // TODO: Replace with actual API call
-      // const response = await apiRequest(endpoints.user.journeys, {
-      //   method: 'GET',
-      //   headers: apiConfig.headers
-      // });
-      // setJourneys(response.data);
-      setJourneys([]); // Empty for now
+      const response = await journeyService.getMyJourneys('published');
+      
+      // Transform journeys data for map display
+      const journeysData = (response.data?.journeys || []).map(journey => ({
+        id: journey.id,
+        title: journey.title,
+        image: journey.images?.[0] || heroBeach,
+        year: new Date(journey.createdAt).getFullYear(),
+        duration: journey.duration || 'Unknown duration',
+        countries: journey.destinations || [],
+        highlights: journey.tags || [],
+        photos: journey.images?.length || 0
+      }));
+      
+      setJourneys(journeysData);
     } catch (error) {
       console.error('Error fetching journeys:', error);
+      setJourneys([]);
       toast({
         title: "Error",
         description: "Failed to load journeys",

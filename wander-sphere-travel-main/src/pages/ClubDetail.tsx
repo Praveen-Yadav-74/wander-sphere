@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { handleImageError } from "@/utils/imageHandling";
+import { handleImageError } from "@/utils/imageUtils";
 import { useParams, Link } from "react-router-dom";
 import { ArrowLeft, Users, Settings, Calendar, MapPin, Heart, MessageCircle, Share2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,156 +7,112 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { apiRequest } from "@/utils/api";
-import { apiConfig, endpoints } from "@/config/api";
+import { useToast } from "@/hooks/use-toast";
+import { clubService, Club, ClubMember, ClubPost } from "@/services/clubService";
 import mountainAdventure from "@/assets/mountain-adventure.jpg";
 import heroBeach from "@/assets/hero-beach.jpg";
 import travelCommunity from "@/assets/travel-community.jpg";
 
 const ClubDetail = () => {
-  const { id } = useParams();
-  const [club, setClub] = useState(null);
-  const [posts, setPosts] = useState([]);
-  const [members, setMembers] = useState([]);
-  const [events, setEvents] = useState([]);
+  const { id } = useParams<{ id: string }>();
+  const [club, setClub] = useState<Club | null>(null);
+  const [posts, setPosts] = useState<ClubPost[]>([]);
+  const [members, setMembers] = useState<ClubMember[]>([]);
+  const [events, setEvents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingPosts, setIsLoadingPosts] = useState(true);
-  const [error, setError] = useState(null);
-  const [isJoined, setIsJoined] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isJoiningLeaving, setIsJoiningLeaving] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchClubDetails = async () => {
+      if (!id) return;
+      
       try {
         setIsLoading(true);
         setError(null);
-        // TODO: Replace with actual API call
-        // const response = await apiRequest(`${apiConfig.baseURL}${endpoints.clubs}/${id}`);
-        // setClub(response.data);
-        
-        // Temporary: Simulate API call with mock data
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setClub({
-          id: 1,
-          name: "Adventure Seekers",
-          description: "Connect with travelers who share your passion for outdoor adventures and extreme sports. We organize group trips, share tips, and inspire each other to push boundaries and explore the world's most thrilling destinations.",
-          image: mountainAdventure,
-          members: 2847,
-          category: "Adventure",
-          created: "March 2023",
-          isPrivate: false,
-          rules: [
-            "Be respectful to all members",
-            "Share your adventures with photos and stories",
-            "Help fellow travelers with advice and tips",
-            "No spam or promotional content",
-          ]
-        });
+        const clubData = await clubService.getClubById(id);
+        setClub(clubData);
       } catch (err) {
         setError('Failed to load club details');
         console.error('Error fetching club details:', err);
+        toast({
+          title: "Error",
+          description: "Failed to load club details. Please try again.",
+          variant: "destructive",
+        });
       } finally {
         setIsLoading(false);
       }
     };
 
     const fetchClubData = async () => {
+      if (!id) return;
+      
       try {
         setIsLoadingPosts(true);
-        // TODO: Replace with actual API calls
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        // Set mock data temporarily
-        setPosts([
-          {
-            id: 1,
-            user: "sarah_adventures",
-            avatar: "",
-            content: "Just completed the Annapurna Circuit! 🏔️ 21 days of pure adventure. The views were absolutely incredible and the challenge was worth every step. Who's planning their next mountain adventure?",
-            image: mountainAdventure,
-            likes: 89,
-            comments: 23,
-            time: "2h ago",
-          },
-          {
-            id: 2,
-            user: "mike_climber",
-            avatar: "",
-            content: "Anyone interested in a group climb in the Dolomites this summer? Looking for 4-6 experienced climbers for a 10-day expedition. DM me if interested! 🧗‍♂️",
-            image: null,
-            likes: 42,
-            comments: 18,
-            time: "5h ago",
-          },
-          {
-            id: 3,
-            user: "adventure_squad",
-            avatar: "",
-            content: "Epic sunrise at Matterhorn basecamp this morning! Sometimes you have to wake up at 4am for views like this ☀️ #worth it",
-            image: heroBeach,
-            likes: 156,
-            comments: 34,
-            time: "1d ago",
-          },
+        const [postsData, membersData] = await Promise.all([
+          clubService.getClubPosts(id),
+          clubService.getClubMembers(id)
         ]);
         
-        setMembers([
-          { id: 1, name: "Sarah Chen", username: "@sarah_adventures", avatar: "", role: "Admin" },
-          { id: 2, name: "Mike Rodriguez", username: "@mike_climber", avatar: "", role: "Moderator" },
-          { id: 3, name: "Emily Johnson", username: "@emily_explorer", avatar: "", role: "Member" },
-          { id: 4, name: "Adventure Squad", username: "@adventure_squad", avatar: "", role: "Member" },
-          { id: 5, name: "Alex Kim", username: "@alex_mountains", avatar: "", role: "Member" },
-        ]);
+        setPosts(postsData);
+        setMembers(membersData);
         
-        setEvents([
-          {
-            id: 1,
-            title: "Dolomites Climbing Expedition",
-            date: "June 15-25, 2024",
-            location: "Dolomites, Italy",
-            attendees: 12,
-            maxAttendees: 15,
-          },
-          {
-            id: 2,
-            title: "Virtual Gear Review Session", 
-            date: "March 20, 2024",
-            location: "Online",
-            attendees: 45,
-            maxAttendees: 50,
-          },
-          {
-            id: 3,
-            title: "Patagonia Trek Planning",
-            date: "April 5, 2024", 
-            location: "San Francisco, CA",
-            attendees: 8,
-            maxAttendees: 20,
-          },
-        ]);
+        // TODO: Add events API when available
+        setEvents([]);
       } catch (err) {
         console.error('Error fetching club data:', err);
+        toast({
+          title: "Error",
+          description: "Failed to load some club data.",
+          variant: "destructive",
+        });
       } finally {
         setIsLoadingPosts(false);
       }
     };
 
+
     if (id) {
       fetchClubDetails();
       fetchClubData();
     }
-  }, [id]);
+  }, [id, toast]);
 
 
 
   const handleJoinLeave = async () => {
+    if (!id || !club) return;
+    
     try {
-      // TODO: Replace with actual API call
-      // await apiRequest(`${apiConfig.baseURL}${endpoints.clubs}/${id}/join`, {
-      //   method: isJoined ? 'DELETE' : 'POST'
-      // });
-      setIsJoined(!isJoined);
+      setIsJoiningLeaving(true);
+      
+      if (club.isJoined) {
+        await clubService.leaveClub(id);
+        toast({
+          title: "Success",
+          description: "You have left the club.",
+        });
+        setClub({ ...club, isJoined: false, members: club.members - 1 });
+      } else {
+        await clubService.joinClub(id);
+        toast({
+          title: "Success",
+          description: "You have joined the club!",
+        });
+        setClub({ ...club, isJoined: true, members: club.members + 1 });
+      }
     } catch (err) {
       console.error('Error joining/leaving club:', err);
+      toast({
+        title: "Error",
+        description: "Failed to update club membership. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsJoiningLeaving(false);
     }
   };
 
@@ -227,19 +183,32 @@ const ClubDetail = () => {
             <div className="flex items-center gap-4 text-sm">
               <div className="flex items-center gap-1">
                 <Users className="w-4 h-4" />
-                {club.members.toLocaleString()} members
+                {club.members?.toLocaleString() || 0} members
               </div>
-              <span>Created {club.created}</span>
+              {club.createdAt && (
+                <span>Created {new Date(club.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
+              )}
             </div>
           </div>
           <div className="absolute top-6 right-6">
-            <Button onClick={handleJoinLeave} className={isJoined ? "bg-secondary text-secondary-foreground" : "bg-gradient-primary text-white"}>
-              {isJoined ? "Leave Club" : "Join Club"}
+            <Button 
+              onClick={handleJoinLeave} 
+              className={club.isJoined ? "bg-secondary text-secondary-foreground" : "bg-gradient-primary text-white"}
+              disabled={isJoiningLeaving}
+            >
+              {isJoiningLeaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {club.isJoined ? "Leaving..." : "Joining..."}
+                </>
+              ) : (
+                club.isJoined ? "Leave Club" : "Join Club"
+              )}
             </Button>
           </div>
         </div>
         <CardContent className="p-6">
-          <p className="text-muted-foreground leading-relaxed">{club.description}</p>
+          <p className="text-muted-foreground leading-relaxed">{club.description || 'No description available.'}</p>
         </CardContent>
       </Card>
 
@@ -269,23 +238,25 @@ const ClubDetail = () => {
               <CardContent className="p-4">
                 <div className="flex items-center gap-3 mb-4">
                   <Avatar className="w-10 h-10">
-                    <AvatarImage src={post.avatar} />
+                    <AvatarImage src={post.author?.avatar} />
                     <AvatarFallback className="bg-primary text-primary-foreground">
-                      {post.user.charAt(0).toUpperCase()}
+                      {post.author?.name?.charAt(0).toUpperCase() || 'U'}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="font-semibold">{post.user}</p>
-                    <p className="text-sm text-muted-foreground">{post.time}</p>
+                    <p className="font-semibold">{post.author?.name || 'Unknown User'}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {post.createdAt ? new Date(post.createdAt).toLocaleDateString() : 'Recently'}
+                    </p>
                   </div>
                 </div>
                 
                 <p className="mb-4">{post.content}</p>
                 
-                {post.image && (
+                {post.images && post.images.length > 0 && (
                   <div className="mb-4 rounded-lg overflow-hidden">
                     <img 
-                  src={post.image} 
+                  src={post.images[0]} 
                   alt="Post" 
                   className="w-full aspect-video object-cover" 
                   onError={(e) => handleImageError(e, "/images/hero-beach.jpg", `Failed to load club post image`)}
@@ -296,11 +267,11 @@ const ClubDetail = () => {
                 <div className="flex items-center gap-4">
                   <Button variant="ghost" size="sm">
                     <Heart className="w-4 h-4 mr-1" />
-                    {post.likes}
+                    {post.likes || 0}
                   </Button>
                   <Button variant="ghost" size="sm">
                     <MessageCircle className="w-4 h-4 mr-1" />
-                    {post.comments}
+                    {post.comments || 0}
                   </Button>
                   <Button variant="ghost" size="sm">
                     <Share2 className="w-4 h-4" />
@@ -314,7 +285,7 @@ const ClubDetail = () => {
 
         <TabsContent value="members" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold">Club Members ({club.members.toLocaleString()})</h3>
+            <h3 className="text-lg font-semibold">Club Members ({club.members?.toLocaleString() || 0})</h3>
             <Button variant="outline" size="sm">
               <Settings className="w-4 h-4 mr-2" />
               Manage
@@ -330,16 +301,16 @@ const ClubDetail = () => {
                       <Avatar className="w-12 h-12">
                         <AvatarImage src={member.avatar} />
                         <AvatarFallback className="bg-primary text-primary-foreground">
-                          {member.name.split(' ').map(n => n[0]).join('')}
+                          {member.name?.split(' ').map(n => n[0]).join('') || 'U'}
                         </AvatarFallback>
                       </Avatar>
                       <div>
                         <p className="font-semibold">{member.name}</p>
-                        <p className="text-sm text-muted-foreground">{member.username}</p>
+                        <p className="text-sm text-muted-foreground">{member.username || `@${member.name?.toLowerCase().replace(/\s+/g, '_')}`}</p>
                       </div>
                     </div>
-                    <Badge variant={member.role === 'Admin' ? 'default' : member.role === 'Moderator' ? 'secondary' : 'outline'}>
-                      {member.role}
+                    <Badge variant={member.role === 'admin' ? 'default' : member.role === 'moderator' ? 'secondary' : 'outline'}>
+                      {member.role?.charAt(0).toUpperCase() + member.role?.slice(1) || 'Member'}
                     </Badge>
                   </div>
                 </CardContent>
@@ -358,34 +329,43 @@ const ClubDetail = () => {
           </div>
 
           <div className="space-y-4">
-            {events.map((event) => (
-              <Card key={event.id} className="bg-surface-elevated hover:shadow-md transition-shadow cursor-pointer">
-                <CardContent className="p-4">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-lg mb-2">{event.title}</h4>
-                      <div className="space-y-1 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4" />
-                          {event.date}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-4 h-4" />
-                          {event.location}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Users className="w-4 h-4" />
-                          {event.attendees}/{event.maxAttendees} attending
+            {events.length > 0 ? (
+              events.map((event) => (
+                <Card key={event.id} className="bg-surface-elevated hover:shadow-md transition-shadow cursor-pointer">
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-lg mb-2">{event.title}</h4>
+                        <div className="space-y-1 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4" />
+                            {event.date}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <MapPin className="w-4 h-4" />
+                            {event.location}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Users className="w-4 h-4" />
+                            {event.attendees}/{event.maxAttendees} attending
+                          </div>
                         </div>
                       </div>
+                      <Button size="sm" variant="outline">
+                        Join Event
+                      </Button>
                     </div>
-                    <Button size="sm" variant="outline">
-                      Join Event
-                    </Button>
-                  </div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <Card className="bg-surface-elevated">
+                <CardContent className="p-6 text-center text-muted-foreground">
+                  <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No events scheduled yet.</p>
                 </CardContent>
               </Card>
-            ))}
+            )}
           </div>
         </TabsContent>
       </Tabs>

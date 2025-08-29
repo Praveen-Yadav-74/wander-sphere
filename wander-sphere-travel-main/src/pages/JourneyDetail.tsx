@@ -4,68 +4,133 @@ import { ArrowLeft, MapPin, Calendar, Camera, Heart, MessageCircle, Share2, Map,
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
-import { apiRequest } from '@/utils/api';
-import { apiConfig, endpoints } from '@/config/api';
+import { useToast } from '@/hooks/use-toast';
+import { journeyService, Journey, JourneyComment } from '@/services/journeyService';
 import streetFood from "@/assets/street-food.jpg";
 import heroBeach from "@/assets/hero-beach.jpg";
 import mountainAdventure from "@/assets/mountain-adventure.jpg";
 import castleEurope from "@/assets/castle-europe.jpg";
 
 const JourneyDetail = () => {
-  const { id } = useParams();
-  const [journey, setJourney] = useState(null);
+  const { id } = useParams<{ id: string }>();
+  const [journey, setJourney] = useState<Journey | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [isLiked, setIsLiked] = useState(false);
   const [newComment, setNewComment] = useState('');
+  const [isCommenting, setIsCommenting] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchJourneyData = async () => {
+      if (!id) return;
+      
       try {
         setIsLoading(true);
         setError(null);
-        
-        // TODO: Replace with actual API calls
-        // const response = await apiRequest(`${apiConfig.baseURL}${endpoints.journeys}/${id}`);
-        // setJourney(response.data);
-        // setIsLiked(response.data.isLiked);
-        
-        // Temporary: Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // TODO: Replace with actual API integration
-        // For now, set journey to null to show "not found" state
-        setJourney(null);
-        setIsLiked(false);
+        const response = await journeyService.getJourney(id);
+        if (response.success && response.data) {
+          setJourney(response.data.journey);
+          setIsLiked(response.data.journey.isLiked || false);
+        }
       } catch (err) {
-        setError('Failed to load journey details');
-        console.error('Error fetching journey data:', err);
+        console.error('Error fetching journey:', err);
+        if (err instanceof Error && err.message.includes('404')) {
+          setError('Journey not found');
+        } else {
+          setError('Failed to load journey details');
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
-    if (id) {
-      fetchJourneyData();
-    }
+    fetchJourneyData();
   }, [id]);
 
   const handleLike = async () => {
+    if (!journey) return;
+    
     try {
-      const newLikedState = !isLiked;
-      setIsLiked(newLikedState);
+      const response = await journeyService.toggleLike(journey.id);
+      if (response.success && response.data) {
+        setIsLiked(response.data.isLiked);
+        // Update journey like count if needed
+        setJourney(prev => prev ? { ...prev, likeCount: response.data.likeCount } : prev);
+      }
       
-      // TODO: Replace with actual API call
-      // await apiRequest(`${apiConfig.baseURL}${endpoints.journeys}/${id}/like`, {
-      //   method: newLikedState ? 'POST' : 'DELETE'
-      // });
-      
-      console.log('Like status updated:', newLikedState);
+      toast({
+        title: isLiked ? "Removed from favorites" : "Added to favorites",
+        description: isLiked 
+          ? "Journey removed from your favorites" 
+          : "Journey added to your favorites",
+      });
     } catch (err) {
-      // Revert on error
-      setIsLiked(!isLiked);
-      console.error('Error updating like status:', err);
+      console.error('Error toggling like:', err);
+      toast({
+        title: "Error",
+        description: "Failed to update favorite status",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAddComment = async () => {
+    if (!journey || !newComment.trim()) return;
+    
+    try {
+      setIsCommenting(true);
+      const response = await journeyService.addComment(journey.id, newComment.trim());
+      if (response.success && response.data) {
+        // Update journey with new comment
+        setJourney(prev => prev ? {
+          ...prev,
+          comments: [...prev.comments, response.data.comment],
+          commentCount: response.data.commentCount
+        } : prev);
+      }
+      setNewComment('');
+      
+      toast({
+        title: "Comment added",
+        description: "Your comment has been added successfully",
+      });
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add comment. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCommenting(false);
+    }
+  };
+
+  const handleShare = async () => {
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: journey?.title || 'Journey',
+          text: `Check out this amazing journey: ${journey?.title}`,
+          url: window.location.href,
+        });
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        toast({
+          title: "Link copied",
+          description: "Journey link copied to clipboard",
+        });
+      }
+    } catch (err) {
+      console.error('Error sharing:', err);
+      toast({
+        title: "Error",
+        description: "Failed to share journey",
+        variant: "destructive",
+      });
     }
   };
 
@@ -73,9 +138,8 @@ const JourneyDetail = () => {
     return (
       <div className="max-w-6xl mx-auto px-4 py-6 flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading journey details...</h2>
-          <p className="text-gray-600">Please wait while we fetch the journey information.</p>
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading journey details...</p>
         </div>
       </div>
     );
@@ -85,18 +149,14 @@ const JourneyDetail = () => {
     return (
       <div className="max-w-6xl mx-auto px-4 py-6 flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-red-600 mb-2">Error loading journey</h2>
           <p className="text-gray-600 mb-4">{error}</p>
           <div className="flex gap-2 justify-center">
             <Button onClick={() => window.location.reload()} variant="outline">
               Try Again
             </Button>
-            <Link to="/map">
-              <Button>
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Travel Map
-              </Button>
-            </Link>
+            <Button asChild>
+              <Link to="/map">Back to Map</Link>
+            </Button>
           </div>
         </div>
       </div>
@@ -107,113 +167,38 @@ const JourneyDetail = () => {
     return (
       <div className="max-w-6xl mx-auto px-4 py-6 flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Journey not found</h2>
-          <p className="text-gray-600 mb-4">The journey you're looking for doesn't exist.</p>
-          <Link to="/map">
-            <Button>
+          <p className="text-gray-600 mb-4">Journey not found</p>
+          <Button asChild>
+            <Link to="/map">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Travel Map
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       </div>
     );
   }
 
-  const photos = [
-    {
-      id: 1,
-      image: streetFood,
-      title: "Bangkok Street Food Market",
-      location: "Bangkok, Thailand",
-      date: "Jan 20, 2023",
-      description: "Amazing pad thai from a local street vendor",
-      likes: 89,
-      comments: 12,
-    },
-    {
-      id: 2,
-      image: castleEurope,
-      title: "Angkor Wat Sunrise",
-      location: "Siem Reap, Cambodia", 
-      date: "Feb 10, 2023",
-      description: "Worth waking up at 4:30am for this incredible sunrise",
-      likes: 156,
-      comments: 23,
-    },
-    {
-      id: 3,
-      image: heroBeach,
-      title: "Ha Long Bay Cruise",
-      location: "Ha Long Bay, Vietnam",
-      date: "Mar 5, 2023",
-      description: "Floating through limestone karsts at golden hour",
-      likes: 134,
-      comments: 18,
-    },
-    {
-      id: 4,
-      image: mountainAdventure,
-      title: "Mekong Delta Boat Trip",
-      location: "Mekong Delta, Vietnam",
-      date: "Mar 20, 2023", 
-      description: "Exploring the floating markets and river life",
-      likes: 67,
-      comments: 8,
-    },
-    {
-      id: 5,
-      image: streetFood,
-      title: "Temple Meditation",
-      location: "Chiang Mai, Thailand",
-      date: "Jan 28, 2023",
-      description: "Finding peace in this beautiful mountain temple",
-      likes: 112,
-      comments: 15,
-    },
-    {
-      id: 6,
-      image: heroBeach,
-      title: "Beach Paradise",
-      location: "Koh Phi Phi, Thailand",
-      date: "Feb 5, 2023",
-      description: "Crystal clear waters and perfect white sand",
-      likes: 189,
-      comments: 31,
-    },
-  ];
+  const formatDate = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch {
+      return 'Unknown date';
+    }
+  };
 
-  const logEntries = [
-    {
-      id: 1,
-      date: "January 15, 2023",
-      location: "Bangkok, Thailand",
-      title: "Journey Begins!",
-      content: "Finally landed in Bangkok after 20+ hours of travel. The heat and humidity hit me like a wall, but I'm so excited to start this adventure. The city is absolutely buzzing with energy!",
-    },
-    {
-      id: 2,
-      date: "February 10, 2023", 
-      location: "Siem Reap, Cambodia",
-      title: "Angkor Wat Sunrise",
-      content: "Woke up at 4:30am to catch the sunrise at Angkor Wat. It was worth every minute of lost sleep. The temples are even more magnificent than I imagined. Spent the entire day exploring the complex.",
-    },
-    {
-      id: 3,
-      date: "March 5, 2023",
-      location: "Ha Long Bay, Vietnam", 
-      title: "Ha Long Bay Magic",
-      content: "The cruise through Ha Long Bay today was absolutely magical. The limestone karsts rising from emerald waters create such a mystical atmosphere. Had amazing seafood dinner on the boat.",
-    },
-  ];
+  const getFallbackImage = (index: number) => {
+    const images = [streetFood, castleEurope, heroBeach, mountainAdventure];
+    return images[index % images.length];
+  };
 
-  const routePoints = [
-    { city: "Bangkok", country: "Thailand", coordinates: [100.5018, 13.7563] },
-    { city: "Chiang Mai", country: "Thailand", coordinates: [98.9817, 18.7883] },
-    { city: "Siem Reap", country: "Cambodia", coordinates: [103.8448, 13.3671] },
-    { city: "Ho Chi Minh City", country: "Vietnam", coordinates: [106.6297, 10.8231] },
-    { city: "Ha Long Bay", country: "Vietnam", coordinates: [107.0431, 20.9101] },
-  ];
+  const journeyImages = journey?.images || [];
+  const journeyDestinations = journey?.destinations || [];
+  const journeyComments = journey?.comments || [];
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
@@ -233,57 +218,72 @@ const JourneyDetail = () => {
               <h1 className="text-3xl font-bold mb-4">{journey.title}</h1>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-primary">{journey.countries.length}</p>
-                  <p className="text-sm text-muted-foreground">Countries</p>
+                  <p className="text-2xl font-bold text-primary">{journeyDestinations.length}</p>
+                  <p className="text-sm text-muted-foreground">Destinations</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-success">{journey.duration}</p>
+                  <p className="text-2xl font-bold text-success">{journey.duration || 'N/A'}</p>
                   <p className="text-sm text-muted-foreground">Duration</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-warning">{journey.totalPhotos}</p>
+                  <p className="text-2xl font-bold text-warning">{journeyImages.length}</p>
                   <p className="text-sm text-muted-foreground">Photos</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-accent">{journey.totalDistance}</p>
-                  <p className="text-sm text-muted-foreground">Traveled</p>
+                  <p className="text-2xl font-bold text-accent">{journey.views}</p>
+                  <p className="text-sm text-muted-foreground">Views</p>
                 </div>
               </div>
               
-              <div className="flex flex-wrap gap-2 mb-6">
-                {journey.countries.map((country) => (
-                  <Badge key={country} variant="secondary">
-                    {country}
+              <div className="flex flex-wrap gap-2 mb-4">
+                {journeyDestinations.map((destination, index) => (
+                  <Badge key={index} variant="secondary">
+                    <MapPin className="w-3 h-3 mr-1" />
+                    {destination}
                   </Badge>
                 ))}
               </div>
-
-              <div className="prose prose-sm max-w-none text-muted-foreground">
-                {journey.description.split('\n').map((paragraph, index) => (
+              
+              <div className="flex flex-wrap gap-2 mb-6">
+                {journey.tags?.map((tag, index) => (
+                  <Badge key={`tag-${index}`} variant="outline">
+                    #{tag}
+                  </Badge>
+                ))}
+              </div>
+              
+              <div className="prose prose-sm max-w-none mb-6">
+                {journey.description?.split('\n').map((paragraph, index) => (
                   <p key={index} className="mb-3 leading-relaxed">
                     {paragraph}
                   </p>
                 ))}
               </div>
-            </div>
-
-            <div className="lg:w-80">
-              {/* Route Map Placeholder */}
-              <Card className="bg-gradient-ocean text-white">
-                <CardContent className="p-6 text-center">
-                  <Map className="w-16 h-16 mx-auto mb-4 opacity-80" />
-                  <h3 className="text-lg font-semibold mb-2">Journey Route</h3>
-                  <p className="text-sm opacity-90 mb-4">Interactive map showing the complete travel route</p>
-                  <div className="space-y-2 text-left">
-                    {routePoints.map((point, index) => (
-                      <div key={index} className="flex items-center gap-2 text-xs">
-                        <div className="w-2 h-2 bg-white/60 rounded-full"></div>
-                        {point.city}, {point.country}
-                      </div>
-                    ))}
+              
+              <div className="space-y-2">
+                <h3 className="font-semibold text-lg">Destinations</h3>
+                {journey.destinations?.map((destination, index) => (
+                  <div key={index} className="flex items-center gap-2 text-xs">
+                    <div className="w-2 h-2 bg-primary rounded-full"></div>
+                    <span>{destination}</span>
                   </div>
-                </CardContent>
-              </Card>
+                ))}
+              </div>
+            </div>
+            
+            <div className="flex gap-3">
+              <Button
+                variant={isLiked ? "default" : "outline"}
+                size="sm"
+                onClick={handleLike}
+                className="flex items-center gap-2"
+              >
+                <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
+                {journey.likes || 0}
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleShare}>
+                <Share2 className="w-4 h-4" />
+              </Button>
             </div>
           </div>
         </CardContent>
@@ -297,54 +297,119 @@ const JourneyDetail = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Camera className="w-5 h-5" />
-                Photo Gallery ({photos.length})
+                Photo Gallery ({journeyImages.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {photos.map((photo) => (
-                  <div key={photo.id} className="group cursor-pointer">
-                    <div className="aspect-video overflow-hidden rounded-lg mb-3">
-                      <img 
-                        src={photo.image} 
-                        alt={photo.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
+              {journeyImages.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {journeyImages.map((image, index) => (
+                    <div key={index} className="group cursor-pointer">
+                      <div className="aspect-square overflow-hidden rounded-lg bg-muted">
+                        <img
+                          src={image || getFallbackImage(index)}
+                          alt={`Journey photo ${index + 1}`}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = getFallbackImage(index);
+                          }}
+                        />
+                      </div>
+                      <div className="mt-2">
+                        <h4 className="font-semibold">Journey Photo {index + 1}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          No caption available
+                        </p>
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <h4 className="font-semibold">{photo.title}</h4>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <MapPin className="w-3 h-3" />
-                        {photo.location}
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Calendar className="w-3 h-3" />
-                        {photo.date}
-                      </div>
-                      <p className="text-sm text-muted-foreground">{photo.description}</p>
-                      <div className="flex items-center gap-4 pt-2">
-                        <Button variant="ghost" size="sm">
-                          <Heart className="w-4 h-4 mr-1" />
-                          {photo.likes}
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <MessageCircle className="w-4 h-4 mr-1" />
-                          {photo.comments}
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <Share2 className="w-4 h-4" />
-                        </Button>
-                      </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Camera className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>No photos available for this journey.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Comments Section */}
+          <Card className="bg-surface-elevated">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageCircle className="w-5 h-5" />
+                Comments ({journeyComments.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex gap-3">
+                  <Avatar className="w-8 h-8">
+                    <AvatarImage src="" />
+                    <AvatarFallback>You</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <Textarea
+                      placeholder="Share your thoughts about this journey..."
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      className="min-h-[80px] resize-none"
+                    />
+                    <div className="flex justify-end mt-2">
+                      <Button
+                        onClick={handleAddComment}
+                        disabled={!newComment.trim() || isCommenting}
+                        size="sm"
+                      >
+                        {isCommenting ? (
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        ) : null}
+                        Post Comment
+                      </Button>
                     </div>
                   </div>
-                ))}
+                </div>
+                
+                <div className="space-y-4">
+                  {journeyComments.length > 0 ? (
+                    journeyComments.map((comment) => (
+                      <div key={comment.id} className="bg-gradient-to-r from-primary/5 to-transparent pl-4 rounded-r-lg">
+                        <div className="flex gap-3 py-3">
+                          <Avatar className="w-8 h-8">
+                            <AvatarImage src={comment.user.avatar} />
+                            <AvatarFallback>
+                              {comment.user.firstName} {comment.user.lastName}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-medium text-sm">
+                                {comment.user.firstName} {comment.user.lastName}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {formatDate(comment.createdAt)}
+                              </span>
+                            </div>
+                            <p className="text-sm leading-relaxed">{comment.content}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-4 text-muted-foreground border-t">
+                      <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No comments yet. Be the first to share your thoughts!</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-6">
+        <div className="lg:col-span-1 space-y-6">
           {/* Journey Stats */}
           <Card className="bg-surface-elevated">
             <CardHeader>
@@ -353,67 +418,29 @@ const JourneyDetail = () => {
             <CardContent className="space-y-4">
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Start Date</span>
-                  <span className="font-medium">{journey.startDate}</span>
+                  <span className="text-muted-foreground">Created</span>
+                  <span className="font-medium">{formatDate(journey.createdAt)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">End Date</span>
-                  <span className="font-medium">{journey.endDate}</span>
+                  <span className="text-muted-foreground">Updated</span>
+                  <span className="font-medium">{formatDate(journey.updatedAt)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total Distance</span>
-                  <span className="font-medium">{journey.totalDistance}</span>
+                  <span className="text-muted-foreground">Author</span>
+                  <span className="font-medium">{journey.author.firstName} {journey.author.lastName}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Countries Visited</span>
-                  <span className="font-medium">{journey.countries.length}</span>
+                  <span className="text-muted-foreground">Destinations</span>
+                  <span className="font-medium">{journeyDestinations.length}</span>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Highlights */}
-          <Card className="bg-surface-elevated">
-            <CardHeader>
-              <CardTitle>Trip Highlights</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2">
-                {journey.highlights.map((highlight, index) => (
-                  <li key={index} className="text-sm flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 bg-primary rounded-full mt-2 flex-shrink-0"></div>
-                    {highlight}
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-
-          {/* Travel Log */}
-          <Card className="bg-surface-elevated">
-            <CardHeader>
-              <CardTitle>Travel Log</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {logEntries.map((entry) => (
-                  <div key={entry.id} className="bg-gradient-to-r from-primary/5 to-transparent pl-4 rounded-r-lg">
-                    <div className="space-y-1">
-                      <h4 className="font-semibold text-sm">{entry.title}</h4>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Calendar className="w-3 h-3" />
-                        {entry.date}
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <MapPin className="w-3 h-3" />
-                        {entry.location}
-                      </div>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        {entry.content}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Difficulty</span>
+                  <span className="font-medium capitalize">{journey.difficulty}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Budget</span>
+                  <span className="font-medium">{journey.budget}</span>
+                </div>
               </div>
             </CardContent>
           </Card>

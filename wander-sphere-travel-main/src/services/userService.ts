@@ -258,7 +258,9 @@ class UserService {
       }
     });
 
-    const url = `${buildUrl(endpoints.users.search)}?${queryParams.toString()}`;
+    const url = queryParams.toString() 
+      ? `${buildUrl(endpoints.users.search)}?${queryParams.toString()}`
+      : buildUrl(endpoints.users.search);
     
     return await apiRequest<PaginatedResponse<UserProfile>>(url, {
       method: 'GET',
@@ -326,6 +328,83 @@ class UserService {
     }
 
     throw new Error(response.message || 'Failed to update preferences');
+  }
+
+  /**
+   * Update notification settings
+   */
+  async updateNotificationSettings(settings: any): Promise<any> {
+    const response = await apiRequest<ApiResponse<any>>(
+      buildUrl(endpoints.notifications.settings),
+      {
+        method: 'PUT',
+        headers: getAuthHeaderSync(),
+        body: settings,
+      }
+    );
+
+    if (response.success && response.data) {
+      return response.data;
+    }
+
+    throw new Error(response.message || 'Failed to update notification settings');
+  }
+
+  /**
+   * Get notification settings
+   */
+  async getNotificationSettings(): Promise<any> {
+    const response = await apiRequest<ApiResponse<any>>(
+      buildUrl(endpoints.notifications.settings),
+      {
+        method: 'GET',
+        headers: getAuthHeaderSync(),
+      }
+    );
+
+    if (response.success && response.data) {
+      return response.data;
+    }
+
+    throw new Error(response.message || 'Failed to get notification settings');
+  }
+
+  /**
+   * Update privacy settings
+   */
+  async updatePrivacySettings(settings: any): Promise<any> {
+    const response = await apiRequest<ApiResponse<any>>(
+      `${buildUrl(endpoints.users.profile)}/privacy`,
+      {
+        method: 'PUT',
+        headers: getAuthHeaderSync(),
+        body: settings,
+      }
+    );
+
+    if (response.success && response.data) {
+      return response.data;
+    }
+
+    throw new Error(response.message || 'Failed to update privacy settings');
+  }
+
+  /**
+   * Change password
+   */
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    const response = await apiRequest<ApiResponse>(
+      `${buildUrl(endpoints.users.profile)}/password`,
+      {
+        method: 'PUT',
+        headers: getAuthHeaderSync(),
+        body: { currentPassword, newPassword },
+      }
+    );
+
+    if (!response.success) {
+      throw new Error(response.message || 'Failed to change password');
+    }
   }
 
   /**

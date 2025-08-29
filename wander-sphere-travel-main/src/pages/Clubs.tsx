@@ -10,8 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { apiRequest } from "@/utils/api";
-import { apiConfig, endpoints } from "@/config/api";
+import { useToast } from "@/hooks/use-toast";
+import { clubService, Club, CreateClubData } from "@/services/clubService";
+import { handleImageError } from "@/utils/imageUtils";
 import mountainAdventure from "@/assets/mountain-adventure.jpg";
 import streetFood from "@/assets/street-food.jpg";
 import castleEurope from "@/assets/castle-europe.jpg";
@@ -19,48 +20,114 @@ import travelCommunity from "@/assets/travel-community.jpg";
 import heroBeach from "@/assets/hero-beach.jpg";
 
 const Clubs = () => {
-  const [clubs, setClubs] = useState([]);
+  const [clubs, setClubs] = useState<Club[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [searchCategory, setSearchCategory] = useState("");
   const [searchCountry, setSearchCountry] = useState("");
   const [sortBy, setSortBy] = useState("popular");
   const [isCreateClubOpen, setIsCreateClubOpen] = useState(false);
+  const [isCreatingClub, setIsCreatingClub] = useState(false);
+  const [newClub, setNewClub] = useState<CreateClubData>({
+    name: '',
+    description: '',
+    category: '',
+    country: '',
+    state: ''
+  });
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchClubs = async () => {
       try {
         setIsLoading(true);
         setError(null);
-        // TODO: Replace with actual API call
-        // const response = await apiRequest(`${apiConfig.baseURL}${endpoints.clubs}`);
-        // setClubs(response.data);
-        
-        // Temporary: Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setClubs([]); // Will show empty state until API is connected
+        const response = await clubService.getClubs();
+        setClubs(response.data || []);
       } catch (err) {
         setError('Failed to load clubs');
         console.error('Error fetching clubs:', err);
+        toast({
+          title: "Error",
+          description: "Failed to load clubs. Please try again.",
+          variant: "destructive",
+        });
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchClubs();
-  }, []);
+  }, [toast]);
 
-  const handleJoinToggle = async (clubId) => {
+  const handleJoinToggle = async (clubId: string) => {
     try {
-      // TODO: Replace with actual API call
-      // await apiRequest(`${apiConfig.baseURL}${endpoints.clubs}/${clubId}/join`, {
-      //   method: 'POST'
-      // });
-      setClubs(clubs.map(club => 
-        club.id === clubId ? { ...club, isJoined: !club.isJoined } : club
+      const club = clubs.find(c => c.id === clubId);
+      if (!club) return;
+
+      if (club.isJoined) {
+        await clubService.leaveClub(clubId);
+        toast({
+          title: "Success",
+          description: "You have left the club.",
+        });
+      } else {
+        await clubService.joinClub(clubId);
+        toast({
+          title: "Success",
+          description: "You have joined the club!",
+        });
+      }
+
+      // Update local state
+      setClubs(clubs.map(c => 
+        c.id === clubId ? { ...c, isJoined: !c.isJoined, members: c.isJoined ? c.members - 1 : c.members + 1 } : c
       ));
     } catch (err) {
-      console.error('Error joining club:', err);
+      console.error('Error toggling club membership:', err);
+      toast({
+        title: "Error",
+        description: "Failed to update club membership. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCreateClub = async () => {
+    if (!newClub.name || !newClub.description || !newClub.category || !newClub.country) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsCreatingClub(true);
+      const createdClub = await clubService.createClub(newClub);
+      setClubs([createdClub, ...clubs]);
+      setIsCreateClubOpen(false);
+      setNewClub({
+        name: '',
+        description: '',
+        category: '',
+        country: '',
+        state: ''
+      });
+      toast({
+        title: "Success",
+        description: "Club created successfully!",
+      });
+    } catch (err) {
+      console.error('Error creating club:', err);
+      toast({
+        title: "Error",
+        description: "Failed to create club. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingClub(false);
     }
   };
 
@@ -79,7 +146,7 @@ const Clubs = () => {
           case 'members':
               return b.members - a.members;
           case 'new': // Needs creation date
-              return b.id - a.id;
+              return b.id.localeCompare(a.id);
           case 'trending': // Needs trending score
           case 'active': // Needs activity score
           case 'popular':
@@ -111,19 +178,34 @@ const Clubs = () => {
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
                   <Label htmlFor="club-name">Club Name</Label>
-                  <Input id="club-name" placeholder="e.g., Adventure Seekers" />
+                  <Input 
+                    id="club-name" 
+                    placeholder="e.g., Adventure Seekers" 
+                    value={newClub.name}
+                    onChange={(e) => setNewClub({...newClub, name: e.target.value})}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="club-description">Description</Label>
-                  <Textarea id="club-description" placeholder="What is your club about?" />
+                  <Textarea 
+                    id="club-description" 
+                    placeholder="What is your club about?" 
+                    value={newClub.description}
+                    onChange={(e) => setNewClub({...newClub, description: e.target.value})}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="club-category">Category</Label>
-                  <Input id="club-category" placeholder="e.g., Adventure, Food, Culture" />
+                  <Input 
+                    id="club-category" 
+                    placeholder="e.g., Adventure, Food, Culture" 
+                    value={newClub.category}
+                    onChange={(e) => setNewClub({...newClub, category: e.target.value})}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="club-country">Country</Label>
-                  <Select>
+                  <Select value={newClub.country} onValueChange={(value) => setNewClub({...newClub, country: value})}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select country" />
                     </SelectTrigger>
@@ -146,13 +228,27 @@ const Clubs = () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="club-state">State/Province</Label>
-                  <Input id="club-state" placeholder="e.g., California, Ontario, etc." />
+                  <Input 
+                    id="club-state" 
+                    placeholder="e.g., California, Ontario, etc." 
+                    value={newClub.state || ''}
+                    onChange={(e) => setNewClub({...newClub, state: e.target.value})}
+                  />
                 </div>
-                 <div className="space-y-2">
-                  <Label htmlFor="club-image">Cover Image</Label>
-                  <Input id="club-image" type="file" />
-                </div>
-                <Button className="w-full bg-gradient-primary text-white">Create Club</Button>
+                <Button 
+                  className="w-full bg-gradient-primary text-white" 
+                  onClick={handleCreateClub}
+                  disabled={isCreatingClub}
+                >
+                  {isCreatingClub ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    'Create Club'
+                  )}
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -287,12 +383,17 @@ const Clubs = () => {
   );
 };
 
-const ClubCard = ({ club, onJoinToggle }) => {
+const ClubCard = ({ club, onJoinToggle }: { club: Club; onJoinToggle: (clubId: string) => void }) => {
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 group">
       <Link to={`/clubs/${club.id}`} className="block">
         <div className="aspect-video overflow-hidden">
-          <img src={club.image} alt={club.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+          <img 
+            src={club.image || mountainAdventure} 
+            alt={club.name} 
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            onError={handleImageError}
+          />
         </div>
         <CardHeader className="pb-2">
           <div className="flex justify-between items-start">

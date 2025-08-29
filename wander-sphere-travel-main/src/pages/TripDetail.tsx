@@ -1,107 +1,114 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from "react-router-dom";
 import { ArrowLeft, MapPin, Calendar, Users, DollarSign, MessageCircle, Heart, Share2, Loader2 } from "lucide-react";
-import { apiRequest } from '@/utils/api';
-import { apiConfig, endpoints } from '@/config/api';
+import { tripService, Trip, TripComment } from '@/services/tripService';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 import castleEurope from "@/assets/castle-europe.jpg";
 
 const TripDetail = () => {
   const { id } = useParams();
-  const [trip, setTrip] = useState(null);
+  const { toast } = useToast();
+  const [trip, setTrip] = useState<Trip | null>(null);
+  const [comments, setComments] = useState<TripComment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [comment, setComment] = useState("");
   const [isInterested, setIsInterested] = useState(false);
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
 
   useEffect(() => {
     const fetchTripDetails = async () => {
+      if (!id) return;
+      
       try {
         setIsLoading(true);
         setError(null);
-        // TODO: Replace with actual API call
-        // const response = await apiRequest(`${apiConfig.baseURL}${endpoints.trips}/${id}`);
-        // setTrip(response.data);
         
-        // Temporary: Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setTrip(null); // Will show empty state until API is connected
-      } catch (err) {
-        setError('Failed to load trip details');
+        // Fetch trip details and comments in parallel
+        const [tripData, commentsData] = await Promise.all([
+          tripService.getTripById(id),
+          tripService.getTripComments(id)
+        ]);
+        
+        setTrip(tripData);
+        setComments(commentsData);
+      } catch (err: any) {
+        setError(err.message || 'Failed to load trip details');
         console.error('Error fetching trip details:', err);
       } finally {
         setIsLoading(false);
       }
     };
 
-    if (id) {
-      fetchTripDetails();
-    }
+    fetchTripDetails();
   }, [id]);
 
-  const participants = [
-    { id: 1, name: "Maria Lopez", username: "@maria_lopez", avatar: "", role: "Organizer" },
-    { id: 2, name: "Alessandro R.", username: "@alessandro_r", avatar: "", role: "Participant" },
-    { id: 3, name: "Sophie Chen", username: "@sophie_travels", avatar: "", role: "Participant" },
-  ];
-
-  const comments = [
-    {
-      id: 1,
-      user: "alex_explorer",
-      avatar: "",
-      content: "This looks amazing! I've always wanted to visit the Amalfi Coast. Is there still space available?",
-      time: "2h ago",
-      likes: 3,
-    },
-    {
-      id: 2,
-      user: "travel_junkie",
-      avatar: "",
-      content: "The itinerary looks perfect! Quick question - what's the accommodation situation? Are we sharing rooms?",
-      time: "5h ago", 
-      likes: 1,
-    },
-    {
-      id: 3,
-      user: "foodie_explorer",
-      avatar: "",
-      content: "Count me in! I'm especially excited about the food experiences. Maria, do you have any specific restaurants in mind?",
-      time: "1d ago",
-      likes: 5,
-    },
-  ];
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) return 'Just now';
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    if (diffInHours < 48) return '1d ago';
+    return `${Math.floor(diffInHours / 24)}d ago`;
+  };
 
   const handleInterest = async () => {
+    if (!id) return;
+    
     try {
-      // TODO: Replace with actual API call
-      // await apiRequest(`${apiConfig.baseURL}${endpoints.trips}/${id}/interest`, {
-      //   method: isInterested ? 'DELETE' : 'POST'
-      // });
+      if (isInterested) {
+        await tripService.leaveTrip(id);
+        toast({
+          title: "Interest removed",
+          description: "You're no longer interested in this trip.",
+        });
+      } else {
+        await tripService.joinTrip(id);
+        toast({
+          title: "Interest expressed!",
+          description: "The organizer will be notified of your interest.",
+        });
+      }
       setIsInterested(!isInterested);
-    } catch (err) {
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || 'Failed to update interest',
+        variant: "destructive",
+      });
       console.error('Error expressing interest:', err);
     }
   };
 
   const handleAddComment = async () => {
-    if (comment.trim()) {
-      try {
-        // TODO: Replace with actual API call
-        // await apiRequest(`${apiConfig.baseURL}${endpoints.trips}/${id}/comments`, {
-        //   method: 'POST',
-        //   body: JSON.stringify({ content: comment })
-        // });
-        console.log("Adding comment:", comment);
-        setComment("");
-      } catch (err) {
-        console.error('Error adding comment:', err);
-      }
+    if (!comment.trim() || !id || isSubmittingComment) return;
+    
+    try {
+      setIsSubmittingComment(true);
+      const newComment = await tripService.addTripComment(id, comment.trim());
+      setComments(prev => [newComment, ...prev]);
+      setComment("");
+      toast({
+        title: "Comment added",
+        description: "Your comment has been posted successfully.",
+      });
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || 'Failed to add comment',
+        variant: "destructive",
+      });
+      console.error('Error adding comment:', err);
+    } finally {
+      setIsSubmittingComment(false);
     }
   };
 
@@ -162,11 +169,11 @@ const TripDetail = () => {
       {/* Trip Header */}
       <Card className="bg-surface-elevated mb-8 overflow-hidden">
         <div className="aspect-video relative">
-          <img src={trip.image} alt={trip.title} className="w-full h-full object-cover" />
+          <img src={trip.images?.[0] || castleEurope} alt={trip.title} className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-black/40"></div>
           <div className="absolute top-4 right-4">
-            <Badge className={`${trip.status === "Open" ? "bg-success" : trip.status === "Seeking Buddies" ? "bg-warning" : "bg-destructive"} text-white`}>
-              {trip.status}
+            <Badge className={`${trip.status === "open" ? "bg-green-500" : trip.status === "full" ? "bg-yellow-500" : "bg-red-500"} text-white`}>
+              {trip.status.charAt(0).toUpperCase() + trip.status.slice(1)}
             </Badge>
           </div>
           <div className="absolute bottom-6 left-6 text-white">
@@ -178,11 +185,11 @@ const TripDetail = () => {
               </div>
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4" />
-                {trip.dates}
+                {new Date(trip.startDate).toLocaleDateString()} - {new Date(trip.endDate).toLocaleDateString()}
               </div>
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4" />
-                {trip.participants}/{trip.maxParticipants} travelers
+                {trip.currentParticipants}/{trip.maxParticipants} travelers
               </div>
               <div className="flex items-center gap-2">
                 <DollarSign className="w-4 h-4" />
@@ -204,14 +211,14 @@ const TripDetail = () => {
             <CardContent>
               <div className="flex items-start gap-4">
                 <Avatar className="w-16 h-16">
-                  <AvatarImage src={trip.organizerAvatar} />
+                  <AvatarImage src={trip.organizer.avatar} />
                   <AvatarFallback className="bg-primary text-primary-foreground text-lg">
-                    {trip.organizer.split(' ').map(n => n[0]).join('')}
+                    {trip.organizer.name.split(' ').map(n => n[0]).join('')}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold">{trip.organizer}</h3>
-                  <p className="text-muted-foreground text-sm mb-3">{trip.organizerBio}</p>
+                  <h3 className="text-lg font-semibold">{trip.organizer.name}</h3>
+                  <p className="text-muted-foreground text-sm mb-3">{trip.organizer.bio || 'Travel enthusiast'}</p>
                   <Button size="sm" variant="outline">
                     View Profile
                   </Button>
@@ -258,8 +265,20 @@ const TripDetail = () => {
                   onChange={(e) => setComment(e.target.value)}
                   className="min-h-20"
                 />
-                <Button onClick={handleAddComment} size="sm" className="bg-gradient-primary text-white">
-                  Add Comment
+                <Button 
+                  onClick={handleAddComment} 
+                  size="sm" 
+                  className="bg-gradient-primary text-white"
+                  disabled={isSubmittingComment || !comment.trim()}
+                >
+                  {isSubmittingComment ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    'Add Comment'
+                  )}
                 </Button>
               </div>
 
@@ -270,20 +289,20 @@ const TripDetail = () => {
                 {comments.map((commentItem) => (
                   <div key={commentItem.id} className="flex gap-4">
                     <Avatar className="w-10 h-10">
-                      <AvatarImage src={commentItem.avatar} />
+                      <AvatarImage src={commentItem.user.avatar} />
                       <AvatarFallback className="bg-primary text-primary-foreground">
-                        {commentItem.user.charAt(0).toUpperCase()}
+                        {commentItem.user.name.charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="font-semibold text-sm">{commentItem.user}</span>
-                        <span className="text-xs text-muted-foreground">{commentItem.time}</span>
+                        <span className="font-semibold text-sm">{commentItem.user.name}</span>
+                        <span className="text-xs text-muted-foreground">{formatTimeAgo(commentItem.createdAt)}</span>
                       </div>
                       <p className="text-sm mb-2">{commentItem.content}</p>
                       <div className="flex items-center gap-4">
                         <Button variant="ghost" size="sm" className="text-xs h-6 px-2">
-                          <Heart className="w-3 h-3 mr-1" />
+                          <Heart className={`w-3 h-3 mr-1 ${commentItem.isLiked ? 'fill-red-500 text-red-500' : ''}`} />
                           {commentItem.likes}
                         </Button>
                         <Button variant="ghost" size="sm" className="text-xs h-6 px-2">
@@ -337,18 +356,22 @@ const TripDetail = () => {
                   <p className="font-medium mb-1">Trip Type</p>
                   <p className="text-muted-foreground">{trip.type}</p>
                 </div>
-                <div>
-                  <p className="font-medium mb-1">Meeting Point</p>
-                  <p className="text-muted-foreground">{trip.meetingPoint}</p>
-                </div>
-                <div>
-                  <p className="font-medium mb-1">Requirements</p>
-                  <ul className="text-muted-foreground space-y-1">
-                    {trip.requirements.map((req, index) => (
-                      <li key={index} className="text-xs">• {req}</li>
-                    ))}
-                  </ul>
-                </div>
+                {trip.meetingPoint && (
+                  <div>
+                    <p className="font-medium mb-1">Meeting Point</p>
+                    <p className="text-muted-foreground">{trip.meetingPoint}</p>
+                  </div>
+                )}
+                {trip.requirements && trip.requirements.length > 0 && (
+                  <div>
+                    <p className="font-medium mb-1">Requirements</p>
+                    <ul className="text-muted-foreground space-y-1">
+                      {trip.requirements.map((req, index) => (
+                        <li key={index} className="text-xs">• {req}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -360,7 +383,7 @@ const TripDetail = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {participants.map((participant) => (
+                {trip.participants.map((participant) => (
                   <div key={participant.id} className="flex items-center gap-3">
                     <Avatar className="w-10 h-10">
                       <AvatarImage src={participant.avatar} />
@@ -372,7 +395,7 @@ const TripDetail = () => {
                       <p className="font-medium text-sm">{participant.name}</p>
                       <p className="text-xs text-muted-foreground">{participant.username}</p>
                     </div>
-                    {participant.role === "Organizer" && (
+                    {participant.role === "organizer" && (
                       <Badge variant="outline" className="text-xs">
                         Organizer
                       </Badge>
@@ -381,7 +404,7 @@ const TripDetail = () => {
                 ))}
                 <div className="text-center pt-2">
                   <p className="text-xs text-muted-foreground">
-                    {trip.maxParticipants - trip.participants} spots remaining
+                    {trip.maxParticipants - trip.currentParticipants} spots remaining
                   </p>
                 </div>
               </div>
