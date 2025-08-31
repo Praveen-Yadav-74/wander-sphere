@@ -2,6 +2,24 @@ import supabase from '../config/supabase.js';
 import jwt from 'jsonwebtoken';
 
 class AuthService {
+  // Test Supabase connection
+  async testConnection() {
+    try {
+      // Simple query to test connection
+      const { data, error } = await supabase
+        .from('users')
+        .select('count')
+        .limit(1);
+      
+      if (error) {
+        return { data: null, error };
+      }
+      
+      return { data: { connected: true, timestamp: new Date().toISOString() }, error: null };
+    } catch (error) {
+      return { data: null, error };
+    }
+  }
   // Register a new user with Supabase Auth
   async register(userData) {
     const { firstName, lastName, email, password } = userData;

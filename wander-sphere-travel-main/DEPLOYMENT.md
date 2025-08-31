@@ -49,6 +49,54 @@ VITE_ENABLE_REAL_TIME_CHAT=true
    - Output Directory: `dist`
    - Install Command: `npm install`
 
+## 🖥️ Render Backend Deployment
+
+### Current Issue: 503 Server Unavailable
+
+The backend is currently returning 503 errors. This is likely due to missing environment variables in Render.
+
+### Required Environment Variables for Render
+
+Set these in your Render dashboard under Environment Variables:
+
+```bash
+# Server Configuration
+NODE_ENV=production
+PORT=10000
+FRONTEND_URL=https://wander-sphere-zpml.vercel.app
+
+# Supabase Configuration
+SUPABASE_URL=https://gserzaenfrmrqoffzcxr.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzZXJ6YWVuZnJtcnFvZmZ6Y3hyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NjExNzc5OSwiZXhwIjoyMDcxNjkzNzk5fQ.odO_-TqCDpliDv-TplUokm08gfoZARABo62vCTDRWCw
+
+# JWT Configuration
+JWT_SECRET=h9LRCfE5MCk4r0C3GnPGxfSfJG6xr71iDZhQpuQMe+4JR7KmICgox+K1Qfrw/iaiaWvq0hrTVHPox3Ixml44Tw==
+JWT_EXPIRES_IN=7d
+JWT_REFRESH_EXPIRES_IN=30d
+
+# Rate Limiting
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=100
+
+# File Upload Limits
+MAX_FILE_SIZE=10485760
+MAX_FILES_PER_REQUEST=5
+```
+
+### Render Service Configuration
+
+1. **Build Command**: `cd backend && npm install`
+2. **Start Command**: `cd backend && npm start`
+3. **Environment**: Node
+4. **Health Check Path**: `/health`
+
+### Troubleshooting Steps
+
+1. **Check Environment Variables**: Ensure all required variables are set in Render dashboard
+2. **Verify Build Logs**: Check Render build logs for any errors
+3. **Test Health Endpoint**: Once deployed, test `https://wander-sphere-ue7e.onrender.com/health`
+4. **Check Service Logs**: Monitor Render service logs for runtime errors
+
 3. **Add Environment Variables:**
    - Go to Project Settings → Environment Variables
    - Add all the variables listed above

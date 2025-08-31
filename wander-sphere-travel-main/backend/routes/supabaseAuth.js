@@ -6,6 +6,34 @@ import rateLimit from 'express-rate-limit';
 
 const router = express.Router();
 
+// Test endpoint to verify Supabase connection
+router.get('/test', async (req, res) => {
+  try {
+    // Simple query to test Supabase connection
+    const { data, error } = await authService.testConnection();
+    
+    if (error) {
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Supabase connection failed', 
+        error: error.message 
+      });
+    }
+    
+    res.json({ 
+      success: true, 
+      message: 'Supabase connection successful',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      message: 'Connection test failed', 
+      error: error.message 
+    });
+  }
+});
+
 // Rate limiting for auth routes
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
