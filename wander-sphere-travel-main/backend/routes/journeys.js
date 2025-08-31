@@ -190,6 +190,88 @@ router.get('/', optionalAuth, [
   }
 });
 
+// @route   GET /api/journeys/my-journeys
+// @desc    Get user's journeys
+// @access  Private
+router.get('/my-journeys', auth, [
+  query('status').optional().isIn(['draft', 'published', 'archived'])
+], async (req, res) => {
+  try {
+    const { status } = req.query;
+    
+    let userJourneys = Array.from(journeys.values()).filter(journey => 
+      journey.author === req.user.id
+    );
+    
+    // Filter by status if provided
+    if (status) {
+      userJourneys = userJourneys.filter(journey => journey.status === status);
+    }
+    
+    // Sort by creation date (newest first)
+    userJourneys.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    
+    const journeysWithStats = userJourneys.map(journey => ({
+      ...journey,
+      likeCount: journey.likes.length,
+      commentCount: journey.comments.length
+    }));
+
+    res.json({
+      success: true,
+      data: { journeys: journeysWithStats }
+    });
+  } catch (error) {
+    console.error('Get my journeys error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching your journeys'
+    });
+  }
+});
+
+// @route   GET /api/journeys/featured
+// @desc    Get featured journeys
+// @access  Public
+router.get('/featured', optionalAuth, async (req, res) => {
+  try {
+    const featuredJourneys = Array.from(journeys.values())
+      .filter(journey => journey.featured && journey.status === 'published' && journey.isPublic)
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 6);
+    
+    // Get author details
+    const authorIds = [...new Set(featuredJourneys.map(j => j.author))];
+    const authors = await Promise.all(
+      authorIds.map(id => SupabaseUser.findById(id))
+    );
+    
+    const authorsMap = authors.reduce((acc, author) => {
+      if (author) acc[author.id] = author;
+      return acc;
+    }, {});
+    
+    const journeysWithDetails = featuredJourneys.map(journey => ({
+      ...journey,
+      author: authorsMap[journey.author] || { firstName: 'Unknown', lastName: 'User' },
+      isLiked: req.user ? journey.likes.includes(req.user.id) : false,
+      likeCount: journey.likes.length,
+      commentCount: journey.comments.length
+    }));
+
+    res.json({
+      success: true,
+      data: { journeys: journeysWithDetails }
+    });
+  } catch (error) {
+    console.error('Get featured journeys error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching featured journeys'
+    });
+  }
+});
+
 // @route   GET /api/journeys/:id
 // @desc    Get journey by ID
 // @access  Public
@@ -555,88 +637,6 @@ router.post('/:id/comments', auth, [
     res.status(500).json({
       success: false,
       message: 'Server error while adding comment'
-    });
-  }
-});
-
-// @route   GET /api/journeys/my-journeys
-// @desc    Get user's journeys
-// @access  Private
-router.get('/my-journeys', auth, [
-  query('status').optional().isIn(['draft', 'published', 'archived'])
-], async (req, res) => {
-  try {
-    const { status } = req.query;
-    
-    let userJourneys = Array.from(journeys.values()).filter(journey => 
-      journey.author === req.user.id
-    );
-    
-    // Filter by status if provided
-    if (status) {
-      userJourneys = userJourneys.filter(journey => journey.status === status);
-    }
-    
-    // Sort by creation date (newest first)
-    userJourneys.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    
-    const journeysWithStats = userJourneys.map(journey => ({
-      ...journey,
-      likeCount: journey.likes.length,
-      commentCount: journey.comments.length
-    }));
-
-    res.json({
-      success: true,
-      data: { journeys: journeysWithStats }
-    });
-  } catch (error) {
-    console.error('Get my journeys error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error while fetching your journeys'
-    });
-  }
-});
-
-// @route   GET /api/journeys/featured
-// @desc    Get featured journeys
-// @access  Public
-router.get('/featured', optionalAuth, async (req, res) => {
-  try {
-    const featuredJourneys = Array.from(journeys.values())
-      .filter(journey => journey.featured && journey.status === 'published' && journey.isPublic)
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      .slice(0, 6);
-    
-    // Get author details
-    const authorIds = [...new Set(featuredJourneys.map(j => j.author))];
-    const authors = await Promise.all(
-      authorIds.map(id => SupabaseUser.findById(id))
-    );
-    
-    const authorsMap = authors.reduce((acc, author) => {
-      if (author) acc[author.id] = author;
-      return acc;
-    }, {});
-    
-    const journeysWithDetails = featuredJourneys.map(journey => ({
-      ...journey,
-      author: authorsMap[journey.author] || { firstName: 'Unknown', lastName: 'User' },
-      isLiked: req.user ? journey.likes.includes(req.user.id) : false,
-      likeCount: journey.likes.length,
-      commentCount: journey.comments.length
-    }));
-
-    res.json({
-      success: true,
-      data: { journeys: journeysWithDetails }
-    });
-  } catch (error) {
-    console.error('Get featured journeys error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error while fetching featured journeys'
     });
   }
 });
