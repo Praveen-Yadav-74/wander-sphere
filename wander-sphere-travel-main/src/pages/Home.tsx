@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, FC, useCallback, useMemo, ChangeEvent, KeyboardEvent } from "react";
-import { Plus, Camera, Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, MapPin, X, ChevronLeft, ChevronRight, Send, Flag, UserX, Smile, AtSign, Hash, Search, Link, Palette, AlignLeft, AlignCenter, AlignRight, Compass, Film, BellOff, Layers, Home as HomeIcon, CheckCircle, Play, Loader2 } from "lucide-react";
+import { Plus, Camera, Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, MapPin, X, ChevronLeft, ChevronRight, Send, Flag, UserX, Smile, AtSign, Hash, Search, Link, Palette, AlignLeft, AlignCenter, AlignRight, Compass, Film, BellOff, Layers, Home as HomeIcon, CheckCircle, Play, Loader2, Luggage } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +12,8 @@ import { ToastAction } from "@/components/ui/toast";
 import { Switch } from "@/components/ui/switch";
 import { apiRequest } from "@/utils/api";
 import { apiConfig, endpoints } from "@/config/api";
+import { journeyService } from "@/services/journeyService";
+import { storyService } from "@/services/storyService";
 import heroBeach from "@/assets/hero-beach.jpg";
 import mountainAdventure from "@/assets/mountain-adventure.jpg";
 import streetFood from "@/assets/street-food.jpg";
@@ -146,28 +148,52 @@ const CreatePostDialog: FC<CreatePostDialogProps> = React.memo(({ open, onOpenCh
         
         try {
             setIsUploading(true);
-            // TODO: Replace with actual API call
-            // const formData = new FormData();
-            // formData.append('image', selectedFile);
-            // formData.append('caption', caption);
-            // formData.append('location', location);
-            // await apiRequest(endpoints.posts.create, {
-            //   method: 'POST',
-            //   body: formData
-            // });
             
-            toast({
-                title: "Success",
-                description: "Post created successfully! (API integration pending)",
-            });
+            // First upload the image to media service
+            const formData = new FormData();
+            formData.append('image', selectedFile);
             
-            onOpenChange(false);
-            resetForm();
-        } catch (error) {
+            const mediaResponse = await apiRequest(
+                `${apiConfig.baseURL}/media/temp`,
+                {
+                    method: 'POST',
+                    body: formData,
+                }
+            ) as { success: boolean; data?: { url: string }; message?: string };
+            
+            if (!mediaResponse.success || !mediaResponse.data) {
+                throw new Error('Failed to upload image');
+            }
+            
+            // Create the journey/post with the uploaded image
+            const journeyData = {
+                title: caption.slice(0, 50) + (caption.length > 50 ? '...' : ''), // Use first part of caption as title
+                description: caption,
+                content: caption,
+                isPublic: isPublic,
+                images: [mediaResponse.data.url],
+                destinations: location ? [location] : [],
+                tags: [],
+            };
+            
+            const response = await journeyService.createJourney(journeyData);
+            
+            if (response.success) {
+                toast({
+                    title: "Success",
+                    description: "Post created successfully!",
+                });
+                
+                onOpenChange(false);
+                resetForm();
+            } else {
+                throw new Error(response.message || 'Failed to create post');
+            }
+        } catch (error: any) {
             console.error('Error creating post:', error);
             toast({
                 title: "Error",
-                description: "Failed to create post. Please try again.",
+                description: error.message || "Failed to create post. Please try again.",
                 variant: "destructive"
             });
         } finally {
@@ -314,26 +340,35 @@ const AddStoryDialog: FC<AddStoryDialogProps> = React.memo(({ open, onOpenChange
         
         try {
             setIsUploading(true);
-            // TODO: Replace with actual API call
-            // const formData = new FormData();
-            // formData.append('story', selectedFile);
-            // await apiRequest(endpoints.stories.create, {
-            //   method: 'POST',
-            //   body: formData
-            // });
             
-            toast({
-                title: "Success",
-                description: "Story uploaded successfully! (API integration pending)",
-            });
+            // Determine media type
+            const mediaType = selectedFile.type.startsWith('video/') ? 'video' : 'image';
             
-            onOpenChange(false);
-            resetForm();
-        } catch (error) {
+            // Create story data
+            const storyData = {
+                media: selectedFile,
+                mediaType: mediaType as 'image' | 'video',
+                duration: mediaType === 'video' ? 15 : undefined, // Default 15 seconds for video
+            };
+            
+            const response = await storyService.createStory(storyData);
+            
+            if (response.success) {
+                toast({
+                    title: "Success",
+                    description: "Story uploaded successfully!",
+                });
+                
+                onOpenChange(false);
+                resetForm();
+            } else {
+                throw new Error(response.message || 'Failed to upload story');
+            }
+        } catch (error: any) {
             console.error('Error uploading story:', error);
             toast({
                 title: "Error",
-                description: "Failed to upload story. Please try again.",
+                description: error.message || "Failed to upload story. Please try again.",
                 variant: "destructive"
             });
         } finally {
@@ -552,12 +587,30 @@ const Home: FC = () => {
   const fetchPosts = useCallback(async () => {
     try {
       setIsLoadingPosts(true);
-      // TODO: Replace with actual API endpoint when available
-      // const response = await apiRequest<Post[]>(`${apiConfig.baseURL}/posts`);
-      // setPosts(response);
+      const response = await journeyService.getMyJourneys();
       
-      // For now, show empty state since we're removing mock data
-      setPosts([]);
+      if (response.success && response.data) {
+         // Transform journey data to post format
+         const journeys = response.data.journeys || response.data;
+         const transformedPosts = Array.isArray(journeys) ? journeys.map((journey: any) => ({
+           id: journey.id,
+           user: journey.author?.name || 'Anonymous',
+           avatar: journey.author?.avatar || '/placeholder-avatar.jpg',
+           location: journey.destinations?.[0] || 'Unknown',
+           time: new Date(journey.createdAt).toLocaleDateString(),
+           image: journey.images?.[0] || heroBeach,
+           caption: journey.description || journey.content || '',
+           likes: journey.likes || 0,
+           comments: journey.comments?.length || 0,
+           isLiked: journey.isLiked || false,
+           isSaved: journey.isSaved || false,
+           hasMultipleImages: journey.images?.length > 1,
+           hasVideo: false
+         })) : [];
+         setPosts(transformedPosts);
+      } else {
+        setPosts([]);
+      }
     } catch (error) {
       console.error('Failed to fetch posts:', error);
       toast({
@@ -574,14 +627,30 @@ const Home: FC = () => {
   const fetchStories = useCallback(async () => {
     try {
       setIsLoadingStories(true);
-      // TODO: Replace with actual API endpoint when available
-      // const response = await apiRequest<Story[]>(`${apiConfig.baseURL}/stories`);
-      // setStories([{ id: "1", user: "Your Story", avatar: "", media: "", isOwn: true }, ...response]);
+      const response = await storyService.getStories();
       
-      // For now, show only "Your Story" option
-      setStories([{ id: "1", user: "Your Story", avatar: "", media: "", isOwn: true }]);
+      if (response.success && response.data) {
+         // Transform story data and add "Your Story" option
+         const stories = response.data.stories || response.data;
+         const transformedStories = Array.isArray(stories) ? stories.map((story: any) => ({
+           id: story.id,
+           user: story.author?.name || 'Anonymous',
+           avatar: story.author?.avatar || '/placeholder-avatar.jpg',
+           media: story.mediaUrl || '',
+           timestamp: story.createdAt,
+           viewed: story.viewed || false,
+           isOwn: false,
+           hasStory: true
+         })) : [];
+         setStories([{ id: "1", user: "Your Story", avatar: "", media: "", isOwn: true }, ...transformedStories]);
+      } else {
+        // Show only "Your Story" option if no stories available
+        setStories([{ id: "1", user: "Your Story", avatar: "", media: "", isOwn: true }]);
+      }
     } catch (error) {
       console.error('Failed to fetch stories:', error);
+      // Fallback to "Your Story" only
+      setStories([{ id: "1", user: "Your Story", avatar: "", media: "", isOwn: true }]);
     } finally {
       setIsLoadingStories(false);
     }
@@ -626,37 +695,152 @@ const Home: FC = () => {
   const prevStory = useCallback(() => setActiveStoryIndex(prev => (prev !== null && prev > 0 ? prev - 1 : null)), []);
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-background to-muted/20">
-      {/* Left Sidebar Navigation - Hidden on mobile, visible on desktop */}
-      <div className="hidden lg:flex w-56 xl:w-64 bg-background/80 backdrop-blur-sm flex-col h-screen sticky top-0 shadow-sm">
-        <div className="p-4 lg:p-6">
-          <h1 className="text-lg lg:text-xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">WanderSphere</h1>
-        </div>
-        <div className="flex flex-col flex-1 py-2 px-2">
-            <Button variant="ghost" className={`justify-start py-3 lg:py-4 mb-1 rounded-lg transition-all duration-200 ${activeTab === 'feed' ? 'bg-primary/10 text-primary shadow-sm' : 'hover:bg-muted/50'}`} onClick={() => setActiveTab('feed')}><HomeIcon className="w-4 h-4 lg:w-5 lg:h-5 mr-2 lg:mr-3" /> <span className="text-sm lg:text-base">Feed</span></Button>
-            <Button variant="ghost" className={`justify-start py-3 lg:py-4 mb-1 rounded-lg transition-all duration-200 ${activeTab === 'explore' ? 'bg-primary/10 text-primary shadow-sm' : 'hover:bg-muted/50'}`} onClick={() => setActiveTab('explore')}><Compass className="w-4 h-4 lg:w-5 lg:h-5 mr-2 lg:mr-3" /> <span className="text-sm lg:text-base">Explore</span></Button>
-            <Button variant="ghost" className={`justify-start py-3 lg:py-4 mb-1 rounded-lg transition-all duration-200 ${activeTab === 'reels' ? 'bg-primary/10 text-primary shadow-sm' : 'hover:bg-muted/50'}`} onClick={() => setActiveTab('reels')}><Film className="w-4 h-4 lg:w-5 lg:h-5 mr-2 lg:mr-3" /> <span className="text-sm lg:text-base">Reels</span></Button>
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted/20 relative">
+      {/* Floating Navigation - Compact and hoverable */}
+      <div className="fixed top-24 left-4 z-50 group">
+        <div className="bg-background/90 backdrop-blur-md rounded-2xl shadow-lg border border-border/50 transition-all duration-300 group-hover:shadow-xl">
+          {/* Collapsed state - only icons visible */}
+          <div className="flex flex-col gap-1 p-2 group-hover:hidden">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className={`h-8 w-8 rounded-xl transition-all duration-200 ${activeTab === 'feed' ? 'bg-primary text-primary-foreground shadow-md' : 'hover:bg-muted/80'}`} 
+              onClick={() => setActiveTab('feed')}
+            >
+              <HomeIcon className="w-4 h-4" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className={`h-8 w-8 rounded-xl transition-all duration-200 ${activeTab === 'explore' ? 'bg-primary text-primary-foreground shadow-md' : 'hover:bg-muted/80'}`} 
+              onClick={() => setActiveTab('explore')}
+            >
+              <Compass className="w-4 h-4" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className={`h-8 w-8 rounded-xl transition-all duration-200 ${activeTab === 'reels' ? 'bg-primary text-primary-foreground shadow-md' : 'hover:bg-muted/80'}`} 
+              onClick={() => setActiveTab('reels')}
+            >
+              <Film className="w-4 h-4" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8 rounded-xl transition-all duration-200 hover:bg-muted/80" 
+              onClick={() => window.location.href = '/booking'}
+            >
+              <Luggage className="w-4 h-4" />
+            </Button>
+          </div>
+          
+          {/* Expanded state - icons with labels on hover */}
+          <div className="hidden group-hover:block p-3 min-w-[140px]">
+            <div className="flex flex-col gap-1">
+              <Button 
+                variant="ghost" 
+                className={`justify-start py-2 px-3 rounded-xl transition-all duration-200 ${activeTab === 'feed' ? 'bg-primary text-primary-foreground shadow-md' : 'hover:bg-muted/80'}`} 
+                onClick={() => setActiveTab('feed')}
+              >
+                <HomeIcon className="w-4 h-4 mr-2" /> 
+                <span className="text-sm">Feed</span>
+              </Button>
+              <Button 
+                variant="ghost" 
+                className={`justify-start py-2 px-3 rounded-xl transition-all duration-200 ${activeTab === 'explore' ? 'bg-primary text-primary-foreground shadow-md' : 'hover:bg-muted/80'}`} 
+                onClick={() => setActiveTab('explore')}
+              >
+                <Compass className="w-4 h-4 mr-2" /> 
+                <span className="text-sm">Explore</span>
+              </Button>
+              <Button 
+                variant="ghost" 
+                className={`justify-start py-2 px-3 rounded-xl transition-all duration-200 ${activeTab === 'reels' ? 'bg-primary text-primary-foreground shadow-md' : 'hover:bg-muted/80'}`} 
+                onClick={() => setActiveTab('reels')}
+              >
+                <Film className="w-4 h-4 mr-2" /> 
+                <span className="text-sm">Reels</span>
+              </Button>
+              <Button 
+                variant="ghost" 
+                className="justify-start py-2 px-3 rounded-xl transition-all duration-200 hover:bg-muted/80" 
+                onClick={() => window.location.href = '/booking'}
+              >
+                <Luggage className="w-4 h-4 mr-2" /> 
+                <span className="text-sm">Bookings</span>
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Mobile Tab Navigation - Visible only on mobile */}
-      <div className="lg:hidden bg-background/95 backdrop-blur-md sticky top-0 z-40 shadow-sm">
-        <div className="flex flex-col gap-2 py-3 px-2">
-          <Button variant="ghost" size="sm" className={`w-full py-2 rounded-lg transition-all duration-200 justify-start ${activeTab === 'feed' ? 'bg-primary/10 text-primary shadow-sm' : 'hover:bg-muted/50'}`} onClick={() => setActiveTab('feed')}>
-            <HomeIcon className="w-4 h-4 mr-2" /> <span className="text-sm">Feed</span>
+      {/* Quick Actions Floating Button - Mobile */}
+      <div className="fixed bottom-20 right-4 z-50 lg:hidden">
+        <div className="flex flex-col gap-2">
+          <Button 
+            onClick={() => setIsCreatePostOpen(true)}
+            className="h-12 w-12 rounded-full bg-gradient-to-r from-primary to-primary/80 shadow-lg hover:shadow-xl transition-all duration-300"
+          >
+            <Plus className="w-6 h-6" />
           </Button>
-          <Button variant="ghost" size="sm" className={`w-full py-2 rounded-lg transition-all duration-200 justify-start ${activeTab === 'explore' ? 'bg-primary/10 text-primary shadow-sm' : 'hover:bg-muted/50'}`} onClick={() => setActiveTab('explore')}>
-            <Compass className="w-4 h-4 mr-2" /> <span className="text-sm">Explore</span>
+          <Button 
+            onClick={() => setIsAddStoryOpen(true)}
+            variant="outline"
+            className="h-10 w-10 rounded-full bg-background/90 backdrop-blur-sm border-border/50 shadow-md hover:shadow-lg transition-all duration-300"
+          >
+            <Camera className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" size="sm" className={`w-full py-2 rounded-lg transition-all duration-200 justify-start ${activeTab === 'reels' ? 'bg-primary/10 text-primary shadow-sm' : 'hover:bg-muted/50'}`} onClick={() => setActiveTab('reels')}>
-            <Film className="w-4 h-4 mr-2" /> <span className="text-sm">Reels</span>
-          </Button>
+        </div>
+      </div>
+
+      {/* Mobile Bottom Navigation - Bookings Section */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 lg:hidden">
+        <div className="bg-background/95 backdrop-blur-md border-t border-border/50 px-4 py-2">
+          <div className="flex items-center justify-around">
+            <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 h-auto py-2">
+              <HomeIcon className="w-5 h-5" />
+              <span className="text-xs">Home</span>
+            </Button>
+            <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 h-auto py-2">
+              <Search className="w-5 h-5" />
+              <span className="text-xs">Search</span>
+            </Button>
+            <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 h-auto py-2">
+              <Compass className="w-5 h-5" />
+              <span className="text-xs">Explore</span>
+            </Button>
+            <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 h-auto py-2">
+               <Bookmark className="w-5 h-5" />
+               <span className="text-xs">Bookings</span>
+             </Button>
+            <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 h-auto py-2">
+              <Avatar className="w-5 h-5">
+                <AvatarImage src="/api/placeholder/32/32" alt="Profile" />
+                <AvatarFallback className="text-xs">U</AvatarFallback>
+              </Avatar>
+              <span className="text-xs">Profile</span>
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto pt-20 lg:pt-6 pb-20 lg:pb-6">
         <div className="w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl mx-auto px-3 sm:px-4 md:px-6 py-4 md:py-6">
+          {/* Header with Create Post Button */}
+          <div className="hidden lg:flex justify-end items-center mb-6 lg:mb-8">
+            <div className="flex gap-3">
+              <Button onClick={() => setIsCreatePostOpen(true)} className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-md hover:shadow-lg transition-all duration-300">
+                <Plus className="w-4 h-4 mr-2" />
+                Create Post
+              </Button>
+              <Button onClick={() => setIsAddStoryOpen(true)} variant="outline" className="border-primary/20 hover:bg-primary/5 shadow-sm hover:shadow-md transition-all duration-300">
+                <Camera className="w-4 h-4 mr-2" />
+                Add Story
+              </Button>
+            </div>
+          </div>
           {/* Top Search Bar */}
           <div className="mb-4 md:mb-6">
             <div className="relative">

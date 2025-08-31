@@ -233,6 +233,8 @@ export const CacheKeys = {
   searchResults: (query: string, type: string) => `search_${type}_${query}`,
   clubs: () => 'clubs_list',
   clubDetail: (clubId: string) => `club_detail_${clubId}`,
+  stories: (type: string) => `stories_${type}`,
+  storyDetail: (storyId: string) => `story_detail_${storyId}`,
   BOOKING_PARTNERS: 'booking_partners',
   BOOKING_FEATURES: 'booking_features',
 };

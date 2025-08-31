@@ -90,6 +90,16 @@ export const endpoints = {
     trending: '/journeys/trending',
   },
 
+  // Stories
+  stories: {
+    list: '/stories',
+    create: '/stories',
+    detail: (storyId: string) => `/stories/${storyId}`,
+    delete: (storyId: string) => `/stories/${storyId}`,
+    view: (storyId: string) => `/stories/${storyId}/view`,
+    feed: '/stories/feed',
+  },
+
   // Budget
   budget: {
     list: '/budget',
