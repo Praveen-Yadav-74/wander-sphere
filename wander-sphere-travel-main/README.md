@@ -1,74 +1,183 @@
 # WanderSphere Travel App
 
-A modern travel social platform built with React, TypeScript, and Tailwind CSS.
-
-<!-- Last deployment trigger: 2025-01-25 -->
+A modern travel social platform built with React, TypeScript, and Node.js, featuring a comprehensive backend API and beautiful frontend interface.
 
 ## Features
 
-- Social feed with stories and posts
-- Travel clubs and trip discovery
-- Interactive travel map
-- Budget planning and tracking
-- Booking integration
+- **Social Features**: Stories, posts, and travel communities
+- **Trip Management**: Create, share, and discover travel experiences
+- **Interactive Maps**: Explore destinations with Leaflet integration
+- **Budget Planning**: Track expenses and plan travel budgets
+- **User Profiles**: Customizable profiles with travel statistics
+- **Real-time Features**: Live updates and notifications
+- **Booking Integration**: Partner integrations for travel bookings
+- **Authentication**: Secure user authentication with Supabase
 
-## Security Notice
+## Architecture
 
-For security reasons, this project uses Command Prompt batch files instead of PowerShell scripts. PowerShell has more extensive permissions that could potentially be exploited, while Command Prompt provides a more restricted environment.
+- **Frontend**: React + TypeScript + Vite
+- **Backend**: Node.js + Express API
+- **Database**: Supabase (PostgreSQL)
+- **Deployment**: 
+  - Backend: Render (https://wander-sphere-ue7e.onrender.com)
+  - Frontend: Ready for Vercel deployment
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js (v14 or higher)
-- npm or yarn
+- Node.js (v18 or higher)
+- npm
+- Git
 
 ### Installation
 
-1. Clone the repository
-2. Navigate to the project directory
-
-### Running the Development Server
-
-To start the development server, double-click the `start-dev.bat` file or run it from Command Prompt:
-
-```
-start-dev.bat
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd wander-sphere-travel
 ```
 
-This will install dependencies (if needed) and start the development server.
+2. Install frontend dependencies:
+```bash
+npm install
+```
+
+3. Install backend dependencies:
+```bash
+cd backend
+npm install
+cd ..
+```
+
+4. Set up environment variables:
+   - Copy `.env.example` to `.env` in the root directory
+   - Copy `backend/.env.example` to `backend/.env`
+   - Configure your Supabase credentials and other settings
+
+### Development
+
+#### Frontend Development
+```bash
+npm run dev
+```
+The frontend will be available at `http://localhost:5173`
+
+#### Backend Development
+```bash
+cd backend
+npm run dev
+```
+The backend API will be available at `http://localhost:3000`
 
 ### Building for Production
 
-To build the project for production, double-click the `build.bat` file or run it from Command Prompt:
-
+#### Frontend Build
+```bash
+npm run build
 ```
-build.bat
-```
+This creates an optimized build in the `dist` directory.
 
-This will create an optimized production build in the `dist` directory.
+#### Backend Deployment
+The backend is configured for Render deployment with `render.yaml`.
 
 ## Project Structure
 
 ```
-src/
-├── assets/       # Images and static assets
-├── components/   # Reusable UI components
-├── hooks/        # Custom React hooks
-├── lib/          # Utility functions
-├── pages/        # Application pages
+├── src/                    # Frontend source code
+│   ├── components/         # Reusable UI components
+│   ├── pages/             # Application pages
+│   ├── hooks/             # Custom React hooks
+│   ├── services/          # API service functions
+│   ├── contexts/          # React contexts
+│   ├── types/             # TypeScript type definitions
+│   ├── utils/             # Utility functions
+│   └── config/            # Configuration files
+├── backend/               # Backend API
+│   ├── routes/            # API route handlers
+│   ├── models/            # Data models
+│   ├── middleware/        # Express middleware
+│   ├── services/          # Business logic
+│   ├── config/            # Backend configuration
+│   └── scripts/           # Database scripts
+├── public/                # Static assets
+└── docs/                  # Documentation
 ```
+
+## API Documentation
+
+The backend provides a comprehensive REST API with the following endpoints:
+
+- **Authentication**: `/api/auth/*`
+- **Users**: `/api/users/*`
+- **Trips**: `/api/trips/*`
+- **Stories**: `/api/stories/*`
+- **Clubs**: `/api/clubs/*`
+- **Bookings**: `/api/booking/*`
+- **Budget**: `/api/budget/*`
+
+API Base URL: `https://wander-sphere-ue7e.onrender.com/api`
 
 ## Technologies Used
 
-- React
+### Frontend
+- React 18
 - TypeScript
+- Vite
 - Tailwind CSS
-- Shadcn UI
+- Shadcn/ui
 - React Router
-- React Query
-- Leaflet (for maps)
+- TanStack Query
+- Leaflet Maps
+- Framer Motion
+
+### Backend
+- Node.js
+- Express.js
+- Supabase (PostgreSQL)
+- JWT Authentication
+- Multer (File uploads)
+- CORS
+
+### Development Tools
+- ESLint
+- TypeScript
+- Vite
+- PostCSS
+
+## Environment Variables
+
+### Frontend (.env)
+```
+VITE_API_BASE_URL=https://wander-sphere-ue7e.onrender.com
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+### Backend (backend/.env)
+```
+SUPABASE_URL=your_supabase_url
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+JWT_SECRET=your_jwt_secret
+PORT=3000
+```
+
+## Deployment
+
+### Backend (Render)
+The backend is deployed on Render and configured via `render.yaml`.
+
+### Frontend (Vercel)
+The frontend is ready for Vercel deployment with `vercel.json` configuration.
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests and linting
+5. Submit a pull request
 
 ## License
 
-MIT
+MIT License - see LICENSE file for details

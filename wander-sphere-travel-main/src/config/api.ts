@@ -6,13 +6,14 @@
 import { supabase } from './supabase';
 
 // Environment variables with fallbacks
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://wander-sphere-ue7e.onrender.com/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://wander-sphere-ue7e.onrender.com';
+const API_BASE_URL_WITH_PREFIX = `${API_BASE_URL}/api`;
 const API_TIMEOUT = parseInt(import.meta.env.VITE_API_TIMEOUT || '20000');
 const ENABLE_API_LOGGING = import.meta.env.VITE_ENABLE_API_LOGGING === 'true';
 
 // API Configuration
 export const apiConfig = {
-  baseURL: API_BASE_URL,
+  baseURL: API_BASE_URL_WITH_PREFIX,
   timeout: API_TIMEOUT,
   enableLogging: ENABLE_API_LOGGING,
   headers: {

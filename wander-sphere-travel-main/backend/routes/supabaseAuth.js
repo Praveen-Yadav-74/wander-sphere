@@ -9,26 +9,21 @@ const router = express.Router();
 // Test endpoint to verify Supabase connection
 router.get('/test', async (req, res) => {
   try {
-    // Simple query to test Supabase connection
-    const { data, error } = await authService.testConnection();
+    // Test Supabase connection and users table
+    const result = await authService.testConnection();
     
-    if (error) {
-      return res.status(500).json({ 
-        success: false, 
-        message: 'Supabase connection failed', 
-        error: error.message 
-      });
+    if (!result.success) {
+      return res.status(500).json(result);
     }
     
-    res.json({ 
-      success: true, 
-      message: 'Supabase connection successful',
+    res.json({
+      ...result,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
     res.status(500).json({ 
       success: false, 
-      message: 'Connection test failed', 
+      message: 'Supabase connection test failed', 
       error: error.message 
     });
   }

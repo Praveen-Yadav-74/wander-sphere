@@ -2,8 +2,8 @@
 
 ## 🚀 Live Application
 
-- **Frontend (Vercel):** https://wander-sphere-zpml.vercel.app/
 - **Backend (Render):** https://wander-sphere-ue7e.onrender.com
+- **Frontend:** Ready for Vercel deployment
 
 ## 📋 Environment Variables for Vercel
 
@@ -13,17 +13,17 @@ To ensure your Vercel deployment works correctly, add these environment variable
 
 ```bash
 # API Configuration
-VITE_API_BASE_URL=https://wander-sphere-ue7e.onrender.com/api
+VITE_API_BASE_URL=https://wander-sphere-ue7e.onrender.com
 VITE_API_TIMEOUT=20000
 VITE_ENABLE_API_LOGGING=false
 
 # Authentication
-VITE_JWT_SECRET=h9LRCfE5MCk4r0C3GnPGxfSfJG6xr71iDZhQpuQMe+4JR7KmICgox+K1Qfrw/iaiaWvq0hrTVHPox3Ixml44Tw==
+VITE_JWT_SECRET=your_jwt_secret_here
 VITE_TOKEN_EXPIRY=24h
 
 # Supabase Configuration
-VITE_SUPABASE_URL=https://gserzaenfrmrqoffzcxr.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzZXJ6YWVuZnJtcnFvZmZ6Y3hyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxMTc3OTksImV4cCI6MjA3MTY5Mzc5OX0.QjIchTrYF-P47wzEA12rN60xdF7rclYyst_28tet80I
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 
 # App Configuration
 VITE_APP_NAME=WanderSphere
@@ -35,6 +35,8 @@ VITE_ENABLE_ANALYTICS=true
 VITE_ENABLE_PUSH_NOTIFICATIONS=true
 VITE_ENABLE_REAL_TIME_CHAT=true
 ```
+
+**Note:** Replace placeholder values with your actual credentials. Never commit real credentials to version control.
 
 ## 🔧 Vercel Deployment Steps
 
@@ -51,9 +53,9 @@ VITE_ENABLE_REAL_TIME_CHAT=true
 
 ## 🖥️ Render Backend Deployment
 
-### Current Issue: 503 Server Unavailable
+### Status: ✅ Successfully Deployed
 
-The backend is currently returning 503 errors. This is likely due to missing environment variables in Render.
+The backend is successfully deployed and operational at https://wander-sphere-ue7e.onrender.com
 
 ### Required Environment Variables for Render
 
@@ -63,14 +65,14 @@ Set these in your Render dashboard under Environment Variables:
 # Server Configuration
 NODE_ENV=production
 PORT=10000
-FRONTEND_URL=https://wander-sphere-zpml.vercel.app
+FRONTEND_URL=your_frontend_url
 
 # Supabase Configuration
-SUPABASE_URL=https://gserzaenfrmrqoffzcxr.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzZXJ6YWVuZnJtcnFvZmZ6Y3hyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NjExNzc5OSwiZXhwIjoyMDcxNjkzNzk5fQ.odO_-TqCDpliDv-TplUokm08gfoZARABo62vCTDRWCw
+SUPABASE_URL=your_supabase_url
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
 # JWT Configuration
-JWT_SECRET=h9LRCfE5MCk4r0C3GnPGxfSfJG6xr71iDZhQpuQMe+4JR7KmICgox+K1Qfrw/iaiaWvq0hrTVHPox3Ixml44Tw==
+JWT_SECRET=your_jwt_secret
 JWT_EXPIRES_IN=7d
 JWT_REFRESH_EXPIRES_IN=30d
 
@@ -83,6 +85,8 @@ MAX_FILE_SIZE=10485760
 MAX_FILES_PER_REQUEST=5
 ```
 
+**Note:** Replace placeholder values with your actual credentials.
+
 ### Render Service Configuration
 
 1. **Build Command**: `cd backend && npm install`
@@ -90,12 +94,12 @@ MAX_FILES_PER_REQUEST=5
 3. **Environment**: Node
 4. **Health Check Path**: `/health`
 
-### Troubleshooting Steps
+### Verification Steps
 
-1. **Check Environment Variables**: Ensure all required variables are set in Render dashboard
-2. **Verify Build Logs**: Check Render build logs for any errors
-3. **Test Health Endpoint**: Once deployed, test `https://wander-sphere-ue7e.onrender.com/health`
-4. **Check Service Logs**: Monitor Render service logs for runtime errors
+1. **Test API Endpoints**: Verify backend is responding at `https://wander-sphere-ue7e.onrender.com/api/auth/test`
+2. **Check Environment Variables**: Ensure all required variables are set in Render dashboard
+3. **Monitor Service Logs**: Check Render service logs for any issues
+4. **Verify Database Connection**: Ensure Supabase connection is working properly
 
 3. **Add Environment Variables:**
    - Go to Project Settings → Environment Variables
@@ -111,16 +115,17 @@ MAX_FILES_PER_REQUEST=5
 ### Common Issues:
 
 1. **API Connection Errors:**
-   - Verify `VITE_API_BASE_URL` is set correctly in Vercel
+   - Verify `VITE_API_BASE_URL` is set to `https://wander-sphere-ue7e.onrender.com` (without `/api` suffix)
    - Check that backend is running at https://wander-sphere-ue7e.onrender.com
+   - Test API endpoints at https://wander-sphere-ue7e.onrender.com/api/auth/test
 
 2. **Authentication Issues:**
    - Ensure Supabase credentials are correctly set
    - Verify JWT secret matches between frontend and backend
 
 3. **CORS Errors:**
-   - Backend is configured to allow requests from Vercel domain
-   - No additional CORS configuration needed
+   - Backend is configured to allow requests from frontend domains
+   - Update `FRONTEND_URL` in Render environment variables if needed
 
 ## 📱 Features Available
 
@@ -138,17 +143,17 @@ MAX_FILES_PER_REQUEST=5
 
 All API endpoints are available at: `https://wander-sphere-ue7e.onrender.com/api/`
 
-- `/auth` - Authentication
-- `/users` - User management
-- `/trips` - Trip operations
-- `/clubs` - Travel clubs
-- `/journeys` - Journey sharing
-- `/budget` - Budget tracking
-- `/booking` - Booking services
-- `/notifications` - Real-time notifications
-- `/search` - Search functionality
-- `/media` - File uploads
-- `/map` - Map services
+- `/api/auth` - Authentication
+- `/api/users` - User management
+- `/api/trips` - Trip operations
+- `/api/clubs` - Travel clubs
+- `/api/journeys` - Journey sharing
+- `/api/budget` - Budget tracking
+- `/api/booking` - Booking services
+- `/api/notifications` - Real-time notifications
+- `/api/search` - Search functionality
+- `/api/media` - File uploads
+- `/api/map` - Map services
 
 ## 🔄 Redeployment
 

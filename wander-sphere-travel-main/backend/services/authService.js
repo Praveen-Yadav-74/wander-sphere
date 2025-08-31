@@ -5,19 +5,31 @@ class AuthService {
   // Test Supabase connection
   async testConnection() {
     try {
-      // Simple query to test connection
+      // Test basic connection
       const { data, error } = await supabase
         .from('users')
         .select('count')
         .limit(1);
       
       if (error) {
-        return { data: null, error };
+        return { 
+          success: false, 
+          message: `Users table error: ${error.message}`,
+          details: error
+        };
       }
       
-      return { data: { connected: true, timestamp: new Date().toISOString() }, error: null };
+      return { 
+        success: true, 
+        message: 'Supabase connection and users table accessible',
+        tableExists: true
+      };
     } catch (error) {
-      return { data: null, error };
+      return { 
+        success: false, 
+        message: `Supabase connection failed: ${error.message}`,
+        tableExists: false
+      };
     }
   }
   // Register a new user with Supabase Auth
