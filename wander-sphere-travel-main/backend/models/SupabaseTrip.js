@@ -409,7 +409,9 @@ class SupabaseTrip {
 
       // Text search
       if (query) {
-        searchQuery = searchQuery.or(`title.ilike.%${query}%,description.ilike.%${query}%`);
+        // Sanitize the search query to prevent SQL injection
+        const sanitizedQuery = query.replace(/[%_]/g, '\\$&');
+        searchQuery = searchQuery.or(`title.ilike.%${sanitizedQuery}%,description.ilike.%${sanitizedQuery}%`);
       }
 
       // Apply additional filters

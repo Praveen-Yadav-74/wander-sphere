@@ -34,7 +34,7 @@ class AuthService {
   }
   // Register a new user with Supabase Auth
   async register(userData) {
-    const { firstName, lastName, email, password } = userData;
+    const { firstName, lastName, username, email, password } = userData;
     
     try {
       // Create user with Supabase Auth
@@ -44,7 +44,8 @@ class AuthService {
         options: {
           data: {
             first_name: firstName,
-            last_name: lastName
+            last_name: lastName,
+            username: username
           }
         }
       });
@@ -60,7 +61,9 @@ class AuthService {
           id: authData.user.id,
           first_name: firstName,
           last_name: lastName,
+          username: username,
           email: email.toLowerCase(),
+          role: 'user',
           is_email_verified: false
         })
         .select()

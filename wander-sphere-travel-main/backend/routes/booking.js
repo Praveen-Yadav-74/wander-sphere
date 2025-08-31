@@ -19,7 +19,10 @@ router.get('/partners', async (req, res) => {
 
     if (error) {
       console.error('Error fetching booking partners:', error);
-      return res.status(500).json({ message: 'Error fetching booking partners' });
+      return res.status(500).json({ 
+        success: false,
+        message: 'Error fetching booking partners' 
+      });
     }
 
     // Return mock data if no partners found

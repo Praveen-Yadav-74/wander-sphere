@@ -25,8 +25,11 @@ export const config = {
   MAX_FILES_PER_REQUEST: process.env.MAX_FILES_PER_REQUEST || 5
 };
 
-console.log('Environment configuration loaded:');
-console.log('NODE_ENV:', config.NODE_ENV);
-console.log('PORT:', config.PORT);
-console.log('SUPABASE_URL:', config.SUPABASE_URL ? 'Set' : 'Missing');
-console.log('SUPABASE_SERVICE_ROLE_KEY:', config.SUPABASE_SERVICE_ROLE_KEY ? 'Set' : 'Missing');
+// Only log non-sensitive configuration in development
+if (config.NODE_ENV === 'development') {
+  console.log('Environment configuration loaded:');
+  console.log('NODE_ENV:', config.NODE_ENV);
+  console.log('PORT:', config.PORT);
+  console.log('SUPABASE_URL:', config.SUPABASE_URL ? 'Set' : 'Missing');
+  console.log('SUPABASE_SERVICE_ROLE_KEY:', config.SUPABASE_SERVICE_ROLE_KEY ? 'Set' : 'Missing');
+}

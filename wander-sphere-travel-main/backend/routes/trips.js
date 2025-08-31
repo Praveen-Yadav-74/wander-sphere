@@ -21,7 +21,8 @@ router.get('/', optionalAuth, [
   query('endDate').optional().isISO8601(),
   query('country').optional().trim(),
   query('city').optional().trim(),
-  query('search').optional().trim()
+  query('search').optional().trim(),
+  query('sortOrder').optional().isIn(['asc', 'desc']).withMessage('Sort order must be asc or desc')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -65,17 +66,20 @@ router.get('/', optionalAuth, [
     if (startDate) filters.startDate = startDate;
     if (endDate) filters.endDate = endDate;
     
+    // Validate and sanitize sort order
+    const validSortOrder = ['asc', 'desc'].includes(sortOrder) ? sortOrder : 'desc';
+    
     // Build sort string
     let sort = 'created_at:desc';
     switch (sortBy) {
       case 'title':
-        sort = `title:${sortOrder}`;
+        sort = `title:${validSortOrder}`;
         break;
       case 'startDate':
-        sort = `start_date:${sortOrder}`;
+        sort = `start_date:${validSortOrder}`;
         break;
       case 'budget':
-        sort = `budget:${sortOrder}`;
+        sort = `budget:${validSortOrder}`;
         break;
       default:
         sort = 'created_at:desc';

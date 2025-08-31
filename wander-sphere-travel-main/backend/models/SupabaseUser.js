@@ -325,10 +325,13 @@ class SupabaseUser {
   // Search users
   static async search(query, limit = 10, offset = 0) {
     try {
+      // Sanitize the search query to prevent SQL injection
+      const sanitizedQuery = query.replace(/[%_]/g, '\\$&');
+      
       const { data, error } = await supabase
         .from('users')
-        .select('id, first_name, last_name, email, avatar, bio, location')
-        .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%,email.ilike.%${query}%`)
+        .select('id, first_name, last_name, username, email, role, avatar, bio, location')
+        .or(`first_name.ilike.%${sanitizedQuery}%,last_name.ilike.%${sanitizedQuery}%,username.ilike.%${sanitizedQuery}%,email.ilike.%${sanitizedQuery}%`)
         .eq('is_active', true)
         .limit(limit)
         .range(offset, offset + limit - 1);

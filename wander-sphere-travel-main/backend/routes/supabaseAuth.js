@@ -50,6 +50,12 @@ router.post('/register', [
     .trim()
     .isLength({ min: 2, max: 50 })
     .withMessage('Last name must be between 2 and 50 characters'),
+  body('username')
+    .optional()
+    .trim()
+    .isLength({ min: 3, max: 30 })
+    .matches(/^[a-zA-Z0-9_]+$/)
+    .withMessage('Username must be 3-30 characters and contain only letters, numbers, and underscores'),
   body('email')
     .isEmail()
     .normalizeEmail()
@@ -78,12 +84,13 @@ router.post('/register', [
       });
     }
 
-    const { firstName, lastName, email, password } = req.body;
+    const { firstName, lastName, username, email, password } = req.body;
 
     // Register user with Supabase
     const result = await authService.register({
       firstName,
       lastName,
+      username,
       email,
       password
     });

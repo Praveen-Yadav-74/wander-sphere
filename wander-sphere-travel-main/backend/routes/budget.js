@@ -1,4 +1,5 @@
 import express from 'express';
+import { body, validationResult } from 'express-validator';
 import supabase from '../config/supabase.js';
 import { auth } from '../middleware/supabaseAuth.js';
 
@@ -17,13 +18,22 @@ router.get('/', auth, async (req, res) => {
 
     if (error) {
       console.error('Error fetching budgets:', error);
-      return res.status(500).json({ message: 'Error fetching budgets' });
+      return res.status(500).json({ 
+        success: false,
+        message: 'Error fetching budgets' 
+      });
     }
 
-    res.json(budgets || []);
+    res.json({
+      success: true,
+      data: budgets || []
+    });
   } catch (error) {
     console.error('Error in GET /budget:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ 
+      success: false,
+      message: 'Internal server error' 
+    });
   }
 });
 
@@ -42,10 +52,16 @@ router.get('/:id', auth, async (req, res) => {
 
     if (error) {
       console.error('Error fetching budget:', error);
-      return res.status(404).json({ message: 'Budget not found' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'Budget not found' 
+      });
     }
 
-    res.json(budget);
+    res.json({
+      success: true,
+      data: budget
+    });
   } catch (error) {
     console.error('Error in GET /budget/:id:', error);
     res.status(500).json({ message: 'Internal server error' });
@@ -53,14 +69,24 @@ router.get('/:id', auth, async (req, res) => {
 });
 
 // Create a new budget
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, [
+  body('title').trim().isLength({ min: 1, max: 255 }).withMessage('Title is required and must be less than 255 characters'),
+  body('total_budget').isFloat({ min: 0 }).withMessage('Total budget must be a positive number'),
+  body('currency').optional().isLength({ min: 3, max: 3 }).withMessage('Currency must be a 3-letter code'),
+  body('description').optional().trim().isLength({ max: 1000 }).withMessage('Description must be less than 1000 characters')
+], async (req, res) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
     const userId = req.user.id;
     const { title, description, total_budget, currency, trip_id } = req.body;
-    
-    if (!title || !total_budget) {
-      return res.status(400).json({ message: 'Title and total budget are required' });
-    }
 
     const { data: budget, error } = await supabase
       .from('budgets')
