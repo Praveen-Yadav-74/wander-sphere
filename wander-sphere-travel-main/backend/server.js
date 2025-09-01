@@ -12,6 +12,7 @@ import tripRoutes from './routes/trips.js';
 import clubRoutes from './routes/clubs.js';
 import journeyRoutes from './routes/journeys.js';
 import notificationRoutes from './routes/notifications.js';
+import storyRoutes from './routes/stories.js';
 import searchRoutes from './routes/search.js';
 import mediaRoutes from './routes/media.js';
 import mapRoutes from './routes/maps.js';
@@ -67,6 +68,7 @@ app.get('/', (req, res) => {
       clubs: '/api/clubs',
       journeys: '/api/journeys',
       notifications: '/api/notifications',
+      stories: '/api/stories',
       search: '/api/search',
       media: '/api/media',
       map: '/api/map',
@@ -94,6 +96,7 @@ app.use('/api/trips', tripRoutes);
 app.use('/api/clubs', clubRoutes);
 app.use('/api/journeys', journeyRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/stories', storyRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/media', mediaRoutes);
 app.use('/api/map', mapRoutes);

@@ -183,24 +183,34 @@ export const getAuthHeader = async (): Promise<Record<string, string>> => {
 
 // Synchronous version for backward compatibility
 export const getAuthHeaderSync = (): Record<string, string> => {
-  // Try to get Supabase session from localStorage
-  const supabaseSession = localStorage.getItem('sb-' + import.meta.env.VITE_SUPABASE_URL?.split('//')[1]?.split('.')[0] + '-auth-token');
-  
-  if (supabaseSession) {
-    try {
-      const session = JSON.parse(supabaseSession);
-      const accessToken = session?.access_token;
-      return accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
-    } catch {
-      // Fallback to old token method for backward compatibility
-      const token = localStorage.getItem('authToken');
-      return token ? { Authorization: `Bearer ${token}` } : {};
+  try {
+    // Try to get Supabase session from localStorage
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    if (supabaseUrl) {
+      const projectRef = supabaseUrl.split('//')[1]?.split('.')[0];
+      const sessionKey = `sb-${projectRef}-auth-token`;
+      const supabaseSession = localStorage.getItem(sessionKey);
+      
+      if (supabaseSession) {
+        try {
+          const session = JSON.parse(supabaseSession);
+          const accessToken = session?.access_token;
+          if (accessToken) {
+            return { Authorization: `Bearer ${accessToken}` };
+          }
+        } catch (error) {
+          console.warn('Failed to parse Supabase session:', error);
+        }
+      }
     }
+    
+    // Fallback to old token method for backward compatibility
+    const token = localStorage.getItem('authToken');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch (error) {
+    console.warn('Error getting auth header:', error);
+    return {};
   }
-  
-  // Fallback to old token method
-  const token = localStorage.getItem('authToken');
-  return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
 // API Response Types

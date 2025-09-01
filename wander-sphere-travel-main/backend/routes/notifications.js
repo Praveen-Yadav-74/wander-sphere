@@ -238,6 +238,77 @@ router.delete('/', supabaseAuth, async (req, res) => {
   }
 });
 
+// @route   GET /api/notifications/settings
+// @desc    Get notification settings
+// @access  Private
+router.get('/settings', supabaseAuth, async (req, res) => {
+  try {
+    const { data: settings, error } = await supabase
+      .from('notification_settings')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      throw error;
+    }
+
+    // Return default settings if none exist
+    const defaultSettings = {
+      email_notifications: true,
+      push_notifications: true,
+      trip_updates: true,
+      comments: true,
+      likes: true,
+      follows: true,
+      marketing: false
+    };
+
+    res.json({
+      success: true,
+      data: settings || defaultSettings
+    });
+  } catch (error) {
+    console.error('Get notification settings error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get notification settings'
+    });
+  }
+});
+
+// @route   PUT /api/notifications/settings
+// @desc    Update notification settings
+// @access  Private
+router.put('/settings', supabaseAuth, async (req, res) => {
+  try {
+    const { data: settings, error } = await supabase
+      .from('notification_settings')
+      .upsert({
+        user_id: req.user.id,
+        ...req.body,
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    res.json({
+      success: true,
+      data: settings
+    });
+  } catch (error) {
+    console.error('Update notification settings error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update notification settings'
+    });
+  }
+});
+
 // @route   POST /api/notifications/test
 // @desc    Create test notification (development only)
 // @access  Private

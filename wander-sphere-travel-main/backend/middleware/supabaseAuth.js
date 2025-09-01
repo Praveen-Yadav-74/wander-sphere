@@ -28,7 +28,16 @@ const auth = async (req, res, next) => {
     // Get full user data from our users table
     const userData = await authService.getUserById(user.id);
     
-    if (!userData || !userData.is_active) {
+    if (!userData) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'User data not found.' 
+      });
+    }
+    
+    // Check if user is active (default to true if is_active field doesn't exist)
+    const isActive = userData.is_active !== undefined ? userData.is_active : true;
+    if (!isActive) {
       return res.status(401).json({ 
         success: false, 
         message: 'User account is inactive.' 

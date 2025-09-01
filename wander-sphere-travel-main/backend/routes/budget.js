@@ -10,6 +10,7 @@ router.get('/', auth, async (req, res) => {
   try {
     const userId = req.user.id;
     
+    // Check if budgets table exists, if not return empty array
     const { data: budgets, error } = await supabase
       .from('budgets')
       .select('*')
@@ -18,6 +19,13 @@ router.get('/', auth, async (req, res) => {
 
     if (error) {
       console.error('Error fetching budgets:', error);
+      // If table doesn't exist, return empty array instead of error
+      if (error.message?.includes('Could not find the table')) {
+        return res.json({
+          success: true,
+          data: []
+        });
+      }
       return res.status(500).json({ 
         success: false,
         message: 'Error fetching budgets' 
@@ -52,6 +60,13 @@ router.get('/:id', auth, async (req, res) => {
 
     if (error) {
       console.error('Error fetching budget:', error);
+      // If table doesn't exist, return not found
+      if (error.message?.includes('Could not find the table')) {
+        return res.status(404).json({ 
+          success: false,
+          message: 'Budget not found' 
+        });
+      }
       return res.status(404).json({ 
         success: false,
         message: 'Budget not found' 

@@ -43,10 +43,16 @@ const Clubs = () => {
         setIsLoading(true);
         setError(null);
         const response = await clubService.getClubs();
-        setClubs(response.data || []);
+        // Handle PaginatedResponse structure - data is always an array in PaginatedResponse
+        if (response.success && Array.isArray(response.data)) {
+          setClubs(response.data);
+        } else {
+          setClubs([]);
+        }
       } catch (err) {
         setError('Failed to load clubs');
         console.error('Error fetching clubs:', err);
+        setClubs([]); // Ensure clubs is always an array
         toast({
           title: "Error",
           description: "Failed to load clubs. Please try again.",
@@ -131,9 +137,9 @@ const Clubs = () => {
     }
   };
 
-  const myClubs = clubs.filter(club => club.isJoined);
+  const myClubs = (Array.isArray(clubs) ? clubs : []).filter(club => club.isJoined);
 
-  const filteredClubs = clubs.filter(club =>
+  const filteredClubs = (Array.isArray(clubs) ? clubs : []).filter(club =>
     (club.category.toLowerCase().includes(searchCategory.toLowerCase()) || 
      club.name.toLowerCase().includes(searchCategory.toLowerCase())) &&
     // Note: Country filtering would require country data in the club object. This is a UI demonstration.

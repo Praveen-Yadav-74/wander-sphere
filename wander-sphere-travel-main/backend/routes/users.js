@@ -1,10 +1,46 @@
 import express from 'express';
 import { body, query, validationResult } from 'express-validator';
+import supabase from '../config/supabase.js';
 import SupabaseUser from '../models/SupabaseUser.js';
 import SupabaseTrip from '../models/SupabaseTrip.js';
 import { auth, optionalAuth } from '../middleware/supabaseAuth.js';
 
 const router = express.Router();
+
+// @route   GET /api/users/profile/stats
+// @desc    Get user profile statistics
+// @access  Private
+router.get('/profile/stats', auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Get user stats from various tables
+    const [tripsResult, journeysResult, followersResult, followingResult] = await Promise.all([
+      supabase.from('trips').select('id').eq('user_id', userId),
+      supabase.from('journeys').select('id').eq('user_id', userId),
+      supabase.from('user_follows').select('id').eq('following_id', userId),
+      supabase.from('user_follows').select('id').eq('follower_id', userId)
+    ]);
+
+    const stats = {
+      trips_count: tripsResult.data?.length || 0,
+      journeys_count: journeysResult.data?.length || 0,
+      followers_count: followersResult.data?.length || 0,
+      following_count: followingResult.data?.length || 0
+    };
+
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    console.error('Get user stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get user statistics'
+    });
+  }
+});
 
 // @route   GET /api/users/profile/:id
 // @desc    Get user profile by ID
@@ -495,6 +531,8 @@ router.put('/preferences', auth, [
   }
 });
 
+// @route   POST /api/users/block/:id
+// @desc    Block/unblock a user
 // @route   POST /api/users/block/:id
 // @desc    Block/unblock a user
 // @access  Private

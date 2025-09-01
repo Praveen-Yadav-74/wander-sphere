@@ -97,13 +97,39 @@ class AuthService {
       }
 
       // Get user data from our users table
-      const { data: userData, error: userError } = await supabase
+      let { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
         .eq('id', data.user.id)
         .single();
 
-      if (userError) {
+      // If user doesn't exist in our users table, create them
+      if (userError && userError.code === 'PGRST116') {
+        console.log('User not found in users table, creating:', data.user.id);
+        const { data: newUserData, error: createError } = await supabase
+          .from('users')
+          .insert({
+            id: data.user.id,
+            first_name: data.user.user_metadata?.first_name || '',
+            last_name: data.user.user_metadata?.last_name || '',
+            username: data.user.user_metadata?.username || data.user.email?.split('@')[0] || '',
+            email: data.user.email?.toLowerCase() || '',
+            role: 'user',
+            is_email_verified: data.user.email_confirmed_at ? true : false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+        
+        if (createError) {
+          console.error('Failed to create user in users table:', createError);
+          throw new Error('Failed to create user profile');
+        }
+        
+        userData = newUserData;
+      } else if (userError) {
+        console.error('Error fetching user data:', userError);
         throw new Error('User data not found');
       }
 
@@ -161,14 +187,60 @@ class AuthService {
         .from('users')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) {
+        console.error('Database error in getUserById:', error);
         throw new Error(error.message);
+      }
+
+      // If no user found, try to get from Supabase Auth and create in users table
+      if (!data) {
+        console.log(`User not found in users table, attempting to create: ${userId}`);
+        
+        try {
+          // Get user from Supabase Auth
+          const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(userId);
+          
+          if (authError || !authUser.user) {
+            console.log(`User not found in Supabase Auth: ${userId}`);
+            return null;
+          }
+          
+          // Create user in users table
+          const { data: newUserData, error: createError } = await supabase
+            .from('users')
+            .insert({
+              id: userId,
+              first_name: authUser.user.user_metadata?.first_name || '',
+              last_name: authUser.user.user_metadata?.last_name || '',
+              username: authUser.user.user_metadata?.username || authUser.user.email?.split('@')[0] || '',
+              email: authUser.user.email?.toLowerCase() || '',
+              role: 'user',
+              is_email_verified: authUser.user.email_confirmed_at ? true : false,
+              is_active: true,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .select()
+            .single();
+          
+          if (createError) {
+            console.error('Failed to create user in users table:', createError);
+            return null;
+          }
+          
+          console.log('Successfully created user in users table:', userId);
+          return newUserData;
+        } catch (createUserError) {
+          console.error('Error creating user:', createUserError);
+          return null;
+        }
       }
 
       return data;
     } catch (error) {
+      console.error('Error in getUserById:', error);
       throw new Error(`Failed to get user: ${error.message}`);
     }
   }
