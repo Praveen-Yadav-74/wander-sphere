@@ -22,6 +22,12 @@ ALTER TABLE public.blocked_users ENABLE ROW LEVEL SECURITY;
 -- STEP 2: Create RLS Policies for Users Table
 -- =============================================
 
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can view own profile" ON public.users;
+DROP POLICY IF EXISTS "Users can view public profiles" ON public.users;
+DROP POLICY IF EXISTS "Users can update own profile" ON public.users;
+DROP POLICY IF EXISTS "Users can insert own profile" ON public.users;
+
 -- Users can view their own profile
 CREATE POLICY "Users can view own profile" ON public.users
   FOR SELECT USING (auth.uid() = id);
@@ -41,6 +47,12 @@ CREATE POLICY "Users can insert own profile" ON public.users
 -- =============================================
 -- STEP 3: Create RLS Policies for Trips Table
 -- =============================================
+
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Anyone can view public trips" ON public.trips;
+DROP POLICY IF EXISTS "Users can create own trips" ON public.trips;
+DROP POLICY IF EXISTS "Users can update own trips" ON public.trips;
+DROP POLICY IF EXISTS "Users can delete own trips" ON public.trips;
 
 -- Users can view all public trips
 CREATE POLICY "Anyone can view public trips" ON public.trips
@@ -62,6 +74,12 @@ CREATE POLICY "Users can delete own trips" ON public.trips
 -- STEP 4: Create RLS Policies for Trip Comments Table
 -- =============================================
 
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Anyone can view trip comments" ON public.trip_comments;
+DROP POLICY IF EXISTS "Users can create own trip comments" ON public.trip_comments;
+DROP POLICY IF EXISTS "Users can update own trip comments" ON public.trip_comments;
+DROP POLICY IF EXISTS "Users can delete own trip comments" ON public.trip_comments;
+
 -- Users can view all trip comments
 CREATE POLICY "Anyone can view trip comments" ON public.trip_comments
   FOR SELECT USING (true);
@@ -82,6 +100,11 @@ CREATE POLICY "Users can delete own trip comments" ON public.trip_comments
 -- STEP 5: Create RLS Policies for Trip Likes Table
 -- =============================================
 
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Anyone can view trip likes" ON public.trip_likes;
+DROP POLICY IF EXISTS "Users can create own trip likes" ON public.trip_likes;
+DROP POLICY IF EXISTS "Users can delete own trip likes" ON public.trip_likes;
+
 -- Users can view all trip likes
 CREATE POLICY "Anyone can view trip likes" ON public.trip_likes
   FOR SELECT USING (true);
@@ -97,6 +120,11 @@ CREATE POLICY "Users can delete own trip likes" ON public.trip_likes
 -- =============================================
 -- STEP 6: Create RLS Policies for Trip Comment Likes Table
 -- =============================================
+
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Anyone can view trip comment likes" ON public.trip_comment_likes;
+DROP POLICY IF EXISTS "Users can create own trip comment likes" ON public.trip_comment_likes;
+DROP POLICY IF EXISTS "Users can delete own trip comment likes" ON public.trip_comment_likes;
 
 -- Users can view all trip comment likes
 CREATE POLICY "Anyone can view trip comment likes" ON public.trip_comment_likes
@@ -114,8 +142,14 @@ CREATE POLICY "Users can delete own trip comment likes" ON public.trip_comment_l
 -- STEP 7: Create RLS Policies for Trip Participants Table
 -- =============================================
 
--- Users can view trip participants for trips they can access
-CREATE POLICY "Users can view trip participants" ON public.trip_participants
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Anyone can view trip participants" ON public.trip_participants;
+DROP POLICY IF EXISTS "Trip owners can add participants" ON public.trip_participants;
+DROP POLICY IF EXISTS "Users can remove themselves from trips" ON public.trip_participants;
+DROP POLICY IF EXISTS "Trip owners can remove participants" ON public.trip_participants;
+
+-- Users can view trip participants for trips they can see
+CREATE POLICY "Anyone can view trip participants" ON public.trip_participants
   FOR SELECT USING (
     EXISTS (
       SELECT 1 FROM public.trips 
@@ -151,7 +185,12 @@ CREATE POLICY "Users can remove themselves from trips" ON public.trip_participan
 -- STEP 8: Create RLS Policies for User Relationships Table
 -- =============================================
 
--- Users can view relationships involving them
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can view own relationships" ON public.user_relationships;
+DROP POLICY IF EXISTS "Users can create own relationships" ON public.user_relationships;
+DROP POLICY IF EXISTS "Users can delete own relationships" ON public.user_relationships;
+
+-- Users can view their own relationships
 CREATE POLICY "Users can view own relationships" ON public.user_relationships
   FOR SELECT USING (auth.uid() = follower_id OR auth.uid() = following_id);
 
@@ -166,6 +205,11 @@ CREATE POLICY "Users can delete relationships" ON public.user_relationships
 -- =============================================
 -- STEP 9: Create RLS Policies for Blocked Users Table
 -- =============================================
+
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can view own blocked users" ON public.blocked_users;
+DROP POLICY IF EXISTS "Users can block other users" ON public.blocked_users;
+DROP POLICY IF EXISTS "Users can unblock other users" ON public.blocked_users;
 
 -- Users can view their own blocked users
 CREATE POLICY "Users can view own blocked users" ON public.blocked_users
@@ -183,8 +227,11 @@ CREATE POLICY "Users can unblock others" ON public.blocked_users
 -- STEP 10: Create RLS Policies for Refresh Tokens Table
 -- =============================================
 
--- Users can view their own refresh tokens
-CREATE POLICY "Users can view own refresh tokens" ON public.refresh_tokens
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can access own refresh tokens" ON public.refresh_tokens;
+
+-- Users can only access their own refresh tokens
+CREATE POLICY "Users can access own refresh tokens" ON public.refresh_tokens
   FOR SELECT USING (auth.uid() = user_id);
 
 -- Users can insert their own refresh tokens
