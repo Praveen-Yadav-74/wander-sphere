@@ -14,10 +14,12 @@ This guide will help you manually set up Row Level Security (RLS) policies in yo
 **RECOMMENDED APPROACH:** Use the complete targeted script that matches your actual database schema.
 
 ### Option A: Complete Setup (Recommended)
-1. Open the file: `backend/scripts/setup-rls-targeted.sql`
+1. Open the file: `backend/scripts/setup-rls-actual-tables.sql`
 2. Copy the entire content
 3. Paste it into the Supabase SQL Editor
 4. Click **Run** to execute all commands at once
+
+This script only includes tables that actually exist in your database, preventing "relation does not exist" errors.
 
 ### Option B: Manual Step-by-Step
 If you prefer to run commands individually, use these core tables that exist in your schema:
