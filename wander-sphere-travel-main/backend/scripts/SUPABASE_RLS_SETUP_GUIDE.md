@@ -9,28 +9,30 @@ This guide will help you manually set up Row Level Security (RLS) policies in yo
 3. Navigate to **SQL Editor** in the left sidebar
 4. Click **New Query**
 
-## Step 2: Enable RLS on Tables
+## Step 2: Use the Targeted RLS Setup Script
 
-Copy and paste the following SQL commands one by one in the SQL Editor:
+**RECOMMENDED APPROACH:** Use the complete targeted script that matches your actual database schema.
 
-### Enable RLS on Core Tables
+### Option A: Complete Setup (Recommended)
+1. Open the file: `backend/scripts/setup-rls-targeted.sql`
+2. Copy the entire content
+3. Paste it into the Supabase SQL Editor
+4. Click **Run** to execute all commands at once
+
+### Option B: Manual Step-by-Step
+If you prefer to run commands individually, use these core tables that exist in your schema:
+
 ```sql
--- Enable Row Level Security on all tables
+-- Enable Row Level Security on existing tables
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.trips ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.refresh_tokens ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.trip_comment_likes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.spatial_ref_sys ENABLE ROW LEVEL SECURITY;
-```
-
-### Enable RLS on Additional Tables (if they exist)
-```sql
--- Enable RLS on additional tables (run only if these tables exist)
 ALTER TABLE public.budgets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.journeys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.stories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.clubs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.refresh_tokens ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.trip_comment_likes ENABLE ROW LEVEL SECURITY;
 ```
 
 ## Step 3: Create RLS Policies
@@ -228,6 +230,20 @@ After implementing these policies:
 ✅ Authenticated users can create content
 ✅ Data integrity is maintained
 ✅ Security advisor warnings are resolved
+
+## Troubleshooting Common Errors
+
+### Error: "must be owner of table spatial_ref_sys"
+**Solution:** This is expected and normal. The `spatial_ref_sys` table is a PostGIS system table that requires superuser privileges. You can safely skip enabling RLS on this table as it's managed by PostGIS and doesn't contain user data.
+
+### Error: "relation does not exist"
+**Solution:** This means the table doesn't exist in your database. Check which tables actually exist in your schema and only run commands for existing tables.
+
+### Error: "permission denied for schema public"
+**Solution:** Make sure you're using the correct database credentials and that your user has the necessary permissions. Use the service role key for administrative operations.
+
+### Error: "policy already exists"
+**Solution:** This means the policy has already been created. You can either drop the existing policy first or skip creating it again.
 
 ## Next Steps
 
