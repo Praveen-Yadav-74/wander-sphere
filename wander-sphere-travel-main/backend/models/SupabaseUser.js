@@ -330,7 +330,7 @@ class SupabaseUser {
       
       const { data, error } = await supabase
         .from('users')
-        .select('id, first_name, last_name, username, email, role, avatar, bio, location')
+        .select('id, first_name, last_name, username, email, avatar, bio, location')
         .or(`first_name.ilike.%${sanitizedQuery}%,last_name.ilike.%${sanitizedQuery}%,username.ilike.%${sanitizedQuery}%,email.ilike.%${sanitizedQuery}%`)
         .eq('is_active', true)
         .limit(limit)

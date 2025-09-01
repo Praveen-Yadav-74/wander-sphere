@@ -99,7 +99,7 @@ class AuthService {
       // Get user data from our users table
       let { data: userData, error: userError } = await supabase
         .from('users')
-        .select('*')
+        .select('id, first_name, last_name, username, email, avatar, bio, location, preferences, stats, is_active, created_at, updated_at')
         .eq('id', data.user.id)
         .single();
 
@@ -114,7 +114,6 @@ class AuthService {
             last_name: data.user.user_metadata?.last_name || '',
             username: data.user.user_metadata?.username || data.user.email?.split('@')[0] || '',
             email: data.user.email?.toLowerCase() || '',
-            role: 'user',
             is_email_verified: data.user.email_confirmed_at ? true : false,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
