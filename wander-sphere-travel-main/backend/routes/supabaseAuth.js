@@ -104,7 +104,7 @@ router.post('/register', [
           firstName: result.user.first_name,
           lastName: result.user.last_name,
           email: result.user.email,
-          isEmailVerified: result.user.is_email_verified
+          isEmailVerified: result.user.is_verified
         },
         session: result.session
       }
@@ -169,7 +169,7 @@ router.post('/login', authLimiter, [
           location: result.user.location,
           preferences: result.user.preferences,
           stats: result.user.stats,
-          isEmailVerified: result.user.is_email_verified
+          isEmailVerified: result.user.is_verified
         },
         session: result.session
       }
@@ -271,7 +271,7 @@ router.get('/me', auth, async (req, res) => {
           phone: req.user.phone,
           preferences: req.user.preferences,
           stats: req.user.stats,
-          isEmailVerified: req.user.is_email_verified,
+          isEmailVerified: req.user.is_verified,
           lastLogin: req.user.last_login,
           createdAt: req.user.created_at
         }

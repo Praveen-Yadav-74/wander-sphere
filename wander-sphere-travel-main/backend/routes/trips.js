@@ -232,8 +232,8 @@ router.post('/', auth, [
   body('description').trim().isLength({ min: 10, max: 2000 }).withMessage('Description must be between 10 and 2000 characters'),
   body('destination.country').trim().notEmpty().withMessage('Country is required'),
   body('destination.city').trim().notEmpty().withMessage('City is required'),
-  body('destination.coordinates.latitude').isFloat({ min: -90, max: 90 }).withMessage('Invalid latitude'),
-  body('destination.coordinates.longitude').isFloat({ min: -180, max: 180 }).withMessage('Invalid longitude'),
+  body('destination.coordinates.latitude').optional().isFloat({ min: -90, max: 90 }).withMessage('Invalid latitude'),
+  body('destination.coordinates.longitude').optional().isFloat({ min: -180, max: 180 }).withMessage('Invalid longitude'),
   body('dates.startDate').isISO8601().withMessage('Invalid start date'),
   body('dates.endDate').isISO8601().withMessage('Invalid end date'),
   body('budget.total').isFloat({ min: 0 }).withMessage('Budget must be a positive number'),
@@ -289,7 +289,8 @@ router.post('/', auth, [
       difficulty: difficulty || 'moderate',
       visibility: visibility || 'public',
       requirements: requirements || [],
-      organizer_id: req.user.id
+      user_id: req.user.id,
+      organizer_id: req.user.id // Keep for backward compatibility
     };
 
     const trip = await SupabaseTrip.create(tripData);

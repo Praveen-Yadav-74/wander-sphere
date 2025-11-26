@@ -1,12 +1,43 @@
 import express from 'express';
+import multer from 'multer';
 import { body, query, validationResult } from 'express-validator';
 import { auth as supabaseAuth, optionalAuth } from '../middleware/supabaseAuth.js';
 import SupabaseUser from '../models/SupabaseUser.js';
+import supabase from '../config/supabase.js';
+import { v4 as uuidv4 } from 'uuid';
 
 const router = express.Router();
 
 // In-memory story store (in production, use database)
 const stories = new Map();
+
+// Helper function to validate file types
+const isValidMediaType = (mimetype) => {
+  const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+  const allowedVideoTypes = ['video/mp4', 'video/webm', 'video/ogg'];
+  return allowedImageTypes.includes(mimetype) || allowedVideoTypes.includes(mimetype);
+};
+
+// File filter function
+const fileFilter = (req, file, cb) => {
+  if (isValidMediaType(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only image and video files are allowed!'), false);
+  }
+};
+
+// Memory storage for file uploads
+const memoryStorage = multer.memoryStorage();
+
+// Multer configuration for story media
+const uploadStoryMedia = multer({
+  storage: memoryStorage,
+  limits: {
+    fileSize: 50 * 1024 * 1024 // 50MB limit for videos
+  },
+  fileFilter
+});
 
 // Helper function to create story
 const createStory = (userId, media, mediaType, duration = null) => {
@@ -166,6 +197,28 @@ router.get('/feed', supabaseAuth, async (req, res) => {
 // @access  Private
 router.post('/', [
   supabaseAuth,
+  (req, res, next) => {
+    uploadStoryMedia.single('media')(req, res, (err) => {
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({
+            success: false,
+            message: 'File size too large. Maximum size is 50MB.'
+          });
+        }
+        return res.status(400).json({
+          success: false,
+          message: err.message || 'Error uploading file'
+        });
+      } else if (err) {
+        return res.status(400).json({
+          success: false,
+          message: err.message || 'Error uploading file'
+        });
+      }
+      next();
+    });
+  },
   body('mediaType').isIn(['image', 'video']).withMessage('Media type must be image or video'),
   body('duration').optional().isNumeric().withMessage('Duration must be a number')
 ], async (req, res) => {
@@ -180,16 +233,40 @@ router.post('/', [
     }
 
     const userId = req.user.id;
-    const { media, mediaType, duration } = req.body;
+    const { mediaType, duration } = req.body;
 
-    if (!media) {
+    if (!req.file) {
       return res.status(400).json({
         success: false,
-        message: 'Media is required'
+        message: 'Media file is required'
       });
     }
 
-    const story = createStory(userId, media, mediaType, duration);
+    // Upload file to Supabase Storage
+    const fileExtension = req.file.originalname.split('.').pop();
+    const fileName = `stories/${userId}/${uuidv4()}.${fileExtension}`;
+    
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('media')
+      .upload(fileName, req.file.buffer, {
+        contentType: req.file.mimetype,
+        upsert: false
+      });
+
+    if (uploadError) {
+      console.error('Supabase upload error:', uploadError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to upload media file'
+      });
+    }
+
+    // Get public URL for the uploaded file
+    const { data: { publicUrl } } = supabase.storage
+      .from('media')
+      .getPublicUrl(fileName);
+
+    const story = createStory(userId, publicUrl, mediaType, duration);
     
     // Get user info
     const user = await SupabaseUser.findById(userId);

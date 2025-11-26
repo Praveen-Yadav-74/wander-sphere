@@ -1,0 +1,98 @@
+# WanderSphere Backend Environment Variables
+# RENAME THIS FILE TO: .env.example
+# Copy this file to .env for local development
+# DO NOT commit .env to Git (it's in .gitignore)
+
+# ============================================
+# Server Configuration
+# ============================================
+
+# Node Environment (development | production)
+NODE_ENV=production
+
+# Server Port (Render uses PORT env var automatically)
+PORT=5000
+
+# Frontend URL (for CORS)
+# Production: https://wander-sphere-zpml.vercel.app
+# Local Development: http://localhost:8080
+FRONTEND_URL=https://wander-sphere-zpml.vercel.app
+
+# ============================================
+# Supabase Configuration
+# ============================================
+
+# Your Supabase Project URL
+# Get this from: https://app.supabase.com/project/_/settings/api
+SUPABASE_URL=your_supabase_project_url_here
+
+# Supabase Service Role Key (Private Key - Keep Secret!)
+# Get this from: https://app.supabase.com/project/_/settings/api
+# WARNING: Never expose this in frontend code or commit to Git
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
+
+# ============================================
+# JWT Configuration
+# ============================================
+
+# JWT Secret (for token signing)
+# Generate a strong random string for production
+JWT_SECRET=your_jwt_secret_here
+
+# JWT Token Expiration
+JWT_EXPIRES_IN=7d
+
+# JWT Refresh Token Expiration
+JWT_REFRESH_EXPIRES_IN=30d
+
+# ============================================
+# Rate Limiting
+# ============================================
+
+# Rate Limit Window (milliseconds) - 15 minutes
+RATE_LIMIT_WINDOW_MS=900000
+
+# Max Requests per Window
+# Production: 100, Development: 1000
+RATE_LIMIT_MAX_REQUESTS=100
+
+# ============================================
+# File Upload Configuration
+# ============================================
+
+# Max File Size (bytes) - 10MB
+MAX_FILE_SIZE=10485760
+
+# Max Files per Request
+MAX_FILES_PER_REQUEST=5
+
+# ============================================
+# Email Configuration (Optional)
+# ============================================
+
+# EMAIL_HOST=smtp.gmail.com
+# EMAIL_PORT=587
+# EMAIL_USER=your_email@gmail.com
+# EMAIL_PASS=your_app_password
+# EMAIL_FROM=noreply@wandersphere.com
+
+# ============================================
+# Google Maps API (Optional)
+# ============================================
+
+# GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
+
+# ============================================
+# Notes
+# ============================================
+#
+# For Production (Render):
+# - Set these variables in Render Dashboard → Environment tab
+# - Do NOT commit .env files with real secrets
+#
+# For Local Development:
+# - Copy this file to .env
+# - Update FRONTEND_URL to: http://localhost:8080
+# - Add your actual Supabase credentials
+# - .env is gitignored and won't be committed
+

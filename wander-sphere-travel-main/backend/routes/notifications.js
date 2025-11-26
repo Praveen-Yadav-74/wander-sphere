@@ -1,5 +1,6 @@
 import express from 'express';
 import { body, query, validationResult } from 'express-validator';
+import supabase from '../config/supabase.js';
 import { auth as supabaseAuth } from '../middleware/supabaseAuth.js';
 
 const router = express.Router();

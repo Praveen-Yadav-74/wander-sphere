@@ -14,6 +14,7 @@ import { apiRequest } from "@/utils/api";
 import { apiConfig, endpoints } from "@/config/api";
 import { journeyService } from "@/services/journeyService";
 import { storyService } from "@/services/storyService";
+import { authService } from "@/services/authService";
 import heroBeach from "@/assets/hero-beach.jpg";
 import mountainAdventure from "@/assets/mountain-adventure.jpg";
 import streetFood from "@/assets/street-food.jpg";
@@ -149,15 +150,30 @@ const CreatePostDialog: FC<CreatePostDialogProps> = React.memo(({ open, onOpenCh
         try {
             setIsUploading(true);
             
+            // Ensure we have a session before making the request
+            const { supabase } = await import('@/config/supabase');
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+            
+            if (sessionError || !session?.access_token) {
+                throw new Error('No authentication token available. Please log in.');
+            }
+            
             // First upload the image to media service
             const formData = new FormData();
-            formData.append('image', selectedFile);
+            formData.append('file', selectedFile);
+            
+            const { getAuthHeader } = await import('@/config/api');
+            const authHeaders = await getAuthHeader();
             
             const mediaResponse = await apiRequest(
                 `${apiConfig.baseURL}/media/temp`,
                 {
                     method: 'POST',
                     body: formData,
+                    headers: {
+                        ...authHeaders,
+                        // Don't set Content-Type for FormData, let browser set it with boundary
+                    },
                 }
             ) as { success: boolean; data?: { url: string }; message?: string };
             
@@ -168,8 +184,8 @@ const CreatePostDialog: FC<CreatePostDialogProps> = React.memo(({ open, onOpenCh
             // Create the journey/post with the uploaded image
             const journeyData = {
                 title: caption.slice(0, 50) + (caption.length > 50 ? '...' : ''), // Use first part of caption as title
-                description: caption,
-                content: caption,
+                description: caption.length >= 20 ? caption : caption + ' '.repeat(20 - caption.length) + 'Shared from my travel experience.',
+                content: caption.length >= 100 ? caption : caption + '\n\nThis is a wonderful travel moment I wanted to share with everyone. Every journey tells a story, and this particular experience holds special memories that I hope will inspire others to explore and discover new places.',
                 isPublic: isPublic,
                 images: [mediaResponse.data.url],
                 destinations: location ? [location] : [],
@@ -583,66 +599,119 @@ const Home: FC = () => {
   const [isLoadingPosts, setIsLoadingPosts] = useState(true);
   const [isLoadingStories, setIsLoadingStories] = useState(true);
 
-  // Load posts from API
+  // Load posts from API with REAL like status from database
   const fetchPosts = useCallback(async () => {
     try {
       setIsLoadingPosts(true);
+      
+      // User must be authenticated to see this page
       const response = await journeyService.getMyJourneys();
       
-      if (response.success && response.data) {
+      if (response && (response.success || response.data)) {
          // Transform journey data to post format
-         const journeys = response.data.journeys || response.data;
-         const transformedPosts = Array.isArray(journeys) ? journeys.map((journey: any) => ({
-           id: journey.id,
-           user: journey.author?.name || 'Anonymous',
-           avatar: journey.author?.avatar || '/placeholder-avatar.jpg',
-           location: journey.destinations?.[0] || 'Unknown',
-           time: new Date(journey.createdAt).toLocaleDateString(),
-           image: journey.images?.[0] || heroBeach,
-           caption: journey.description || journey.content || '',
-           likes: journey.likes || 0,
-           comments: journey.comments?.length || 0,
-           isLiked: journey.isLiked || false,
-           isSaved: journey.isSaved || false,
-           hasMultipleImages: journey.images?.length > 1,
-           hasVideo: false
-         })) : [];
+         const journeys = response.data?.journeys || response.data || [];
+         
+         // Get current user's likes from post_likes table
+         const { supabase } = await import('@/config/supabase');
+         const { data: { session } } = await supabase.auth.getSession();
+         
+         let userLikes: string[] = [];
+         if (session?.user) {
+           const { data: likesData } = await supabase
+             .from('post_likes')
+             .select('post_id')
+             .eq('user_id', session.user.id)
+             .eq('post_type', 'journey');
+           
+           userLikes = likesData?.map(like => like.post_id) || [];
+         }
+         
+         // Get like counts for all posts
+         const postIds = journeys.map((j: any) => j.id?.toString() || '');
+         let likeCounts: Record<string, number> = {};
+         
+         if (postIds.length > 0) {
+           const { data: allLikes } = await supabase
+             .from('post_likes')
+             .select('post_id')
+             .in('post_id', postIds)
+             .eq('post_type', 'journey');
+           
+           if (allLikes) {
+             likeCounts = allLikes.reduce((acc: Record<string, number>, like) => {
+               acc[like.post_id] = (acc[like.post_id] || 0) + 1;
+               return acc;
+             }, {});
+           }
+         }
+         
+         const transformedPosts = Array.isArray(journeys) ? journeys.map((journey: any) => {
+           const postId = journey.id?.toString() || '';
+           return {
+             id: parseInt(postId) || journey.id, // Keep as number for compatibility
+             user: journey.author?.name || journey.author?.firstName || 'Anonymous',
+             avatar: journey.author?.avatar || journey.author?.avatar_url || '/placeholder-avatar.jpg',
+             location: journey.destinations?.[0] || 'Unknown',
+             time: journey.createdAt ? new Date(journey.createdAt).toLocaleDateString() : new Date().toLocaleDateString(),
+             image: journey.images?.[0] || heroBeach,
+             caption: journey.description || journey.content || '',
+             likes: likeCounts[postId] || journey.likes || journey.likeCount || 0,
+             comments: journey.comments?.length || journey.commentCount || 0,
+             isLiked: userLikes.includes(postId), // REAL like status from database
+             isSaved: journey.isSaved || false,
+             hasMultipleImages: journey.images?.length > 1,
+             hasVideo: false
+           };
+         }) : [];
          setPosts(transformedPosts);
       } else {
         setPosts([]);
       }
     } catch (error) {
       console.error('Failed to fetch posts:', error);
+      setPosts([]); // Set empty array on error to prevent infinite loading
       toast({
         title: "Error",
-        description: "Failed to load posts",
+        description: "Failed to load posts. Please try again.",
         variant: "destructive"
       });
     } finally {
       setIsLoadingPosts(false);
     }
-  }, []);
+  }, [toast]);
 
   // Load stories from API
+  // STRICT AUTH: Only fetch user's own stories (user must be authenticated)
   const fetchStories = useCallback(async () => {
     try {
       setIsLoadingStories(true);
+      
+      // User must be authenticated to see this page
       const response = await storyService.getStories();
       
-      if (response.success && response.data) {
+      if (response && (response.success || response.data)) {
          // Transform story data and add "Your Story" option
-         const stories = response.data.stories || response.data;
+         const stories = response.data?.stories || response.data || [];
          const transformedStories = Array.isArray(stories) ? stories.map((story: any) => ({
            id: story.id,
-           user: story.author?.name || 'Anonymous',
-           avatar: story.author?.avatar || '/placeholder-avatar.jpg',
-           media: story.mediaUrl || '',
-           timestamp: story.createdAt,
-           viewed: story.viewed || false,
-           isOwn: false,
+           user: story.isOwner ? 'Your Story' : (story.user?.firstName && story.user?.lastName ? `${story.user.firstName} ${story.user.lastName}` : story.user?.username || 'Anonymous'),
+           avatar: story.user?.avatar || story.user?.avatar_url || '/placeholder-avatar.jpg',
+           media: story.media || story.media_url || '',
+           timestamp: story.createdAt || story.created_at,
+           viewed: story.isViewed || false,
+           isOwn: story.isOwner || false,
            hasStory: true
          })) : [];
-         setStories([{ id: "1", user: "Your Story", avatar: "", media: "", isOwn: true }, ...transformedStories]);
+         
+         // Filter out user's own stories from the main list and add a single "Your Story" entry if user has stories
+         const userStories = transformedStories.filter(story => story.isOwn);
+         const otherStories = transformedStories.filter(story => !story.isOwn);
+         
+         if (userStories.length > 0) {
+           setStories([{ id: "user-stories", user: "Your Story", avatar: "", media: userStories[0].media, isOwn: true, hasStory: true }, ...otherStories]);
+         } else {
+           setStories([{ id: "1", user: "Your Story", avatar: "", media: "", isOwn: true }, ...otherStories]);
+         }
       } else {
         // Show only "Your Story" option if no stories available
         setStories([{ id: "1", user: "Your Story", avatar: "", media: "", isOwn: true }]);
@@ -651,31 +720,122 @@ const Home: FC = () => {
       console.error('Failed to fetch stories:', error);
       // Fallback to "Your Story" only
       setStories([{ id: "1", user: "Your Story", avatar: "", media: "", isOwn: true }]);
+      toast({
+        title: "Error",
+        description: "Failed to load stories. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setIsLoadingStories(false);
     }
-  }, []);
+  }, [toast]);
 
-  // Load data on component mount
+  // Load data on component mount with timeout
+  // Always fetch data (public or private) - no need to check auth here
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
+    // Always fetch posts and stories (will use public endpoints if not authenticated)
     fetchPosts();
     fetchStories();
+    
+    // Set a timeout to prevent infinite loading (30 seconds max)
+    timeoutId = setTimeout(() => {
+      console.warn('Data loading timeout reached, forcing loading states to false');
+      setIsLoadingPosts(false);
+      setIsLoadingStories(false);
+    }, 30000);
+    
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
   }, [fetchPosts, fetchStories]);
   
-  const handleLikeToggle = useCallback((postId: number) => {
-    setPosts(prev => prev.map(p => p.id === postId ? { ...p, isLiked: !p.isLiked, likes: p.isLiked ? p.likes - 1 : p.likes + 1 } : p));
-  }, []);
+  // REAL LIKE FUNCTIONALITY - Uses post_likes table in Supabase
+  const handleLikeToggle = useCallback(async (postId: number | string) => {
+    try {
+      const { supabase } = await import('@/config/supabase');
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session?.user) {
+        toast({
+          title: "Error",
+          description: "Please log in to like posts",
+          variant: "destructive"
+        });
+        return;
+      }
 
-  const handleDoubleTapLike = useCallback((postId: number) => {
-    setPosts(prev => {
-        const post = prev.find(p => p.id === postId);
-        if (post && !post.isLiked) {
-            // Your animation logic here...
-            return prev.map(p => p.id === postId ? { ...p, isLiked: true, likes: p.likes + 1 } : p);
+      const post = posts.find(p => p.id === postId);
+      if (!post) return;
+
+      const isCurrentlyLiked = post.isLiked;
+      const postIdStr = postId.toString();
+
+      if (isCurrentlyLiked) {
+        // Unlike: Delete from post_likes table
+        const { error: deleteError } = await supabase
+          .from('post_likes')
+          .delete()
+          .eq('user_id', session.user.id)
+          .eq('post_id', postIdStr)
+          .eq('post_type', 'journey');
+
+        // CRITICAL: If delete fails, throw error - don't update UI
+        if (deleteError) {
+          throw new Error(deleteError.message || 'Failed to unlike post');
         }
-        return prev;
-    });
-  }, []);
+
+        // Update UI only after successful database operation
+        setPosts(prev => prev.map(p => 
+          p.id === postId 
+            ? { ...p, isLiked: false, likes: Math.max(0, p.likes - 1) } 
+            : p
+        ));
+      } else {
+        // Like: Insert into post_likes table
+        const { error: insertError } = await supabase
+          .from('post_likes')
+          .insert({
+            user_id: session.user.id,
+            post_id: postIdStr,
+            post_type: 'journey'
+          });
+
+        // CRITICAL: If insert fails, throw error - don't update UI
+        if (insertError) {
+          // If it's a duplicate, that's okay - just update UI
+          if (insertError.code !== '23505') {
+            throw new Error(insertError.message || 'Failed to like post');
+          }
+        }
+
+        // Update UI only after successful database operation
+        setPosts(prev => prev.map(p => 
+          p.id === postId 
+            ? { ...p, isLiked: true, likes: p.likes + 1 } 
+            : p
+        ));
+      }
+    } catch (error: any) {
+      console.error('Error toggling like:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update like. Please try again.",
+        variant: "destructive"
+      });
+    }
+  }, [posts, toast]);
+
+  const handleDoubleTapLike = useCallback(async (postId: number) => {
+    const post = posts.find(p => p.id === postId);
+    if (post && !post.isLiked) {
+      // Use the same like handler
+      await handleLikeToggle(postId);
+    }
+  }, [posts, handleLikeToggle]);
 
   const handleSaveToggle = useCallback((postId: number) => {
     setPosts(prev => prev.map(p => p.id === postId ? { ...p, isSaved: !p.isSaved } : p));
@@ -696,84 +856,7 @@ const Home: FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted/20 relative">
-      {/* Floating Navigation - Compact and hoverable */}
-      <div className="fixed top-24 left-4 z-50 group">
-        <div className="bg-background/90 backdrop-blur-md rounded-2xl shadow-lg border border-border/50 transition-all duration-300 group-hover:shadow-xl">
-          {/* Collapsed state - only icons visible */}
-          <div className="flex flex-col gap-1 p-2 group-hover:hidden">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className={`h-8 w-8 rounded-xl transition-all duration-200 ${activeTab === 'feed' ? 'bg-primary text-primary-foreground shadow-md' : 'hover:bg-muted/80'}`} 
-              onClick={() => setActiveTab('feed')}
-            >
-              <HomeIcon className="w-4 h-4" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className={`h-8 w-8 rounded-xl transition-all duration-200 ${activeTab === 'explore' ? 'bg-primary text-primary-foreground shadow-md' : 'hover:bg-muted/80'}`} 
-              onClick={() => setActiveTab('explore')}
-            >
-              <Compass className="w-4 h-4" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className={`h-8 w-8 rounded-xl transition-all duration-200 ${activeTab === 'reels' ? 'bg-primary text-primary-foreground shadow-md' : 'hover:bg-muted/80'}`} 
-              onClick={() => setActiveTab('reels')}
-            >
-              <Film className="w-4 h-4" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-8 w-8 rounded-xl transition-all duration-200 hover:bg-muted/80" 
-              onClick={() => window.location.href = '/booking'}
-            >
-              <Luggage className="w-4 h-4" />
-            </Button>
-          </div>
-          
-          {/* Expanded state - icons with labels on hover */}
-          <div className="hidden group-hover:block p-3 min-w-[140px]">
-            <div className="flex flex-col gap-1">
-              <Button 
-                variant="ghost" 
-                className={`justify-start py-2 px-3 rounded-xl transition-all duration-200 ${activeTab === 'feed' ? 'bg-primary text-primary-foreground shadow-md' : 'hover:bg-muted/80'}`} 
-                onClick={() => setActiveTab('feed')}
-              >
-                <HomeIcon className="w-4 h-4 mr-2" /> 
-                <span className="text-sm">Feed</span>
-              </Button>
-              <Button 
-                variant="ghost" 
-                className={`justify-start py-2 px-3 rounded-xl transition-all duration-200 ${activeTab === 'explore' ? 'bg-primary text-primary-foreground shadow-md' : 'hover:bg-muted/80'}`} 
-                onClick={() => setActiveTab('explore')}
-              >
-                <Compass className="w-4 h-4 mr-2" /> 
-                <span className="text-sm">Explore</span>
-              </Button>
-              <Button 
-                variant="ghost" 
-                className={`justify-start py-2 px-3 rounded-xl transition-all duration-200 ${activeTab === 'reels' ? 'bg-primary text-primary-foreground shadow-md' : 'hover:bg-muted/80'}`} 
-                onClick={() => setActiveTab('reels')}
-              >
-                <Film className="w-4 h-4 mr-2" /> 
-                <span className="text-sm">Reels</span>
-              </Button>
-              <Button 
-                variant="ghost" 
-                className="justify-start py-2 px-3 rounded-xl transition-all duration-200 hover:bg-muted/80" 
-                onClick={() => window.location.href = '/booking'}
-              >
-                <Luggage className="w-4 h-4 mr-2" /> 
-                <span className="text-sm">Bookings</span>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+
 
       {/* Quick Actions Floating Button - Mobile */}
       <div className="fixed bottom-20 right-4 z-50 lg:hidden">
@@ -794,36 +877,7 @@ const Home: FC = () => {
         </div>
       </div>
 
-      {/* Mobile Bottom Navigation - Bookings Section */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 lg:hidden">
-        <div className="bg-background/95 backdrop-blur-md border-t border-border/50 px-4 py-2">
-          <div className="flex items-center justify-around">
-            <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 h-auto py-2">
-              <HomeIcon className="w-5 h-5" />
-              <span className="text-xs">Home</span>
-            </Button>
-            <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 h-auto py-2">
-              <Search className="w-5 h-5" />
-              <span className="text-xs">Search</span>
-            </Button>
-            <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 h-auto py-2">
-              <Compass className="w-5 h-5" />
-              <span className="text-xs">Explore</span>
-            </Button>
-            <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 h-auto py-2">
-               <Bookmark className="w-5 h-5" />
-               <span className="text-xs">Bookings</span>
-             </Button>
-            <Button variant="ghost" size="sm" className="flex flex-col items-center gap-1 h-auto py-2">
-              <Avatar className="w-5 h-5">
-                <AvatarImage src="/api/placeholder/32/32" alt="Profile" />
-                <AvatarFallback className="text-xs">U</AvatarFallback>
-              </Avatar>
-              <span className="text-xs">Profile</span>
-            </Button>
-          </div>
-        </div>
-      </div>
+
 
       {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto pt-20 lg:pt-6 pb-20 lg:pb-6">
@@ -920,52 +974,124 @@ const Home: FC = () => {
                 </Card>
               ) : (
                 posts.map((post) => (
-                <Card key={post.id} className="overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                  <div id={`post-${post.id}`} className="relative">
-                    <CardContent className="p-3 sm:p-4 flex items-center justify-between">
-                        <div className="flex items-center gap-2 sm:gap-3">
-                            <Avatar className="w-8 h-8 sm:w-10 sm:h-10">
+                  <Card key={post.id} className="overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 rounded-xl border-0">
+                    <div id={`post-${post.id}`} className="relative">
+                    <CardContent className="p-4 sm:p-5 flex items-center justify-between bg-white">
+                        <div className="flex items-center gap-3 sm:gap-4">
+                            <Avatar className="w-10 h-10 sm:w-12 sm:h-12 ring-2 ring-offset-2 ring-primary/20">
                               <AvatarImage src={post.avatar} />
-                              <AvatarFallback className="text-xs sm:text-sm">{post.user.charAt(0)}</AvatarFallback>
+                              <AvatarFallback className="text-sm font-semibold">{post.user.charAt(0)}</AvatarFallback>
                             </Avatar>
-                            <div>
-                                <p className="font-semibold text-xs sm:text-sm">{post.user}</p>
-                                <p className="text-xs text-muted-foreground">{post.location}</p>
+                            <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-sm sm:text-base truncate">{post.user}</p>
+                                <p className="text-xs sm:text-sm text-muted-foreground truncate flex items-center gap-1">
+                                  <MapPin className="w-3 h-3" />
+                                  {post.location}
+                                </p>
                             </div>
                         </div>
                         <PostOptionsDropdown />
                     </CardContent>
-                    <div className="aspect-square bg-muted" onDoubleClick={() => handleDoubleTapLike(post.id)}>
-                        <img src={post.image} alt="Post" className="w-full h-full object-cover" onError={(e) => handleImageError(e, heroBeach, 'Post image failed to load')} />
+                    <div className="aspect-square bg-muted relative overflow-hidden" onDoubleClick={() => handleDoubleTapLike(post.id)}>
+                        <img 
+                          src={post.image} 
+                          alt="Post" 
+                          className="w-full h-full object-cover transition-transform duration-300 hover:scale-105" 
+                          onError={(e) => handleImageError(e, heroBeach, 'Post image failed to load')} 
+                        />
                     </div>
-                    <CardContent className="p-3 sm:p-4">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3 sm:gap-4">
-                                <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-10 sm:w-10" onClick={() => handleLikeToggle(post.id)}>
-                                  <Heart className={`w-4 h-4 sm:w-5 sm:h-5 ${post.isLiked ? "text-red-500 fill-current" : ""}`} />
+                    <CardContent className="p-4 sm:p-5 bg-white">
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-4 sm:gap-5">
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-9 w-9 sm:h-10 sm:w-10 hover:bg-red-50 transition-colors" 
+                                  onClick={() => handleLikeToggle(post.id)}
+                                >
+                                  <Heart className={`w-5 h-5 sm:w-6 sm:h-6 transition-all ${post.isLiked ? "text-red-500 fill-current scale-110" : "text-gray-700"}`} />
                                 </Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-10 sm:w-10" onClick={() => handleCommentToggle(post.id)}>
-                                  <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-9 w-9 sm:h-10 sm:w-10 hover:bg-blue-50 transition-colors" 
+                                  onClick={() => handleCommentToggle(post.id)}
+                                >
+                                  <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700" />
                                 </Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-10 sm:w-10">
-                                  <Send className="w-4 h-4 sm:w-5 sm:h-5" />
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-9 w-9 sm:h-10 sm:w-10 hover:bg-green-50 transition-colors"
+                                  onClick={async () => {
+                                    try {
+                                      const postUrl = `${window.location.origin}/post/${post.id}`;
+                                      
+                                      // Try native share API (mobile)
+                                      if (navigator.share) {
+                                        await navigator.share({
+                                          title: `${post.user}'s Post`,
+                                          text: post.caption,
+                                          url: postUrl,
+                                        });
+                                      } else {
+                                        // Fallback: Copy to clipboard (desktop)
+                                        await navigator.clipboard.writeText(postUrl);
+                                        toast({
+                                          title: "Link copied!",
+                                          description: "Post link copied to clipboard",
+                                        });
+                                      }
+                                    } catch (error: any) {
+                                      // User cancelled share - that's okay
+                                      if (error.name !== 'AbortError') {
+                                        console.error('Share error:', error);
+                                        // Fallback to clipboard
+                                        try {
+                                          const postUrl = `${window.location.origin}/post/${post.id}`;
+                                          await navigator.clipboard.writeText(postUrl);
+                                          toast({
+                                            title: "Link copied!",
+                                            description: "Post link copied to clipboard",
+                                          });
+                                        } catch (clipboardError) {
+                                          toast({
+                                            title: "Error",
+                                            description: "Failed to share post",
+                                            variant: "destructive"
+                                          });
+                                        }
+                                      }
+                                    }
+                                  }}
+                                >
+                                  <Share2 className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700" />
                                 </Button>
                             </div>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-10 sm:w-10" onClick={() => handleSaveToggle(post.id)}>
-                              <Bookmark className={`w-4 h-4 sm:w-5 sm:h-5 ${post.isSaved ? "text-blue-500 fill-current" : ""}`} />
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-9 w-9 sm:h-10 sm:w-10 hover:bg-blue-50 transition-colors" 
+                              onClick={() => handleSaveToggle(post.id)}
+                            >
+                              <Bookmark className={`w-5 h-5 sm:w-6 sm:h-6 transition-all ${post.isSaved ? "text-blue-500 fill-current" : "text-gray-700"}`} />
                             </Button>
                         </div>
-                        <div className="mt-2 sm:mt-3">
-                            <p className="font-semibold text-xs sm:text-sm">{post.likes.toLocaleString()} likes</p>
-                            <p className="text-xs sm:text-sm mt-1 leading-relaxed">
-                              <span className="font-semibold">{post.user}</span> {post.caption}
+                        <div className="space-y-2">
+                            <p className="font-semibold text-sm sm:text-base">{post.likes.toLocaleString()} likes</p>
+                            <p className="text-sm sm:text-base leading-relaxed">
+                              <span className="font-semibold mr-2">{post.user}</span> 
+                              <span className="text-gray-800">{post.caption}</span>
                             </p>
                             {post.comments > 0 && (
-                                <button className="text-xs sm:text-sm text-muted-foreground mt-1 hover:text-foreground transition-colors" onClick={() => handleCommentToggle(post.id)}>
-                                  View all {post.comments} comments
+                                <button 
+                                  className="text-sm text-muted-foreground hover:text-foreground transition-colors font-medium" 
+                                  onClick={() => handleCommentToggle(post.id)}
+                                >
+                                  View all {post.comments} {post.comments === 1 ? 'comment' : 'comments'}
                                 </button>
                             )}
-                            <p className="text-xs text-muted-foreground mt-1">{post.time}</p>
+                            <p className="text-xs text-muted-foreground uppercase tracking-wide">{post.time}</p>
                         </div>
                         {openCommentsPostId === post.id && <PostComments commentsCount={post.comments} />}
                     </CardContent>

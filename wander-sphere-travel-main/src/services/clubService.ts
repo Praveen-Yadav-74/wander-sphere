@@ -66,6 +66,14 @@ export interface CreateClubData {
   image?: string;
 }
 
+export interface CreateClubBackendData {
+  name: string;
+  description: string;
+  isPrivate?: boolean;
+  tags?: string[];
+  rules?: string[];
+}
+
 export interface UpdateClubData extends Partial<CreateClubData> {
   id: string;
 }
@@ -126,7 +134,7 @@ class ClubService {
   /**
    * Create a new club
    */
-  async createClub(clubData: CreateClubData): Promise<Club> {
+  async createClub(clubData: CreateClubBackendData): Promise<Club> {
     const response = await apiRequest<ApiResponse<Club>>(
       buildUrl(endpoints.clubs.create),
       {

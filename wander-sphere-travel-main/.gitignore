@@ -24,6 +24,10 @@ build
 .env.production.local
 .env.production
 
+# Allow .env.example files (templates that should be committed)
+!.env.example
+!**/.env.example
+
 # Package manager files
 bun.lockb
 yarn.lock

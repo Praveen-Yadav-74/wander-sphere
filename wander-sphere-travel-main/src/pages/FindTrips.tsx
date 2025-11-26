@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/utils/api";
-import { endpoints, apiConfig } from "@/config/api";
+import { endpoints, apiConfig, buildUrl } from "@/config/api";
 import { handleImageError } from "@/utils/imageUtils";
 import { ApiResponse, Trip, TripsListResponse, CreateTripRequest, CreateTripResponse } from "@/types/api";
 import heroBeach from "@/assets/hero-beach.jpg";
@@ -41,7 +41,7 @@ const FindTrips = () => {
   const fetchTrips = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await apiRequest<ApiResponse<TripsListResponse>>(endpoints.trips.list);
+      const response = await apiRequest<ApiResponse<TripsListResponse>>(buildUrl(endpoints.trips.list));
       if (response.success && response.data) {
         setTrips(response.data.trips || []);
       } else {
@@ -73,34 +73,84 @@ const FindTrips = () => {
       const city = destinationParts[0] || newTrip.destination;
       const country = destinationParts[1] || 'Unknown';
 
+      // Validate required fields
+      if (!newTrip.title || newTrip.title.length < 3) {
+        toast({
+          title: "Validation Error",
+          description: "Title must be at least 3 characters long.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!newTrip.description || newTrip.description.length < 10) {
+        toast({
+          title: "Validation Error",
+          description: "Description must be at least 10 characters long.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!newTrip.startDate || !newTrip.endDate) {
+        toast({
+          title: "Validation Error",
+          description: "Please select both start and end dates.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!newTrip.maxParticipants || parseInt(newTrip.maxParticipants) < 1 || parseInt(newTrip.maxParticipants) > 50) {
+        toast({
+          title: "Validation Error",
+          description: "Max participants must be between 1 and 50.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!newTrip.type) {
+        toast({
+          title: "Validation Error",
+          description: "Please select a trip category.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Format dates to ISO8601
+      const startDate = new Date(newTrip.startDate).toISOString();
+      const endDate = new Date(newTrip.endDate).toISOString();
+
       const tripData: CreateTripRequest = {
-        title: newTrip.title,
-        description: newTrip.description,
+        title: newTrip.title.trim(),
+        description: newTrip.description.trim(),
         destination: {
-          country,
-          city,
+          country: country.trim(),
+          city: city.trim(),
           coordinates: {
             latitude: 0, // Default coordinates - should be enhanced with geocoding
             longitude: 0
           }
         },
         dates: {
-          startDate: newTrip.startDate,
-          endDate: newTrip.endDate
+          startDate: startDate,
+          endDate: endDate
         },
         budget: {
           total: parseFloat(newTrip.budget.replace(/[^\d.]/g, '')) || 0,
           currency: 'USD'
         },
-        maxParticipants: parseInt(newTrip.maxParticipants),
+        maxParticipants: parseInt(newTrip.maxParticipants) || 1,
         category: newTrip.type,
         tags: newTrip.tags.split(',').map(tag => tag.trim()).filter(Boolean),
         visibility: 'public'
       };
 
-      const response = await apiRequest<ApiResponse<CreateTripResponse>>(endpoints.trips.create, {
+      const response = await apiRequest<ApiResponse<CreateTripResponse>>(buildUrl(endpoints.trips.create), {
         method: 'POST',
-        body: JSON.stringify(tripData)
+        body: tripData
       });
       
       if (response.success) {

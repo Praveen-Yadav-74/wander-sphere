@@ -63,6 +63,21 @@ const TripDetail = () => {
   const handleInterest = async () => {
     if (!id) return;
     
+    // Check if user is authenticated
+    const isAuthenticated = localStorage.getItem('user') !== null;
+    
+    // If not authenticated, redirect to login
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in or sign up to join this trip.",
+      });
+      // Store the current page URL to redirect back after login
+      localStorage.setItem('redirectAfterAuth', window.location.pathname);
+      window.location.href = '/login';
+      return;
+    }
+    
     try {
       if (isInterested) {
         await tripService.leaveTrip(id);
@@ -90,6 +105,21 @@ const TripDetail = () => {
 
   const handleAddComment = async () => {
     if (!comment.trim() || !id || isSubmittingComment) return;
+    
+    // Check if user is authenticated
+    const isAuthenticated = localStorage.getItem('user') !== null;
+    
+    // If not authenticated, redirect to login
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in or sign up to comment on this trip.",
+      });
+      // Store the current page URL to redirect back after login
+      localStorage.setItem('redirectAfterAuth', window.location.pathname);
+      window.location.href = '/login';
+      return;
+    }
     
     try {
       setIsSubmittingComment(true);

@@ -60,15 +60,15 @@ CREATE POLICY "Anyone can view public trips" ON public.trips
 
 -- Users can create their own trips
 CREATE POLICY "Users can create own trips" ON public.trips
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+  FOR INSERT WITH CHECK (auth.uid() = organizer_id);
 
 -- Users can update their own trips
 CREATE POLICY "Users can update own trips" ON public.trips
-  FOR UPDATE USING (auth.uid() = user_id);
+  FOR UPDATE USING (auth.uid() = organizer_id);
 
 -- Users can delete their own trips
 CREATE POLICY "Users can delete own trips" ON public.trips
-  FOR DELETE USING (auth.uid() = user_id);
+  FOR DELETE USING (auth.uid() = organizer_id);
 
 -- =============================================
 -- STEP 4: Create RLS Policies for Trip Comments Table
@@ -163,7 +163,7 @@ CREATE POLICY "Trip owners can add participants" ON public.trip_participants
     EXISTS (
       SELECT 1 FROM public.trips 
       WHERE trips.id = trip_participants.trip_id 
-      AND trips.user_id = auth.uid()
+      AND trips.organizer_id = auth.uid()
     )
   );
 
@@ -173,7 +173,7 @@ CREATE POLICY "Trip owners can remove participants" ON public.trip_participants
     EXISTS (
       SELECT 1 FROM public.trips 
       WHERE trips.id = trip_participants.trip_id 
-      AND trips.user_id = auth.uid()
+      AND trips.organizer_id = auth.uid()
     )
   );
 

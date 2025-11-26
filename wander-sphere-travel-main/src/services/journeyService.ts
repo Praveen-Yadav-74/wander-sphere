@@ -1,11 +1,11 @@
 /**
  * Journey Service
- * Handles journey/post-related API operations
+ * Handles journey/post-related operations using Supabase directly
  */
 
-import { apiRequest, cachedApiRequest } from '@/utils/api';
-import { endpoints, buildUrl, getAuthHeaderSync, ApiResponse, PaginatedResponse } from '@/config/api';
-import { CacheKeys, CacheTTL } from '@/services/cacheService';
+import { journeyService as supabaseJourneyService, userService as supabaseUserService, tripService as supabaseTripService } from './supabaseService';
+import type { DatabaseJourney, InsertJourney } from '@/types/database';
+import type { ApiResponse, PaginatedResponse } from '@/config/api';
 
 export interface Journey {
   id: string;
@@ -96,211 +96,223 @@ export interface JourneySearchParams {
   difficulty?: string;
 }
 
+/**
+ * Transform DatabaseJourney to Journey interface
+ */
+async function transformDatabaseJourneyToJourney(dbJourney: DatabaseJourney): Promise<Journey> {
+  // Get author info
+  const author = await supabaseUserService.getUserProfile(dbJourney.user_id);
+  
+  return {
+    id: dbJourney.id,
+    title: dbJourney.title,
+    description: dbJourney.description || '',
+    content: dbJourney.description || '', // Using description as content
+    author: {
+      id: author?.id || dbJourney.user_id,
+      firstName: author?.first_name || '',
+      lastName: author?.last_name || '',
+      username: author?.username || '',
+      avatar: author?.avatar_url || undefined,
+    },
+    images: dbJourney.photos || [],
+    tags: [], // TODO: Extract from activities or notes if needed
+    destinations: dbJourney.location ? [dbJourney.location.city || '', dbJourney.location.country || ''].filter(Boolean) : [],
+    difficulty: 'easy' as const, // Default, could extract from activities
+    season: [], // Not in database schema
+    likes: [], // TODO: Fetch from likes table if exists
+    comments: [], // TODO: Fetch from comments table if exists
+    views: 0,
+    shares: 0,
+    featured: false,
+    isPublic: dbJourney.is_public || false,
+    status: 'published' as const, // Default, not in database schema
+    metadata: {
+      readTime: 0,
+      wordCount: (dbJourney.description || '').split(' ').length,
+    },
+    createdAt: dbJourney.created_at,
+    updatedAt: dbJourney.updated_at,
+    likeCount: 0,
+    commentCount: 0,
+    isLiked: false,
+    isOwner: false, // Will be set by caller if needed
+  };
+}
+
+/**
+ * Transform CreateJourneyData to InsertJourney
+ */
+function transformCreateJourneyDataToInsertJourney(journeyData: CreateJourneyData, tripId?: string): InsertJourney {
+  return {
+    title: journeyData.title,
+    description: journeyData.description || journeyData.content,
+    journey_date: new Date().toISOString().split('T')[0], // Today's date
+    location: journeyData.destinations && journeyData.destinations.length > 0 ? {
+      city: journeyData.destinations[0] || '',
+      country: journeyData.destinations[1] || '',
+    } : undefined,
+    activities: [], // Could be extracted from content
+    photos: journeyData.images,
+    notes: journeyData.content,
+    is_public: journeyData.isPublic !== false, // Default to true
+    trip_id: tripId || null,
+  };
+}
+
 class JourneyService {
   /**
    * Get list of journeys with optional filters
    */
   async getJourneys(params: JourneySearchParams = {}): Promise<PaginatedResponse<Journey>> {
-    const queryParams = new URLSearchParams();
-    
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        if (Array.isArray(value)) {
-          queryParams.append(key, value.join(','));
-        } else {
-          queryParams.append(key, value.toString());
-        }
-      }
-    });
-
-    const url = queryParams.toString() 
-      ? `${buildUrl(endpoints.journeys.list)}?${queryParams.toString()}`
-      : buildUrl(endpoints.journeys.list);
-    const cacheKey = `journeys_list_${queryParams.toString()}`;
-    
-    return await cachedApiRequest<PaginatedResponse<Journey>>(url, cacheKey, {
-      ttl: CacheTTL.SHORT,
-      headers: getAuthHeaderSync(),
-    });
+    try {
+      const journeys = await supabaseJourneyService.getPublicJourneys(params.limit || 20);
+      const transformedJourneys = await Promise.all(journeys.map(transformDatabaseJourneyToJourney));
+      
+      return {
+        success: true,
+        data: transformedJourneys,
+        pagination: {
+          page: params.page || 1,
+          limit: params.limit || transformedJourneys.length,
+          total: transformedJourneys.length,
+          totalPages: 1,
+        },
+      };
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Failed to fetch journeys');
+    }
   }
 
   /**
    * Get user's own journeys
    */
   async getMyJourneys(status?: 'draft' | 'published' | 'archived'): Promise<ApiResponse<{ journeys: Journey[] }>> {
-    const queryParams = new URLSearchParams();
-    if (status) {
-      queryParams.append('status', status);
+    try {
+      const journeys = await supabaseJourneyService.getMyJourneys();
+      const transformedJourneys = await Promise.all(journeys.map(transformDatabaseJourneyToJourney));
+      
+      return {
+        success: true,
+        data: { journeys: transformedJourneys },
+      };
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Failed to fetch my journeys');
     }
-
-    const url = `/journeys/my-journeys?${queryParams.toString()}`;
-    const cacheKey = CacheKeys.userJourneys(`current_${status || 'all'}`);
-    
-    return await cachedApiRequest<ApiResponse<{ journeys: Journey[] }>>(
-      buildUrl(url),
-      cacheKey,
-      {
-        ttl: CacheTTL.SHORT,
-        headers: getAuthHeaderSync(),
-      }
-    );
   }
 
   /**
    * Get journey by ID
    */
   async getJourney(journeyId: string): Promise<ApiResponse<{ journey: Journey }>> {
-    const response = await cachedApiRequest<ApiResponse<{ journey: Journey }>>(
-      buildUrl(endpoints.journeys.detail(journeyId)),
-      CacheKeys.journeyDetail(journeyId),
-      {
-        ttl: CacheTTL.MEDIUM,
-        headers: getAuthHeaderSync(),
+    try {
+      const dbJourney = await supabaseJourneyService.getJourneyById(journeyId);
+      if (!dbJourney) {
+        throw new Error('Journey not found');
       }
-    );
-
-    if (response.success && response.data) {
-      return response;
+      const journey = await transformDatabaseJourneyToJourney(dbJourney);
+      
+      return {
+        success: true,
+        data: { journey },
+      };
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Failed to get journey');
     }
-
-    throw new Error(response.message || 'Failed to get journey');
   }
 
   /**
    * Create a new journey
+   * Automatically sets user_id from authenticated user
+   * Optionally includes trip_id if journey belongs to a trip
    */
-  async createJourney(journeyData: CreateJourneyData): Promise<ApiResponse<{ journey: Journey }>> {
-    const response = await apiRequest<ApiResponse<{ journey: Journey }>>(
-      buildUrl(endpoints.journeys.create),
-      {
-        method: 'POST',
-        headers: getAuthHeaderSync(),
-        body: journeyData,
-      }
-    );
-
-    if (response.success && response.data) {
-      return response;
+  async createJourney(journeyData: CreateJourneyData, tripId?: string): Promise<ApiResponse<{ journey: Journey }>> {
+    try {
+      const insertData = transformCreateJourneyDataToInsertJourney(journeyData, tripId);
+      const dbJourney = await supabaseJourneyService.createJourney(insertData);
+      const journey = await transformDatabaseJourneyToJourney(dbJourney);
+      
+      return {
+        success: true,
+        data: { journey },
+      };
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Failed to create journey');
     }
-
-    throw new Error(response.message || 'Failed to create journey');
   }
 
   /**
    * Update journey
    */
   async updateJourney(journeyId: string, journeyData: UpdateJourneyData): Promise<ApiResponse<{ journey: Journey }>> {
-    const response = await apiRequest<ApiResponse<{ journey: Journey }>>(
-      buildUrl(endpoints.journeys.update(journeyId)),
-      {
-        method: 'PUT',
-        headers: getAuthHeaderSync(),
-        body: journeyData,
-      }
-    );
+    try {
+      const updates: any = {};
+      if (journeyData.title) updates.title = journeyData.title;
+      if (journeyData.description) updates.description = journeyData.description;
+      if (journeyData.content) updates.notes = journeyData.content;
+      if (journeyData.isPublic !== undefined) updates.is_public = journeyData.isPublic;
+      if (journeyData.images) updates.photos = journeyData.images;
 
-    if (response.success && response.data) {
-      return response;
+      const dbJourney = await supabaseJourneyService.updateJourney(journeyId, updates);
+      const journey = await transformDatabaseJourneyToJourney(dbJourney);
+      
+      return {
+        success: true,
+        data: { journey },
+      };
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Failed to update journey');
     }
-
-    throw new Error(response.message || 'Failed to update journey');
   }
 
   /**
    * Delete journey
    */
   async deleteJourney(journeyId: string): Promise<ApiResponse<{}>> {
-    const response = await apiRequest<ApiResponse<{}>>(
-      buildUrl(endpoints.journeys.delete(journeyId)),
-      {
-        method: 'DELETE',
-        headers: getAuthHeaderSync(),
-      }
-    );
-
-    if (response.success) {
-      return response;
+    try {
+      await supabaseJourneyService.deleteJourney(journeyId);
+      return {
+        success: true,
+        data: {},
+      };
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Failed to delete journey');
     }
-
-    throw new Error(response.message || 'Failed to delete journey');
   }
 
   /**
-   * Like/unlike journey
+   * Like/unlike journey (placeholder)
    */
   async toggleLike(journeyId: string): Promise<ApiResponse<{ isLiked: boolean; likeCount: number }>> {
-    const response = await apiRequest<ApiResponse<{ isLiked: boolean; likeCount: number }>>(
-      buildUrl(endpoints.journeys.like(journeyId)),
-      {
-        method: 'POST',
-        headers: getAuthHeaderSync(),
-      }
-    );
-
-    if (response.success && response.data) {
-      return response;
-    }
-
-    throw new Error(response.message || 'Failed to toggle like');
+    // TODO: Implement using likes table if exists
+    throw new Error('Not implemented yet - requires likes table');
   }
 
   /**
-   * Add comment to journey
+   * Add comment to journey (placeholder)
    */
   async addComment(journeyId: string, content: string): Promise<ApiResponse<{ comment: JourneyComment; commentCount: number }>> {
-    const response = await apiRequest<ApiResponse<{ comment: JourneyComment; commentCount: number }>>(
-      buildUrl(endpoints.journeys.comment(journeyId)),
-      {
-        method: 'POST',
-        headers: getAuthHeaderSync(),
-        body: { content },
-      }
-    );
-
-    if (response.success && response.data) {
-      return response;
-    }
-
-    throw new Error(response.message || 'Failed to add comment');
+    // TODO: Implement using comments table if exists
+    throw new Error('Not implemented yet - requires comments table');
   }
 
   /**
    * Get featured journeys
    */
   async getFeaturedJourneys(): Promise<ApiResponse<{ journeys: Journey[] }>> {
-    const response = await cachedApiRequest<ApiResponse<{ journeys: Journey[] }>>(
-      buildUrl('/journeys/featured'),
-      'featured_journeys',
-      {
-        ttl: CacheTTL.LONG,
-        headers: getAuthHeaderSync(),
-      }
-    );
-
-    if (response.success && response.data) {
-      return response;
-    }
-
-    throw new Error(response.message || 'Failed to get featured journeys');
+    // Return public journeys as featured for now
+    return this.getJourneys({ limit: 10 });
   }
 
   /**
-   * Share journey
+   * Share journey (placeholder)
    */
   async shareJourney(journeyId: string): Promise<ApiResponse<{ shareCount: number }>> {
-    const response = await apiRequest<ApiResponse<{ shareCount: number }>>(
-      buildUrl(endpoints.journeys.share(journeyId)),
-      {
-        method: 'POST',
-        headers: getAuthHeaderSync(),
-      }
-    );
-
-    if (response.success && response.data) {
-      return response;
-    }
-
-    throw new Error(response.message || 'Failed to share journey');
+    // TODO: Implement share tracking
+    return {
+      success: true,
+      data: { shareCount: 0 },
+    };
   }
 }
 

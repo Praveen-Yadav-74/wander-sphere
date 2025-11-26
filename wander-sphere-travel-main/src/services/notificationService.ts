@@ -52,7 +52,7 @@ class NotificationService {
     if (read !== undefined) params.append('read', read.toString());
 
     const cacheKey = CacheKeys.notifications(`current_${params.toString()}`);
-    const response = await cachedApiRequest(`${endpoints.notifications.list}?${params.toString()}`, cacheKey, {
+    const response = await cachedApiRequest(`${buildUrl(endpoints.notifications.list)}?${params.toString()}`, cacheKey, {
       ttl: CacheTTL.SHORT,
       headers: getAuthHeaderSync()
     });
@@ -61,7 +61,7 @@ class NotificationService {
 
   // Get unread notification count
   async getUnreadCount(): Promise<UnreadCountResponse> {
-    const response = await cachedApiRequest(endpoints.notifications.unreadCount, 'notifications_unread_count', {
+    const response = await cachedApiRequest(buildUrl(endpoints.notifications.unreadCount), 'notifications_unread_count', {
       ttl: CacheTTL.SHORT,
       headers: getAuthHeaderSync()
     });
@@ -70,7 +70,7 @@ class NotificationService {
 
   // Mark notification as read
   async markAsRead(notificationId: string): Promise<{ success: boolean; message: string }> {
-    const response = await apiRequest(endpoints.notifications.markRead(notificationId), {
+    const response = await apiRequest(buildUrl(endpoints.notifications.markRead(notificationId)), {
       method: 'PUT',
       headers: getAuthHeaderSync()
     });
@@ -79,7 +79,7 @@ class NotificationService {
 
   // Mark all notifications as read
   async markAllAsRead(): Promise<{ success: boolean; message: string }> {
-    const response = await apiRequest(endpoints.notifications.markAllRead, {
+    const response = await apiRequest(buildUrl(endpoints.notifications.markAllRead), {
       method: 'PUT',
       headers: getAuthHeaderSync()
     });
@@ -88,7 +88,7 @@ class NotificationService {
 
   // Delete notification
   async deleteNotification(notificationId: string): Promise<{ success: boolean; message: string }> {
-    const response = await apiRequest(endpoints.notifications.delete(notificationId), {
+    const response = await apiRequest(buildUrl(endpoints.notifications.delete(notificationId)), {
       method: 'DELETE',
       headers: getAuthHeaderSync()
     });
@@ -97,7 +97,7 @@ class NotificationService {
 
   // Delete all notifications
   async deleteAllNotifications(): Promise<{ success: boolean; message: string }> {
-    const response = await apiRequest(endpoints.notifications.list, {
+    const response = await apiRequest(buildUrl(endpoints.notifications.list), {
       method: 'DELETE',
       headers: getAuthHeaderSync()
     });
@@ -111,18 +111,18 @@ class NotificationService {
     message: string,
     data?: any
   ): Promise<{ success: boolean; message: string; data: { notification: Notification } }> {
-    const response = await apiRequest(`${endpoints.notifications.list}/test`, {
+    const response = await apiRequest(`${buildUrl(endpoints.notifications.list)}/test`, {
       method: 'POST',
       headers: {
         ...getAuthHeaderSync(),
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
+      body: {
         type,
         title,
         message,
         data,
-      })
+      }
     });
     return response as { success: boolean; message: string; data: { notification: Notification } };
   }

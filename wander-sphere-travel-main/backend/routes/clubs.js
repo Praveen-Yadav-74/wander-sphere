@@ -204,9 +204,9 @@ router.post('/', auth, [
 
     const { name, description, isPrivate = false, tags = [], rules = [] } = req.body;
     
-    // Check if club name already exists
+    // Check if club name already exists (excluding clubs created by the same user)
     const existingClub = Array.from(clubs.values()).find(
-      club => club.name.toLowerCase() === name.toLowerCase()
+      club => club.name.toLowerCase() === name.toLowerCase() && club.creator !== req.user.id
     );
     
     if (existingClub) {

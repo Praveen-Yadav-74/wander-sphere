@@ -1,0 +1,46 @@
+# WanderSphere Environment Variables
+# RENAME THIS FILE TO: .env.example
+# Copy this file to .env.local for local development
+# DO NOT commit .env.local to Git (it's in .gitignore)
+
+# ============================================
+# API Configuration
+# ============================================
+
+# Production API URL (used when building for production)
+# For local development, change to: http://localhost:5000
+VITE_API_BASE_URL=https://wander-sphere-ue7e.onrender.com
+
+# API Timeout (milliseconds)
+VITE_API_TIMEOUT=15000
+
+# Enable API Logging (true/false)
+# Set to false in production, true for local development
+VITE_ENABLE_API_LOGGING=false
+
+# ============================================
+# Supabase Configuration
+# ============================================
+
+# Your Supabase Project URL
+# Get this from: https://app.supabase.com/project/_/settings/api
+VITE_SUPABASE_URL=your_supabase_project_url_here
+
+# Your Supabase Anonymous Key (Public Key)
+# Get this from: https://app.supabase.com/project/_/settings/api
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+
+# ============================================
+# Notes
+# ============================================
+# 
+# For Production (Vercel):
+# - Set these variables in Vercel Dashboard → Settings → Environment Variables
+# - Do NOT commit .env files with real secrets
+#
+# For Local Development:
+# - Copy this file to .env.local
+# - Update VITE_API_BASE_URL to: http://localhost:5000
+# - Add your actual Supabase credentials
+# - .env.local is gitignored and won't be committed
+

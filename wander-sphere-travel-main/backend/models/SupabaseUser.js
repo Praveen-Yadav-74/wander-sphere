@@ -97,7 +97,7 @@ class SupabaseUser {
             first_name,
             last_name,
             email,
-            avatar
+            avatar_url
           )
         `)
         .eq('following_id', userId);
@@ -121,7 +121,7 @@ class SupabaseUser {
             first_name,
             last_name,
             email,
-            avatar
+            avatar_url
           )
         `)
         .eq('follower_id', userId);
@@ -243,7 +243,7 @@ class SupabaseUser {
             first_name,
             last_name,
             email,
-            avatar
+            avatar_url
           )
         `)
         .eq('blocker_id', userId);
@@ -330,7 +330,7 @@ class SupabaseUser {
       
       const { data, error } = await supabase
         .from('users')
-        .select('id, first_name, last_name, username, email, avatar, bio, location')
+        .select('id, first_name, last_name, username, email, avatar_url, bio, location')
         .or(`first_name.ilike.%${sanitizedQuery}%,last_name.ilike.%${sanitizedQuery}%,username.ilike.%${sanitizedQuery}%,email.ilike.%${sanitizedQuery}%`)
         .eq('is_active', true)
         .limit(limit)

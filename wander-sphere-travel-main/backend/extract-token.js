@@ -1,0 +1,12 @@
+// Extract access token from login response
+const loginResponse = {
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "session": {
+      "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2RsbXZ3Ym5rcWRid3V4cHJ5bGpwLnN1cGFiYXNlLmNvIiwic3ViIjoiYjI1YWE5N2YtZDg0MC00MjI2LWE4ZWQtYThiZDdhZDcwMGRjIiwiZW1haWwiOiJ0ZXN0dXNlcjNAZ21haWwuY29tIiwicGhvbmUiOiIiLCJhcHBfbWV0YWRhdGEiOnsicHJvdmlkZXIiOiJlbWFpbCIsInByb3ZpZGVycyI6WyJlbWFpbCJdfSwidXNlcl9tZXRhZGF0YSI6eyJlbWFpbCI6InRlc3R1c2VyM0BnbWFpbC5jb20iLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiZmlyc3RfbmFtZSI6IlRlc3QiLCJsYXN0X25hbWUiOiJVc2VyIiwicGhvbmVfdmVyaWZpZWQiOmZhbHNlLCJzdWIiOiJiMjVhYTk3Zi1kODQwLTQyMjYtYThlZC1hOGJkN2FkNzAwZGMiLCJ1c2VybmFtZSI6InRlc3RfdXNlcjMifSwicm9sZSI6ImF1dGhlbnRpY2F0ZWQiLCJhYWwiOiJhYWwxIiwiYW1yIjpbeyJtZXRob2QiOiJwYXNzd29yZCIsInRpbWVzdGFtcCI6MTc2MjU5MTc5M30sInNlc3Npb25faWQiOiIzZjY3NDUxNi0yMDI3LTRjODUtYWY0MC1mNjk3YzI3MTNjZTQiLCJpc19hbm9ueW1vdXMiOmZhbHNlfQ.3dsXNxodF0WZVwg4_eSdfB-QStyBhS4TIEf0vR6XbrY"
+    }
+  }
+};
+
+console.log('Access token:', loginResponse.data.session.access_token);

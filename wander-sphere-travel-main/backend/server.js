@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import { config } from './config/env.js';
+import { isConnectionHealthy, performHealthCheck } from './config/supabase.js';
 
 // Import routes
 import authRoutes from './routes/supabaseAuth.js';
@@ -34,23 +35,91 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// CORS configuration
+// CORS configuration - Production and Development
+const allowedOrigins = [
+  config.FRONTEND_URL,
+  'https://wander-sphere-zpml.vercel.app',
+  'https://wander-sphere-zpml.vercel.app/', // With trailing slash
+  'https://wander-sphere-travel-main.vercel.app',
+  // Local development origins
+  'http://localhost:8080',
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:8080',
+  'http://127.0.0.1:3000'
+];
+
 app.use(cors({
-  origin: [
-    config.FRONTEND_URL,
-    'https://wander-sphere-zpml.vercel.app',
-    'https://wander-sphere-travel-main.vercel.app',
-    'http://localhost:8080',
-    'http://localhost:5173'
-  ],
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // In production, only allow specific origins
+    if (config.NODE_ENV === 'production') {
+      // Check if origin is in allowed list (exact match or starts with)
+      const isAllowed = allowedOrigins.some(allowed => 
+        origin === allowed || origin.startsWith(allowed.replace(/\/$/, ''))
+      );
+      
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        console.warn(`CORS: Blocked origin ${origin} in production`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    } else {
+      // In development, allow localhost and 127.0.0.1
+      if (allowedOrigins.indexOf(origin) !== -1 || 
+          origin.startsWith('http://localhost:') || 
+          origin.startsWith('http://127.0.0.1:')) {
+        callback(null, true);
+      } else {
+        console.warn(`CORS: Blocked origin ${origin}`);
+        callback(null, true); // Allow all in development for easier debugging
+      }
+    }
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Connection', 'Accept'],
+  exposedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Body parsing middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Connection keep-alive middleware
+app.use((req, res, next) => {
+  // Set keep-alive headers
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('Keep-Alive', 'timeout=5, max=1000');
+  
+  // Add request timestamp for monitoring
+  req.requestTime = Date.now();
+  
+  next();
+});
+
+// Body parsing middleware - skip multipart requests (needed for multer)
+app.use((req, res, next) => {
+  if (req.headers['content-type'] && req.headers['content-type'].includes('multipart/form-data')) {
+    return next(); // Skip body parsing for multipart requests so multer can handle them
+  }
+  express.json({ limit: '10mb' })(req, res, (err) => {
+    if (err) return next(err);
+    express.urlencoded({ extended: true, limit: '10mb' })(req, res, next);
+  });
+});
+
+// Request logging middleware (development only)
+if (config.NODE_ENV === 'development') {
+  app.use((req, res, next) => {
+    const start = Date.now();
+    res.on('finish', () => {
+      const duration = Date.now() - start;
+      console.log(`${req.method} ${req.path} - ${res.statusCode} - ${duration}ms`);
+    });
+    next();
+  });
+}
 
 // Supabase connection is handled in individual routes
 console.log('Using Supabase as the database backend');
@@ -80,12 +149,28 @@ app.get('/', (req, res) => {
   });
 });
 
-// Health check endpoint
-app.get('/health', (req, res) => {
+// Health check endpoint with database connection status
+app.get('/health', async (req, res) => {
+  const dbHealthy = isConnectionHealthy();
+  
+  // Perform a quick health check if connection status is unknown or unhealthy
+  if (!dbHealthy) {
+    const checkResult = await performHealthCheck();
+    if (!checkResult) {
+      return res.status(503).json({ 
+        status: 'SERVICE_UNAVAILABLE', 
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        database: 'unhealthy'
+      });
+    }
+  }
+  
   res.status(200).json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    database: 'healthy'
   });
 });
 
@@ -108,9 +193,33 @@ app.use('*', (req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-// Global error handler
+// Global error handler with better error handling
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error('[Error]', {
+    message: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+  
+  // Handle database connection errors
+  if (err.message && (
+    err.message.includes('connection') || 
+    err.message.includes('timeout') ||
+    err.message.includes('ECONNREFUSED') ||
+    err.message.includes('ENOTFOUND')
+  )) {
+    // Mark connection as unhealthy
+    performHealthCheck().catch(console.error);
+    
+    return res.status(503).json({
+      message: 'Service temporarily unavailable. Please try again later.',
+      error: 'Database connection error',
+      retryAfter: 5
+    });
+  }
+  
   res.status(err.status || 500).json({
     message: err.message || 'Internal server error',
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack })

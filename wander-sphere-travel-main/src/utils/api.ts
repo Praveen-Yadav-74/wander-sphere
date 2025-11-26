@@ -39,6 +39,24 @@ export async function apiRequest<T>(url: string, options: ApiOptions = {}): Prom
     offlineStrategy = 'network-first'
   } = options;
 
+  // Ensure we have a session before making authenticated requests
+  if (!skipAuth && method !== 'GET') {
+    // For write operations, always wait for session
+    const { getAuthHeader } = await import('@/config/api');
+    const authHeaders = await getAuthHeader();
+    if (!authHeaders.Authorization) {
+      throw new Error('No authentication token available. Please log in.');
+    }
+    Object.assign(headers, authHeaders);
+  } else if (!skipAuth) {
+    // For read operations, try to get auth header but don't fail if missing
+    const { getAuthHeader } = await import('@/config/api');
+    const authHeaders = await getAuthHeader();
+    if (authHeaders.Authorization) {
+      Object.assign(headers, authHeaders);
+    }
+  }
+
   const isOnline = navigator.onLine;
   const isMobile = isMobileDevice();
   const cacheKey = cache?.key || generateCacheKey(url, method, body);
@@ -84,176 +102,289 @@ export async function apiRequest<T>(url: string, options: ApiOptions = {}): Prom
     }
   }
 
-  // Create an AbortController for timeout handling
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  // Retry logic with exponential backoff
+  const maxRetries = apiConfig.maxRetries || 3;
+  const retryDelay = apiConfig.retryDelay || 1000;
+  let lastError: Error | null = null;
 
-  try {
-    const requestOptions: RequestInit = {
-      method,
-      headers: {
-        ...apiConfig.headers,
-        ...(skipAuth ? {} : getAuthHeaderSync()),
-        ...headers
-      },
-      signal: controller.signal
-    };
+  // Helper function to check if error is retryable
+  const isRetryableError = (error: any): boolean => {
+    if (!error) return false;
+    
+    // Retry on network errors, timeouts, and 5xx server errors
+    if (error instanceof DOMException && error.name === 'AbortError') return true;
+    if (error.message && (
+      error.message.includes('NetworkError') || 
+      error.message.includes('Failed to fetch') || 
+      error.message.includes('ERR_CONNECTION_REFUSED') ||
+      error.message.includes('timeout')
+    )) return true;
+    
+    const status = (error as any).status;
+    if (status >= 500 && status < 600) return true; // Server errors
+    if (status === 429) return true; // Rate limiting
+    
+    return false;
+  };
 
-    if (body) {
-      // Handle FormData separately (for file uploads)
-      if (body instanceof FormData) {
-        requestOptions.body = body;
-        // Remove Content-Type header for FormData to let browser set it
-        delete requestOptions.headers!['Content-Type'];
-      } else {
-        requestOptions.body = JSON.stringify(body);
-      }
-    }
+  // Make request with retry logic
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      // Create new AbortController for each attempt
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-    // Log API request in development
-    if (apiConfig.enableLogging && import.meta.env.DEV) {
-      console.log(`[API] ${method} ${url}`, {
-        headers: requestOptions.headers,
-        body: body instanceof FormData ? '[FormData]' : body
-      });
-    }
+      const requestOptions: RequestInit = {
+        method,
+        headers: {
+          ...apiConfig.headers,
+          ...(skipAuth ? {} : getAuthHeaderSync()),
+          ...headers
+        },
+        signal: controller.signal,
+        // Keep-alive for better connection reuse
+        keepalive: true
+      };
 
-    const response = await fetch(url, requestOptions);
-    clearTimeout(timeoutId);
-
-    // Log API response in development
-    if (apiConfig.enableLogging && import.meta.env.DEV) {
-      console.log(`[API] Response ${response.status} ${url}`);
-    }
-
-    // Handle HTTP error responses
-    if (!response.ok) {
-      let errorData;
-      try {
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          errorData = await response.json();
+      if (body) {
+        // Handle FormData separately (for file uploads)
+        if (body instanceof FormData) {
+          requestOptions.body = body;
+          // Remove Content-Type header for FormData to let browser set it with boundary
+          const headersCopy = { ...requestOptions.headers };
+          delete headersCopy['Content-Type'];
+          requestOptions.headers = headersCopy;
         } else {
-          errorData = { message: await response.text() || `HTTP ${response.status}` };
-        }
-      } catch {
-        errorData = { message: `HTTP ${response.status}` };
-      }
-      
-      const error = new Error(errorData.message || `HTTP ${response.status}`);
-      (error as any).status = response.status;
-      (error as any).data = errorData;
-      throw error;
-    }
-
-    // Handle empty responses
-    const contentType = response.headers.get('content-type');
-    let responseData: T;
-    if (contentType && contentType.includes('application/json')) {
-      responseData = await response.json();
-    } else {
-      responseData = await response.text() as unknown as T;
-    }
-    
-    // Cache successful GET responses
-    if (method === 'GET' && cache && !cache.forceRefresh) {
-      cacheService.set(cacheKey, responseData, {
-        ttl: cache.ttl || CacheTTL.MEDIUM,
-        version: cache.version
-      });
-    }
-    
-    return responseData;
-  } catch (error) {
-    clearTimeout(timeoutId);
-    
-    // Log error in development
-    if (apiConfig.enableLogging && import.meta.env.DEV) {
-      console.error(`[API] Error ${method} ${url}:`, error);
-    }
-    
-    // Handle different types of errors
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      const timeoutError = new Error(`Request timeout after ${timeout}ms`);
-      
-      toast({
-        title: "Request Timeout",
-        description: `The request took too long to complete. Please try again.`,
-        variant: "destructive"
-      });
-      
-      throw timeoutError;
-    }
-    
-    // Handle network errors
-    if (error instanceof Error) {
-      if (error.message.includes('NetworkError') || error.message.includes('Failed to fetch') || error.message.includes('ERR_CONNECTION_REFUSED')) {
-        // Try to serve cached data first
-        if (method === 'GET') {
-          const cachedData = cacheService.get<T>(cacheKey, cache?.version);
-          if (cachedData) {
-            if (isMobile) {
-              showOfflineToast('Showing cached data');
-            } else {
-              showNetworkErrorToast('Showing cached data');
-            }
-            return cachedData;
+          requestOptions.body = JSON.stringify(body);
+          // Ensure Content-Type is set for JSON
+          if (!requestOptions.headers!['Content-Type']) {
+            requestOptions.headers = {
+              ...requestOptions.headers,
+              'Content-Type': 'application/json'
+            };
           }
         }
-        
-        // Fallback to mock data for common endpoints when no cache available
-        if (isMobile) {
-          const mockResponse = getMockResponse(url, method);
-          if (mockResponse) {
-            console.log(`[API] Using mock data for ${method} ${url}`);
-            showOfflineToast('Using sample data');
-            return mockResponse as T;
-          }
-        } else {
-          // For desktop, show network error without mock data
-          showNetworkErrorToast();
-          throw error;
-        }
-      } else {
-        // Handle specific HTTP status codes
-        const status = (error as any).status;
-        if (status === 401) {
-          toast({
-            title: "Authentication Required",
-            description: "Please log in to continue.",
-            variant: "destructive"
-          });
-          // Clear auth token and redirect to login
-          localStorage.removeItem('auth_token');
-          window.location.href = '/login';
-          throw error;
-        } else if (status === 403) {
-          toast({
-            title: "Access Denied",
-            description: "You don't have permission to perform this action.",
-            variant: "destructive"
-          });
-          throw error;
-        } else if (status >= 500) {
-          toast({
-            title: "Server Error",
-            description: "Something went wrong on our end. Please try again later.",
-            variant: "destructive"
-          });
-          throw error;
-        }
-        
-        // Generic error handling
-        toast({
-          title: "Error",
-          description: error.message || "An unexpected error occurred",
-          variant: "destructive"
+      }
+
+      // Log API request in development
+      if (apiConfig.enableLogging || import.meta.env.DEV) {
+        console.log(`[API] ${method} ${url}`, {
+          attempt: attempt + 1,
+          maxRetries: maxRetries + 1,
+          headers: Object.keys(requestOptions.headers || {}),
+          hasBody: !!body
         });
       }
+
+      const response = await fetch(url, requestOptions);
+      clearTimeout(timeoutId);
+
+      // Log API response in development
+      if (apiConfig.enableLogging || import.meta.env.DEV) {
+        console.log(`[API] Response ${response.status} ${url}`, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries())
+        });
+      }
+
+      // Handle HTTP error responses
+      if (!response.ok) {
+        let errorData;
+        try {
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            errorData = await response.json();
+          } else {
+            errorData = { message: await response.text() || `HTTP ${response.status}` };
+          }
+        } catch {
+          errorData = { message: `HTTP ${response.status}` };
+        }
+        
+        const error = new Error(errorData.message || `HTTP ${response.status}`);
+        (error as any).status = response.status;
+        (error as any).data = errorData;
+        
+        // Don't retry on client errors (4xx) except 429
+        if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+          throw error;
+        }
+        
+        // Retry on server errors and rate limiting
+        if (isRetryableError(error) && attempt < maxRetries) {
+          lastError = error;
+          const delay = retryDelay * Math.pow(2, attempt);
+          if (apiConfig.enableLogging && import.meta.env.DEV) {
+            console.log(`[API] Retrying after ${delay}ms...`);
+          }
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        
+        throw error;
+      }
+
+      // Handle empty responses
+      const contentType = response.headers.get('content-type');
+      let responseData: T;
+      
+      try {
+        if (contentType && contentType.includes('application/json')) {
+          const text = await response.text();
+          if (text && text.trim()) {
+            try {
+              responseData = JSON.parse(text);
+            } catch (jsonError) {
+              console.error(`[API] Invalid JSON response from ${url}:`, text.substring(0, 200));
+              throw new Error(`Invalid JSON response: ${jsonError instanceof Error ? jsonError.message : 'Unknown error'}`);
+            }
+          } else {
+            // Empty response - return appropriate default based on method
+            responseData = (method === 'DELETE' ? { success: true } : {}) as T;
+          }
+        } else {
+          const text = await response.text();
+          responseData = text as unknown as T;
+        }
+      } catch (parseError) {
+        console.error(`[API] Failed to parse response from ${url}:`, parseError);
+        throw new Error(`Failed to parse response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+      }
+      
+      // Log parsed response in development
+      if (apiConfig.enableLogging || import.meta.env.DEV) {
+        console.log(`[API] Parsed response from ${url}:`, {
+          hasData: !!responseData,
+          dataKeys: responseData && typeof responseData === 'object' ? Object.keys(responseData) : 'not an object',
+          success: (responseData as any)?.success
+        });
+      }
+      
+      // Cache successful GET responses
+      if (method === 'GET' && cache && !cache.forceRefresh) {
+        cacheService.set(cacheKey, responseData, {
+          ttl: cache.ttl || CacheTTL.MEDIUM,
+          version: cache.version
+        });
+      }
+      
+      return responseData;
+    } catch (error) {
+      lastError = error as Error;
+      
+      // Log error in development
+      if (apiConfig.enableLogging && import.meta.env.DEV) {
+        console.error(`[API] Error ${method} ${url} (attempt ${attempt + 1}):`, error);
+      }
+      
+      // Check if we should retry
+      if (isRetryableError(error) && attempt < maxRetries) {
+        const delay = retryDelay * Math.pow(2, attempt);
+        if (apiConfig.enableLogging && import.meta.env.DEV) {
+          console.log(`[API] Retrying after ${delay}ms...`);
+        }
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      
+      // Handle timeout errors
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        const timeoutError = new Error(`Request timeout after ${timeout}ms`);
+        toast({
+          title: "Request Timeout",
+          description: `The request took too long to complete. Please try again.`,
+          variant: "destructive"
+        });
+        throw timeoutError;
+      }
+      
+      // Handle network errors (after all retries exhausted)
+      if (error instanceof Error) {
+        if (error.message.includes('NetworkError') || error.message.includes('Failed to fetch') || error.message.includes('ERR_CONNECTION_REFUSED')) {
+          // Try to serve cached data first
+          if (method === 'GET') {
+            const cachedData = cacheService.get<T>(cacheKey, cache?.version);
+            if (cachedData) {
+              if (isMobile) {
+                showOfflineToast('Showing cached data');
+              } else {
+                showNetworkErrorToast('Showing cached data');
+              }
+              return cachedData;
+            }
+          }
+          
+          // Fallback to mock data for common endpoints when no cache available
+          if (isMobile) {
+            const mockResponse = getMockResponse(url, method);
+            if (mockResponse) {
+              console.log(`[API] Using mock data for ${method} ${url}`);
+              showOfflineToast('Using sample data');
+              return mockResponse as T;
+            }
+          } else {
+            // For desktop, show network error without mock data
+            showNetworkErrorToast('Connection failed. Please check your internet connection.');
+            throw error;
+          }
+        } else {
+          // Handle specific HTTP status codes
+          const status = (error as any).status;
+          if (status === 401) {
+            // Only redirect to login if we're on a protected route
+            const currentPath = window.location.pathname;
+            const publicRoutes = ['/', '/find-trips', '/trips', '/budget', '/clubs', '/booking', '/login', '/register'];
+            const isPublicRoute = publicRoutes.some(route => 
+              currentPath === route || currentPath.startsWith(route + '/')
+            );
+            
+            if (!isPublicRoute) {
+              toast({
+                title: "Authentication Required",
+                description: "Please log in to continue.",
+                variant: "destructive"
+              });
+              // Clear auth token and redirect to login using React Router
+              localStorage.removeItem('auth_token');
+              // Use history API instead of window.location to prevent reload
+              if (typeof window !== 'undefined' && window.history) {
+                window.history.pushState(null, '', '/login');
+                window.dispatchEvent(new PopStateEvent('popstate'));
+              }
+            }
+            throw error;
+          } else if (status === 403) {
+            toast({
+              title: "Access Denied",
+              description: "You don't have permission to perform this action.",
+              variant: "destructive"
+            });
+            throw error;
+          } else if (status >= 500) {
+            toast({
+              title: "Server Error",
+              description: "Something went wrong on our end. Please try again later.",
+              variant: "destructive"
+            });
+            throw error;
+          }
+          
+          // Generic error handling
+          toast({
+            title: "Error",
+            description: error.message || "An unexpected error occurred",
+            variant: "destructive"
+          });
+        }
+      }
+      
+      throw error;
     }
-    
-    throw error;
   }
+  
+  // If we get here, all retries failed
+  throw lastError || new Error('Request failed after all retries');
 }
 
 /**

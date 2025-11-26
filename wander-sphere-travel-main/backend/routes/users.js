@@ -42,6 +42,48 @@ router.get('/profile/stats', auth, async (req, res) => {
   }
 });
 
+// @route   GET /api/users/profile
+// @desc    Get current user profile
+// @access  Private
+router.get('/profile', auth, async (req, res) => {
+  try {
+    const user = await SupabaseUser.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Get followers and following data
+    const [followers, following] = await Promise.all([
+      SupabaseUser.getFollowers(req.user.id),
+      SupabaseUser.getFollowing(req.user.id)
+    ]);
+
+    // Add social stats to user profile
+    const userProfile = {
+      ...user,
+      followersCount: followers.length,
+      followingCount: following.length,
+      isFollowing: false, // Not applicable for own profile
+      isFollowedBy: false // Not applicable for own profile
+    };
+
+    res.json({
+      success: true,
+      data: userProfile
+    });
+  } catch (error) {
+    console.error('Get current user profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching profile'
+    });
+  }
+});
+
 // @route   GET /api/users/profile/:id
 // @desc    Get user profile by ID
 // @access  Public
@@ -574,6 +616,76 @@ router.post('/block/:id', auth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error while blocking user'
+    });
+  }
+});
+
+// @route   PUT /api/users/profile
+// @desc    Update user profile
+// @access  Private
+router.put('/profile', auth, [
+  body('name')
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Name must be between 2 and 100 characters'),
+  body('username')
+    .optional()
+    .trim()
+    .isLength({ min: 3, max: 30 })
+    .matches(/^[a-zA-Z0-9_]+$/)
+    .withMessage('Username must be 3-30 characters and contain only letters, numbers, and underscores'),
+  body('bio')
+    .optional()
+    .isLength({ max: 500 })
+    .withMessage('Bio cannot exceed 500 characters'),
+  body('location')
+    .optional()
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage('Location cannot exceed 100 characters'),
+  body('avatar')
+    .optional()
+    .isURL()
+    .withMessage('Avatar must be a valid URL')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const userId = req.user.id;
+    const updateData = {};
+
+    // Map frontend fields to database fields
+    if (req.body.name) {
+      const [firstName, ...lastNameParts] = req.body.name.split(' ');
+      updateData.first_name = firstName;
+      updateData.last_name = lastNameParts.join(' ');
+    }
+    if (req.body.username) updateData.username = req.body.username;
+    if (req.body.bio) updateData.bio = req.body.bio;
+    if (req.body.location) updateData.location = req.body.location;
+    if (req.body.avatar) updateData.avatar_url = req.body.avatar;
+
+    // Update user profile
+    const updatedUser = await SupabaseUser.findByIdAndUpdate(userId, updateData);
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: updatedUser
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to update profile'
     });
   }
 });

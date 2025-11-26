@@ -6,19 +6,30 @@
 import { supabase } from './supabase';
 
 // Environment variables with fallbacks
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://wander-sphere-ue7e.onrender.com';
+// Production: https://wander-sphere-ue7e.onrender.com
+// Development: http://localhost:5000
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
+  (import.meta.env.PROD 
+    ? 'https://wander-sphere-ue7e.onrender.com' 
+    : 'http://localhost:5000');
 const API_BASE_URL_WITH_PREFIX = `${API_BASE_URL}/api`;
-const API_TIMEOUT = parseInt(import.meta.env.VITE_API_TIMEOUT || '20000');
-const ENABLE_API_LOGGING = import.meta.env.VITE_ENABLE_API_LOGGING === 'true';
+const API_TIMEOUT = parseInt(import.meta.env.VITE_API_TIMEOUT || '15000'); // Reduced from 20s to 15s
+// Enable logging in development by default
+const ENABLE_API_LOGGING = import.meta.env.VITE_ENABLE_API_LOGGING === 'true' || import.meta.env.DEV;
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // Initial retry delay in ms
 
 // API Configuration
 export const apiConfig = {
   baseURL: API_BASE_URL_WITH_PREFIX,
   timeout: API_TIMEOUT,
   enableLogging: ENABLE_API_LOGGING,
+  maxRetries: MAX_RETRIES,
+  retryDelay: RETRY_DELAY,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
+    'Connection': 'keep-alive', // Keep connections alive
   },
 };
 
@@ -80,6 +91,7 @@ export const endpoints = {
   // Journeys/Posts
   journeys: {
     list: '/journeys',
+    myJourneys: '/journeys/my-journeys',
     create: '/journeys',
     detail: (journeyId: string) => `/journeys/${journeyId}`,
     update: (journeyId: string) => `/journeys/${journeyId}`,
@@ -166,22 +178,40 @@ export const endpoints = {
 
 // Helper function to build full URL
 export const buildUrl = (endpoint: string): string => {
-  return `${apiConfig.baseURL}${endpoint}`;
+  const url = `${apiConfig.baseURL}${endpoint}`;
+  // Log in development to help debug
+  if (import.meta.env.DEV) {
+    console.log(`[API Config] Building URL: ${url}`);
+  }
+  return url;
 };
 
-// Helper function to get authorization header
+// Helper function to get authorization header - ALWAYS WAITS FOR SESSION
 export const getAuthHeader = async (): Promise<Record<string, string>> => {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
-    return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
-  } catch {
-    // Fallback to old token method for backward compatibility
-    const token = localStorage.getItem('authToken');
-    return token ? { Authorization: `Bearer ${token}` } : {};
+    // Always wait for session to ensure token is available
+    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    if (error) {
+      console.warn('Error getting session:', error);
+      return {};
+    }
+    
+    if (session?.access_token) {
+      return { Authorization: `Bearer ${session.access_token}` };
+    }
+    
+    // No session found
+    console.warn('No active session found');
+    return {};
+  } catch (error) {
+    console.warn('Error in getAuthHeader:', error);
+    return {};
   }
 };
 
-// Synchronous version for backward compatibility
+// Synchronous version - tries to get from localStorage but may not have latest token
+// Use getAuthHeader() for guaranteed fresh token
 export const getAuthHeaderSync = (): Record<string, string> => {
   try {
     // Try to get Supabase session from localStorage

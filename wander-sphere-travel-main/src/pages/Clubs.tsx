@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { clubService, Club, CreateClubData } from "@/services/clubService";
+import clubService, { Club, CreateClubData, CreateClubBackendData } from '@/services/clubService';
 import { handleImageError } from "@/utils/imageUtils";
 import mountainAdventure from "@/assets/mountain-adventure.jpg";
 import streetFood from "@/assets/street-food.jpg";
@@ -111,7 +111,18 @@ const Clubs = () => {
 
     try {
       setIsCreatingClub(true);
-      const createdClub = await clubService.createClub(newClub);
+      
+      // Transform frontend data to match backend expectations
+      const clubDataForBackend = {
+        name: newClub.name,
+        description: newClub.description,
+        isPrivate: false, // Default to public
+        tags: newClub.category ? [newClub.category] : [], // Convert category to tags array
+        rules: [] // Empty rules array
+      };
+      
+      console.log('Sending club data to backend:', clubDataForBackend);
+      const createdClub = await clubService.createClub(clubDataForBackend);
       setClubs([createdClub, ...clubs]);
       setIsCreateClubOpen(false);
       setNewClub({
@@ -140,10 +151,10 @@ const Clubs = () => {
   const myClubs = (Array.isArray(clubs) ? clubs : []).filter(club => club.isJoined);
 
   const filteredClubs = (Array.isArray(clubs) ? clubs : []).filter(club =>
-    (club.category.toLowerCase().includes(searchCategory.toLowerCase()) || 
-     club.name.toLowerCase().includes(searchCategory.toLowerCase())) &&
+    ((club.category?.toLowerCase() || '').includes(searchCategory.toLowerCase()) || 
+     (club.name?.toLowerCase() || '').includes(searchCategory.toLowerCase())) &&
     // Note: Country filtering would require country data in the club object. This is a UI demonstration.
-    (searchCountry ? club.name.toLowerCase().includes(searchCountry.toLowerCase()) : true)
+    (searchCountry ? (club.name?.toLowerCase() || '').includes(searchCountry.toLowerCase()) : true)
   );
   
   // Note: Sorting logic is for demonstration. "New", "Trending", "Active" would need backend data.
@@ -302,7 +313,7 @@ const Clubs = () => {
             {isLoading ? (
               // Loading skeleton
               [...Array(6)].map((_, i) => (
-                <Card key={i} className="overflow-hidden hover:shadow-lg transition-all duration-300 group">
+                <Card key={`loading-skeleton-${i}`} className="overflow-hidden hover:shadow-lg transition-all duration-300 group">
                   <div className="aspect-video overflow-hidden">
                     <div className="w-full h-full bg-gray-200 animate-pulse"></div>
                   </div>
@@ -410,7 +421,7 @@ const ClubCard = ({ club, onJoinToggle }: { club: Club; onJoinToggle: (clubId: s
         <CardContent>
           <p className="text-muted-foreground text-sm mb-3 line-clamp-2">{club.description}</p>
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1 text-sm text-muted-foreground"><Users className="w-4 h-4" />{club.members.toLocaleString()} members</div>
+            <div className="flex items-center gap-1 text-sm text-muted-foreground"><Users className="w-4 h-4" />{(club.members || 0).toLocaleString()} members</div>
             <Button size="sm" variant={club.isJoined ? "secondary" : "default"} className={!club.isJoined ? "bg-gradient-primary text-white" : ""} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onJoinToggle(club.id); }}>
               {club.isJoined ? "Joined" : "Join"}
             </Button>

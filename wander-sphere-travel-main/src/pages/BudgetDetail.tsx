@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, Plus, DollarSign, Calendar, MapPin, TrendingUp, PieChart, Edit, Trash2, Loader2 } from "lucide-react";
+import { ArrowLeft, Plus, DollarSign, Calendar, MapPin, TrendingUp, PieChart, Edit, Trash2, Loader2, CheckCircle2, RotateCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { budgetService, Budget, BudgetExpense, CreateExpenseData } from "@/services/budgetService";
 import { Button } from "@/components/ui/button";
@@ -21,52 +21,143 @@ const BudgetDetail = () => {
   const [error, setError] = useState<string | null>(null);
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
   const [isLoadingExpenses, setIsLoadingExpenses] = useState(false);
+  const [isEditDatesOpen, setIsEditDatesOpen] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [newExpense, setNewExpense] = useState<Partial<CreateExpenseData>>({
     category: "",
     amount: 0,
     description: "",
-    date: "",
+    date: new Date().toISOString().split('T')[0], // Default to today's date
+  });
+  const [editDates, setEditDates] = useState({
+    startDate: '',
+    endDate: '',
   });
   const { toast } = useToast();
 
-  useEffect(() => {
-    const fetchBudgetData = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        
-        if (!id) {
-          setError('Budget ID is required');
-          return;
-        }
-
-        // Fetch budget details and expenses concurrently
-        const [budgetData, expensesData] = await Promise.all([
-          budgetService.getBudgetById(id),
-          budgetService.getBudgetExpenses(id)
-        ]);
-        
-        setBudget(budgetData);
-        setExpenses(expensesData);
-      } catch (err) {
-        setError('Failed to load budget details');
-        console.error('Error fetching budget data:', err);
-        toast({
-          title: "Error",
-          description: "Failed to load budget details. Please try again.",
-          variant: "destructive",
-        });
-      } finally {
+  // CRITICAL: Use efficient join query to fetch everything at once
+  const fetchBudgetData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      if (!id) {
+        setError('Budget ID is required');
         setIsLoading(false);
+        return;
       }
-    };
 
+      // Use the new efficient join query - fetches trip + expenses in ONE request
+      console.log('🔍 Fetching budget data for ID:', id);
+      const { budget: budgetData, expenses: expensesData } = await budgetService.getTripBudgetDetails(id);
+      
+      console.log('✅ Budget data received:', {
+        hasBudget: !!budgetData,
+        hasExpenses: !!expensesData,
+        expenseCount: expensesData?.length || 0
+      });
+      
+      // CRITICAL: Handle null/undefined data gracefully - don't crash
+      if (!budgetData) {
+        console.error('❌ Budget data is null');
+        setError('Budget not found');
+        setIsLoading(false);
+        return;
+      }
+      
+      setBudget(budgetData);
+      setExpenses((expensesData || []).filter(Boolean));
+      
+      // Set edit dates when budget loads - handle date parsing correctly
+      if (budgetData.startDate && budgetData.endDate) {
+        // Parse dates correctly from Supabase (YYYY-MM-DD format)
+        const startDate = budgetData.startDate.includes('T') 
+          ? budgetData.startDate.split('T')[0] 
+          : budgetData.startDate;
+        const endDate = budgetData.endDate.includes('T') 
+          ? budgetData.endDate.split('T')[0] 
+          : budgetData.endDate;
+        
+        setEditDates({
+          startDate: startDate,
+          endDate: endDate,
+        });
+      }
+      
+      // Set currency from budget
+      if (budgetData.currency) {
+        setCurrency(budgetData.currency);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to load budget details');
+      console.error('Error fetching budget data:', err);
+      toast({
+        title: "Error",
+        description: err.message || "Failed to load budget details. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     if (id) {
       fetchBudgetData();
     }
-  }, [id, toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]); // Only depend on id, fetchBudgetData is stable
   
-  const [currency, setCurrency] = useState(budget?.currency || 'USD');
+  const [currency, setCurrency] = useState('USD');
+  
+  // Load currency preference from database on mount
+  useEffect(() => {
+    const loadCurrencyPreference = async () => {
+      try {
+        const { userService } = await import('@/services/supabaseService');
+        const savedCurrency = await userService.getUserCurrency();
+        setCurrency(savedCurrency);
+      } catch (error) {
+        console.error('Error loading currency preference:', error);
+        // Use budget currency as fallback
+        if (budget?.currency) {
+          setCurrency(budget.currency);
+        }
+      }
+    };
+
+    loadCurrencyPreference();
+  }, [budget?.currency]);
+
+  // Save currency preference to database when changed AND update budget currency
+  const handleCurrencyChange = async (newCurrency: string) => {
+    if (!id || !budget) return;
+    
+    try {
+      // Update user preference
+      const { userService } = await import('@/services/supabaseService');
+      await userService.updateUserPreferences({ currency: newCurrency });
+      
+      // CRITICAL: Also update budget/trip currency in database
+      await budgetService.updateBudget({
+        id,
+        currency: newCurrency,
+      });
+      
+      // Update local state
+      setCurrency(newCurrency);
+      
+      // CRITICAL: Re-fetch to get updated data
+      await fetchBudgetData();
+    } catch (error: any) {
+      console.error('Error saving currency preference:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update currency. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
   
   // Currency conversion rates (simplified for demo)
   const conversionRates = {
@@ -90,9 +181,9 @@ const BudgetDetail = () => {
   };
   
   // Get converted budget values
-  const convertedTotalBudget = budget?.noMaxBudget ? null : budget ? convertCurrency(budget.totalBudget, budget.currency, currency) : 0;
-  const convertedSpent = budget ? convertCurrency(budget.spent, budget.currency, currency) : 0;
-  const convertedRemaining = budget?.noMaxBudget ? null : budget ? convertCurrency(budget.remaining, budget.currency, currency) : 0;
+  const convertedTotalBudget = budget?.noMaxBudget ? null : budget ? convertCurrency(budget.totalBudget || 0, budget.currency, currency) : 0;
+  const convertedSpent = budget ? convertCurrency(budget.spent || 0, budget.currency, currency) : 0;
+  const convertedRemaining = budget?.noMaxBudget ? null : budget ? convertCurrency(budget.remaining || 0, budget.currency, currency) : 0;
   
   // Get currency symbol
   const getCurrencySymbol = (currencyCode: string) => {
@@ -119,7 +210,8 @@ const BudgetDetail = () => {
     }
   };
 
-  // Calculate category spending from expenses
+  // Calculate category spending from expenses - FRONTEND CALCULATION
+  // This ensures categories update immediately when expenses change
   const categoryColors = {
     "Accommodation": "bg-primary",
     "Food": "bg-success",
@@ -129,24 +221,68 @@ const BudgetDetail = () => {
     "Miscellaneous": "bg-muted",
   };
 
-  const categories = Object.keys(categoryColors).map(categoryName => {
-    const categoryExpenses = expenses.filter(expense => expense.category === categoryName);
-    const spent = categoryExpenses.reduce((sum, expense) => sum + expense.amount, 0);
-    return {
-      name: categoryName,
-      spent,
-      budget: budget?.totalBudget ? Math.floor(budget.totalBudget / 6) : 0, // Distribute budget evenly
-      color: categoryColors[categoryName as keyof typeof categoryColors],
-    };
-  });
+  // Helper function to group expenses by category and sum amounts
+  // CRITICAL: Handles null/undefined expenses gracefully to prevent crashes
+  const calculateCategories = (expensesList: BudgetExpense[] | null | undefined) => {
+    // Ensure we have a valid array
+    if (!expensesList || !Array.isArray(expensesList)) {
+      return Object.keys(categoryColors).map(categoryName => ({
+        name: categoryName,
+        spent: 0,
+        budget: budget?.totalBudget ? Math.floor(budget.totalBudget / 6) : 0,
+        color: categoryColors[categoryName as keyof typeof categoryColors],
+      }));
+    }
 
-  // Format date helper
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
+    // Group expenses by category
+    const categoryMap = new Map<string, number>();
+    
+    expensesList.forEach(expense => {
+      if (expense && expense.category && typeof expense.amount === 'number' && !isNaN(expense.amount)) {
+        const current = categoryMap.get(expense.category) || 0;
+        categoryMap.set(expense.category, current + expense.amount);
+      }
     });
+
+    // Convert to array format
+    return Object.keys(categoryColors).map(categoryName => {
+      const spent = categoryMap.get(categoryName) || 0;
+      return {
+        name: categoryName,
+        spent,
+        budget: budget?.totalBudget ? Math.floor(budget.totalBudget / 6) : 0, // Distribute budget evenly
+        color: categoryColors[categoryName as keyof typeof categoryColors],
+      };
+    });
+  };
+
+  // Calculate categories from current expenses - updates automatically
+  // CRITICAL: Safe calculation that won't crash if expenses is null/undefined
+  const categories = calculateCategories(expenses);
+
+  // Format date helper - handles Supabase date format correctly
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return 'Not set';
+    
+    try {
+      // Handle both ISO format (with T) and date-only format
+      const date = dateString.includes('T') 
+        ? new Date(dateString) 
+        : new Date(dateString + 'T00:00:00');
+      
+      if (isNaN(date.getTime())) {
+        return 'Invalid Date';
+      }
+      
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (error) {
+      console.error('Date parsing error:', error, dateString);
+      return 'Invalid Date';
+    }
   };
 
   const handleAddExpense = async () => {
@@ -162,26 +298,36 @@ const BudgetDetail = () => {
     try {
       setIsLoadingExpenses(true);
       
+      // Ensure we have user session for user_id
+      const { supabase } = await import('@/config/supabase');
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session?.user) {
+        throw new Error('Not authenticated. Please log in.');
+      }
+      
       const expenseData: CreateExpenseData = {
         category: newExpense.category!,
         amount: Number(newExpense.amount),
         description: newExpense.description!,
         date: newExpense.date!,
+        currency: currency, // Save with current currency
+        user_id: session.user.id, // CRITICAL: Include user_id for RLS
       };
       
+      console.log('💾 Adding expense:', expenseData);
+      
+      // CRITICAL: Insert expense into database
       const createdExpense = await budgetService.addBudgetExpense(id, expenseData);
-      setExpenses(prev => [createdExpense, ...prev]);
+      console.log('✅ Expense created:', createdExpense);
       
-      // Update budget spent amount
-      if (budget) {
-        setBudget(prev => prev ? {
-          ...prev,
-          spent: prev.spent + Number(newExpense.amount),
-          remaining: prev.noMaxBudget ? prev.remaining : prev.remaining - Number(newExpense.amount)
-        } : null);
-      }
+      // CRITICAL: Re-fetch everything using the efficient join query
+      // This ensures UI updates with latest data including category calculations
+      console.log('🔄 Refetching budget data after expense addition...');
+      await fetchBudgetData();
+      console.log('✅ Budget data refetched successfully');
       
-      setNewExpense({ category: "", amount: 0, description: "", date: "" });
+      setNewExpense({ category: "", amount: 0, description: "", date: new Date().toISOString().split('T')[0] });
       setIsAddExpenseOpen(false);
       
       toast({
@@ -192,7 +338,7 @@ const BudgetDetail = () => {
       console.error('Error adding expense:', err);
       toast({
         title: "Error",
-        description: "Failed to add expense. Please try again.",
+        description: err instanceof Error ? err.message : "Failed to add expense. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -209,6 +355,116 @@ const BudgetDetail = () => {
     const category = categories.find(c => c.name === categoryName);
     if (!category) return 0;
     return (category.spent / category.budget) * 100;
+  };
+
+  // Handle budget status change (Complete/Reopen)
+  const handleStatusChange = async (newStatus: 'active' | 'completed') => {
+    if (!budget || !id) return;
+
+    try {
+      setIsUpdatingStatus(true);
+      
+      console.log('💾 Updating budget status:', { id, newStatus });
+      
+      // CRITICAL: Update budget status in database
+      await budgetService.updateBudget({
+        id,
+        status: newStatus,
+      });
+      
+      console.log('✅ Budget status updated, refetching...');
+      
+      // CRITICAL: Re-fetch everything to update UI
+      await fetchBudgetData();
+      
+      console.log('✅ Budget data refetched after status update');
+      
+      toast({
+        title: "Success",
+        description: `Budget marked as ${newStatus === 'completed' ? 'complete' : 'active'}.`,
+      });
+    } catch (err: any) {
+      console.error('Error updating budget status:', err);
+      toast({
+        title: "Error",
+        description: err.message || "Failed to update budget status. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
+  // Handle date update
+  const handleUpdateDates = async () => {
+    if (!budget || !id) return;
+
+    if (!editDates.startDate || !editDates.endDate) {
+      toast({
+        title: "Error",
+        description: "Please provide both start and end dates.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate dates
+    const startDate = new Date(editDates.startDate);
+    const endDate = new Date(editDates.endDate);
+    
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      toast({
+        title: "Error",
+        description: "Invalid date format. Please use YYYY-MM-DD format.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (startDate > endDate) {
+      toast({
+        title: "Error",
+        description: "Start date must be before end date.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsUpdatingStatus(true);
+      
+      console.log('💾 Updating budget dates:', { id, startDate: editDates.startDate, endDate: editDates.endDate });
+      
+      // CRITICAL: Update dates in database
+      await budgetService.updateBudget({
+        id,
+        startDate: editDates.startDate,
+        endDate: editDates.endDate,
+      });
+      
+      console.log('✅ Budget dates updated, refetching...');
+      
+      // CRITICAL: Re-fetch everything to update UI
+      await fetchBudgetData();
+      
+      console.log('✅ Budget data refetched after date update');
+      
+      setIsEditDatesOpen(false);
+      
+      toast({
+        title: "Success",
+        description: "Trip dates updated successfully!",
+      });
+    } catch (err: any) {
+      console.error('Error updating dates:', err);
+      toast({
+        title: "Error",
+        description: err.message || "Failed to update dates. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdatingStatus(false);
+    }
   };
 
   if (isLoading) {
@@ -285,7 +541,33 @@ const BudgetDetail = () => {
           </div>
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4" />
-            {formatDate(budget.startDate)} - {formatDate(budget.endDate)}
+            {budget.startDate && budget.endDate ? (
+              <span>
+                {formatDate(budget.startDate)} - {formatDate(budget.endDate)}
+              </span>
+            ) : (
+              <span className="text-muted-foreground">Dates not set</span>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 ml-2"
+              onClick={() => {
+                // Set edit dates from current budget dates
+                if (budget.startDate && budget.endDate) {
+                  const startDate = budget.startDate.includes('T') 
+                    ? budget.startDate.split('T')[0] 
+                    : budget.startDate;
+                  const endDate = budget.endDate.includes('T') 
+                    ? budget.endDate.split('T')[0] 
+                    : budget.endDate;
+                  setEditDates({ startDate, endDate });
+                }
+                setIsEditDatesOpen(true);
+              }}
+            >
+              <Edit className="w-3 h-3" />
+            </Button>
           </div>
           <Badge variant={budget.status === "active" ? "default" : "secondary"}>
             {budget.status.charAt(0).toUpperCase() + budget.status.slice(1)}
@@ -298,7 +580,7 @@ const BudgetDetail = () => {
         </div>
       </div>
             <div className="flex gap-4">
-                <Select value={currency} onValueChange={setCurrency}>
+                <Select value={currency} onValueChange={handleCurrencyChange}>
                   <SelectTrigger className="w-[120px]">
                     <SelectValue placeholder="Currency" />
                   </SelectTrigger>
@@ -315,13 +597,35 @@ const BudgetDetail = () => {
                     <SelectItem value="BRL">BRL (R$)</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button 
-                  className="bg-gradient-primary text-white" 
-                  onClick={() => setIsAddExpenseOpen(true)}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Expense
-                </Button>
+                {budget.status === 'completed' ? (
+                  <Button 
+                    className="bg-gradient-primary text-white" 
+                    onClick={() => handleStatusChange('active')}
+                    disabled={isUpdatingStatus}
+                  >
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    {isUpdatingStatus ? 'Reopening...' : 'Reopen Budget'}
+                  </Button>
+                ) : (
+                  <>
+                    <Button 
+                      className="bg-gradient-primary text-white" 
+                      onClick={() => setIsAddExpenseOpen(true)}
+                      disabled={budget.status === 'completed'}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Expense
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => handleStatusChange('completed')}
+                      disabled={isUpdatingStatus}
+                    >
+                      <CheckCircle2 className="w-4 h-4 mr-2" />
+                      {isUpdatingStatus ? 'Completing...' : 'Mark Complete'}
+                    </Button>
+                  </>
+                )}
               </div>
               
               <Dialog open={isAddExpenseOpen} onOpenChange={setIsAddExpenseOpen}>
@@ -347,7 +651,7 @@ const BudgetDetail = () => {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="amount">Amount ({budget.currency})</Label>
+                      <Label htmlFor="amount">Amount ({currency})</Label>
                       <Input
                         id="amount"
                         type="number"
@@ -390,6 +694,56 @@ const BudgetDetail = () => {
                 </div>
               </DialogContent>
             </Dialog>
+
+            {/* Edit Dates Dialog */}
+            <Dialog open={isEditDatesOpen} onOpenChange={setIsEditDatesOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Edit Trip Dates</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="editStartDate">Start Date</Label>
+                      <Input
+                        id="editStartDate"
+                        type="date"
+                        value={editDates.startDate}
+                        onChange={(e) => setEditDates(prev => ({ ...prev, startDate: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="editEndDate">End Date</Label>
+                      <Input
+                        id="editEndDate"
+                        type="date"
+                        value={editDates.endDate}
+                        onChange={(e) => setEditDates(prev => ({ ...prev, endDate: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-4">
+                    <Button variant="outline" onClick={() => setIsEditDatesOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button 
+                      onClick={handleUpdateDates}
+                      disabled={isUpdatingStatus}
+                      className="bg-gradient-primary text-white"
+                    >
+                      {isUpdatingStatus ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Updating...
+                        </>
+                      ) : (
+                        'Save Dates'
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </CardContent>
       </Card>
@@ -409,7 +763,7 @@ const BudgetDetail = () => {
                 ) : (
                   <p className="text-2xl font-bold">
                     {getCurrencySymbol(currency)}
-                    {convertedTotalBudget?.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    {(convertedTotalBudget || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                   </p>
                 )}
               </div>
@@ -427,7 +781,7 @@ const BudgetDetail = () => {
                 <p className="text-sm text-muted-foreground">Total Spent</p>
                 <p className="text-2xl font-bold text-destructive">
                   {getCurrencySymbol(currency)}
-                  {convertedSpent.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                  {(convertedSpent || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                 </p>
               </div>
             </div>
@@ -447,7 +801,7 @@ const BudgetDetail = () => {
                 ) : (
                   <p className="text-2xl font-bold text-success">
                     {getCurrencySymbol(currency)}
-                    {convertedRemaining?.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    {(convertedRemaining || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                   </p>
                 )}
               </div>
@@ -477,7 +831,7 @@ const BudgetDetail = () => {
                   <div className="flex justify-between items-center">
                     <span className="font-medium">{category.name}</span>
                     <span className="text-sm text-muted-foreground">
-                      ${category.spent} / ${category.budget}
+                      {getCurrencySymbol(currency)}{convertCurrency(category.spent, budget?.currency || 'USD', currency).toFixed(2)} / {getCurrencySymbol(currency)}{convertCurrency(category.budget, budget?.currency || 'USD', currency).toFixed(2)}
                     </span>
                   </div>
                   <Progress 
@@ -486,7 +840,7 @@ const BudgetDetail = () => {
                   />
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>{getCategoryProgress(category.name).toFixed(0)}% used</span>
-                    <span>${category.budget - category.spent} remaining</span>
+                    <span>{getCurrencySymbol(currency)}{convertCurrency(category.budget - category.spent, budget?.currency || 'USD', currency).toFixed(2)} remaining</span>
                   </div>
                 </div>
               ))}
@@ -501,13 +855,13 @@ const BudgetDetail = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {expenses.length === 0 ? (
+              {(expenses || []).length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <p>No expenses recorded yet.</p>
                   <p className="text-sm">Add your first expense to start tracking your budget.</p>
                 </div>
               ) : (
-                expenses.slice(0, 10).map((expense) => (
+                (expenses || []).filter(Boolean).slice(0, 10).map((expense) => (
                   <div key={expense.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                     <div className="flex items-center gap-3">
                       <div className={`w-3 h-3 rounded-full ${getCategoryColor(expense.category)}`}></div>
@@ -542,7 +896,7 @@ const BudgetDetail = () => {
       {/* All Expenses Table */}
       <Card className="bg-surface-elevated mt-8">
         <CardHeader>
-          <CardTitle>All Expenses ({expenses.length})</CardTitle>
+          <CardTitle>All Expenses ({(expenses || []).length})</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -557,7 +911,7 @@ const BudgetDetail = () => {
                 </tr>
               </thead>
               <tbody>
-                {expenses.length === 0 ? (
+                {(expenses || []).length === 0 ? (
                   <tr>
                     <td colSpan={5} className="p-8 text-center text-muted-foreground">
                       <p>No expenses recorded yet.</p>
@@ -565,7 +919,7 @@ const BudgetDetail = () => {
                     </td>
                   </tr>
                 ) : (
-                  expenses.map((expense) => (
+                  (expenses || []).filter(Boolean).map((expense) => (
                     <tr key={expense.id} className="hover:bg-muted/10 transition-colors">
                       <td className="p-2 text-sm text-muted-foreground">
                         {formatDate(expense.date)}

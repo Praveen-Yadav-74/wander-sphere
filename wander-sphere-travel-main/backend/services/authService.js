@@ -54,6 +54,18 @@ class AuthService {
         throw new Error(authError.message);
       }
 
+      // Manually confirm the user's email for testing purposes
+      const { error: updateUserError } = await supabase.auth.admin.updateUserById(
+        authData.user.id,
+        { email_confirm: true }
+      );
+
+      if (updateUserError) {
+        // If email confirmation fails, clean up the auth user
+        await supabase.auth.admin.deleteUser(authData.user.id);
+        throw new Error(updateUserError.message);
+      }
+
       // Insert additional user data into our users table
       const { data: userData, error: dbError } = await supabase
         .from('users')
@@ -64,7 +76,7 @@ class AuthService {
           username: username,
           email: email.toLowerCase(),
           role: 'user',
-          is_email_verified: false
+          is_verified: true
         })
         .select()
         .single();
@@ -96,39 +108,9 @@ class AuthService {
         throw new Error(error.message);
       }
 
-      // Get user data from our users table
-      let { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id, first_name, last_name, username, email, avatar, bio, location, preferences, stats, is_active, created_at, updated_at')
-        .eq('id', data.user.id)
-        .single();
+      const userData = await this.getUserById(data.user.id);
 
-      // If user doesn't exist in our users table, create them
-      if (userError && userError.code === 'PGRST116') {
-        console.log('User not found in users table, creating:', data.user.id);
-        const { data: newUserData, error: createError } = await supabase
-          .from('users')
-          .insert({
-            id: data.user.id,
-            first_name: data.user.user_metadata?.first_name || '',
-            last_name: data.user.user_metadata?.last_name || '',
-            username: data.user.user_metadata?.username || data.user.email?.split('@')[0] || '',
-            email: data.user.email?.toLowerCase() || '',
-            is_email_verified: data.user.email_confirmed_at ? true : false,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-          .select()
-          .single();
-        
-        if (createError) {
-          console.error('Failed to create user in users table:', createError);
-          throw new Error('Failed to create user profile');
-        }
-        
-        userData = newUserData;
-      } else if (userError) {
-        console.error('Error fetching user data:', userError);
+      if (!userData) {
         throw new Error('User data not found');
       }
 
@@ -216,7 +198,7 @@ class AuthService {
               username: authUser.user.user_metadata?.username || authUser.user.email?.split('@')[0] || '',
               email: authUser.user.email?.toLowerCase() || '',
               role: 'user',
-              is_email_verified: authUser.user.email_confirmed_at ? true : false,
+              is_verified: authUser.user.email_confirmed_at ? true : false,
               is_active: true,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()

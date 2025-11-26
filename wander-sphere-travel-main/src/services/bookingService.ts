@@ -72,6 +72,7 @@ export interface BookingSearchParams {
 class BookingService {
   /**
    * Get list of booking partners
+   * PUBLIC ENDPOINT - No authentication required
    */
   async getBookingPartners(params: BookingSearchParams = {}): Promise<PaginatedResponse<BookingPartner>> {
     const queryParams = new URLSearchParams();
@@ -86,12 +87,14 @@ class BookingService {
       ? `${buildUrl(endpoints.booking.partners)}?${queryParams.toString()}`
       : buildUrl(endpoints.booking.partners);
     
+    // PUBLIC ENDPOINT - Don't send auth headers for public read operations
     return await cachedApiRequest<PaginatedResponse<BookingPartner>>(
       url,
       CacheKeys.BOOKING_PARTNERS,
       {
         method: 'GET',
-        headers: getAuthHeaderSync(),
+        // No auth headers - this is a public endpoint
+        headers: {},
         ttl: CacheTTL.MEDIUM
       }
     );
@@ -99,16 +102,19 @@ class BookingService {
 
   /**
    * Get list of booking features
+   * PUBLIC ENDPOINT - No authentication required
    */
   async getBookingFeatures(): Promise<ApiResponse<BookingFeature[]>> {
     const url = buildUrl(endpoints.booking.features);
     
+    // PUBLIC ENDPOINT - Don't send auth headers for public read operations
     return await cachedApiRequest<ApiResponse<BookingFeature[]>>(
       url,
       CacheKeys.BOOKING_FEATURES,
       {
         method: 'GET',
-        headers: getAuthHeaderSync(),
+        // No auth headers - this is a public endpoint
+        headers: {},
         ttl: CacheTTL.LONG
       }
     );
@@ -116,13 +122,15 @@ class BookingService {
 
   /**
    * Get a specific booking partner by ID
+   * PUBLIC ENDPOINT - No authentication required
    */
   async getBookingPartner(partnerId: string): Promise<ApiResponse<BookingPartner>> {
     const url = buildUrl(endpoints.booking.partnerDetail(partnerId));
     
+    // PUBLIC ENDPOINT - Don't send auth headers for public read operations
     return await apiRequest<ApiResponse<BookingPartner>>(url, {
       method: 'GET',
-      headers: getAuthHeaderSync(),
+      headers: {}, // No auth headers - this is a public endpoint
     });
   }
 
@@ -135,7 +143,7 @@ class BookingService {
     return await apiRequest<ApiResponse<BookingPartner>>(url, {
       method: 'POST',
       headers: getAuthHeaderSync(),
-      body: JSON.stringify(data),
+      body: data,
     });
   }
 
@@ -148,7 +156,7 @@ class BookingService {
     return await apiRequest<ApiResponse<BookingPartner>>(url, {
       method: 'PUT',
       headers: getAuthHeaderSync(),
-      body: JSON.stringify(data),
+      body: data,
     });
   }
 
@@ -173,7 +181,7 @@ class BookingService {
     return await apiRequest<ApiResponse<BookingFeature>>(url, {
       method: 'POST',
       headers: getAuthHeaderSync(),
-      body: JSON.stringify(data),
+      body: data,
     });
   }
 
@@ -186,7 +194,7 @@ class BookingService {
     return await apiRequest<ApiResponse<BookingFeature>>(url, {
       method: 'PUT',
       headers: getAuthHeaderSync(),
-      body: JSON.stringify(data),
+      body: data,
     });
   }
 

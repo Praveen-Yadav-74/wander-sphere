@@ -46,7 +46,10 @@ export function useApi<T>(endpoint: string, options: UseApiOptions = {}) {
   });
 
   const fetchData = useCallback(async () => {
-    if (!enabled) return;
+    if (!enabled) {
+      setState(prev => ({ ...prev, loading: false }));
+      return;
+    }
 
     setState(prev => ({ ...prev, loading: true, error: null }));
 
@@ -83,15 +86,21 @@ export function useApi<T>(endpoint: string, options: UseApiOptions = {}) {
         onError(errorObj);
       }
 
-      throw error;
+      // Don't throw in useEffect to prevent infinite loops
+      if (method !== 'GET') {
+        throw error;
+      }
     }
-  }, [url, method, headers, body, timeout, enabled, skipAuth, onSuccess, onError]);
+  }, [url, method, timeout, enabled, skipAuth]); // Removed headers, body, onSuccess, onError from deps
 
   useEffect(() => {
     if (enabled && method === 'GET') {
       fetchData();
+    } else if (!enabled) {
+      setState(prev => ({ ...prev, loading: false }));
     }
-  }, [fetchData, enabled, method]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [url, enabled, method]); // Only depend on url, enabled, method
 
   return {
     ...state,

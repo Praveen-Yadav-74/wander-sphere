@@ -4,9 +4,10 @@
  */
 
 import React from 'react';
-import { Wifi, WifiOff, Database, Clock, Smartphone, Monitor } from 'lucide-react';
+import { Wifi, WifiOff, Database, Clock, Smartphone, Monitor, Server } from 'lucide-react';
 import { useNetworkStatus, useDeviceType } from '@/utils/networkUtils';
 import { getCacheStats } from '@/utils/api';
+import { testBackendConnection } from '@/utils/connectionTest';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -23,6 +24,7 @@ export const NetworkStatus: React.FC<NetworkStatusProps> = ({
   const isOnline = useNetworkStatus();
   const deviceType = useDeviceType();
   const [cacheStats, setCacheStats] = React.useState<ReturnType<typeof getCacheStats> | null>(null);
+  const [backendStatus, setBackendStatus] = React.useState<{ connected: boolean; message: string } | null>(null);
 
   React.useEffect(() => {
     const updateCacheStats = () => {
@@ -33,11 +35,36 @@ export const NetworkStatus: React.FC<NetworkStatusProps> = ({
       }
     };
 
-    updateCacheStats();
-    const interval = setInterval(updateCacheStats, 30000); // Update every 30 seconds
+    const checkBackendConnection = async () => {
+      if (isOnline) {
+        try {
+          const result = await testBackendConnection();
+          setBackendStatus({
+            connected: result.success,
+            message: result.message
+          });
+        } catch (error) {
+          setBackendStatus({
+            connected: false,
+            message: 'Failed to check backend connection'
+          });
+        }
+      } else {
+        setBackendStatus(null);
+      }
+    };
 
-    return () => clearInterval(interval);
-  }, []);
+    updateCacheStats();
+    checkBackendConnection();
+    
+    const cacheInterval = setInterval(updateCacheStats, 30000); // Update every 30 seconds
+    const backendInterval = setInterval(checkBackendConnection, 60000); // Check backend every minute
+
+    return () => {
+      clearInterval(cacheInterval);
+      clearInterval(backendInterval);
+    };
+  }, [isOnline]);
 
   const getDeviceIcon = () => {
     switch (deviceType) {
@@ -90,6 +117,12 @@ export const NetworkStatus: React.FC<NetworkStatusProps> = ({
               <div className="font-medium">
                 {isOnline ? 'Online' : 'Offline'} • {deviceType}
               </div>
+              {backendStatus && (
+                <div className={`text-xs mt-1 ${backendStatus.connected ? 'text-green-500' : 'text-red-500'}`}>
+                  <Server className="h-3 w-3 inline mr-1" />
+                  Backend: {backendStatus.connected ? 'Connected' : 'Disconnected'}
+                </div>
+              )}
               {!isOnline && cacheStats && (
                 <div className="text-xs text-muted-foreground mt-1">
                   {cacheStats.totalItems} cached items
@@ -123,6 +156,23 @@ export const NetworkStatus: React.FC<NetworkStatusProps> = ({
               {deviceType}
             </Badge>
           </div>
+
+          {/* Backend Connection Status */}
+          {backendStatus && (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Server className={`h-4 w-4 ${backendStatus.connected ? 'text-green-500' : 'text-red-500'}`} />
+                <span className="text-sm font-medium">
+                  Backend: {backendStatus.connected ? 'Connected' : 'Disconnected'}
+                </span>
+              </div>
+              {!backendStatus.connected && (
+                <span className="text-xs text-muted-foreground">
+                  {backendStatus.message}
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Cache Information */}
           {cacheStats && (

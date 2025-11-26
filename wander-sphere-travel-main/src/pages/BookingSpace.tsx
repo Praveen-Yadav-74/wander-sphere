@@ -14,6 +14,10 @@ const BookingSpace = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  // REMOVED: Booking partners and features fetch calls
+  // These were causing 500 errors because the tables don't exist
+  // Commented out until the feature is properly implemented
+  /*
   const fetchBookingPartners = useCallback(async () => {
     try {
       const response = await bookingService.getBookingPartners({ isActive: true });
@@ -51,21 +55,22 @@ const BookingSpace = () => {
       });
     }
   }, [toast]);
+  */
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     e.currentTarget.style.display = 'none';
     e.currentTarget.parentElement?.classList.add('hidden');
   };
 
+  // REMOVED: Data loading for booking partners and features
+  // These were causing 500 errors - feature disabled until tables are created
   useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      await Promise.all([fetchBookingPartners(), fetchFeatures()]);
-      setLoading(false);
-    };
-    
-    loadData();
-  }, [fetchBookingPartners, fetchFeatures]);
+    // Set loading to false immediately since we're not fetching data
+    setLoading(false);
+    // Keep empty arrays for partners and features
+    setBookingPartners([]);
+    setFeatures([]);
+  }, []);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">

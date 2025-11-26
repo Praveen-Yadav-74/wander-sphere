@@ -427,11 +427,21 @@ class AuthService {
       
       const session = data.session;
       
-      // Validate session if it exists
-      if (session) {
-        const isValid = await this.validateSession(session);
-        if (!isValid) {
-          console.warn('⚠️ Invalid session detected, clearing...');
+      // If session is expired, try to refresh it first
+      if (session && session.expires_at && session.expires_at * 1000 < Date.now()) {
+        console.log('⏰ Session expired, attempting refresh...');
+        try {
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+          if (refreshError || !refreshData.session) {
+            console.log('❌ Token refresh failed, clearing session...');
+            // Only logout if refresh fails
+            await this.logout();
+            return null;
+          }
+          console.log('✅ Session refreshed successfully');
+          return refreshData.session;
+        } catch (refreshError) {
+          console.error('❌ Error refreshing session:', refreshError);
           await this.logout();
           return null;
         }

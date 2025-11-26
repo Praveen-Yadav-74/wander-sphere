@@ -25,11 +25,16 @@ const Header = () => {
   const [activeNotificationTab, setActiveNotificationTab] = useState("all");
 
   useEffect(() => {
-    fetchNotifications();
-    fetchUnreadCount();
-  }, []);
+    // Only fetch notifications if user is authenticated
+    if (user) {
+      fetchNotifications();
+      fetchUnreadCount();
+    }
+  }, [user]);
 
   const fetchNotifications = async () => {
+    if (!user) return; // Don't fetch if user is not authenticated
+    
     try {
       const response = await notificationService.getNotifications(1, 5); // Get first 5 for dropdown
       if (response.success) {
@@ -43,6 +48,8 @@ const Header = () => {
   };
 
   const fetchUnreadCount = async () => {
+    if (!user) return; // Don't fetch if user is not authenticated
+    
     try {
       const response = await notificationService.getUnreadCount();
       if (response.success) {
@@ -82,12 +89,14 @@ const Header = () => {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md shadow-sm">
-      <div className="flex items-center justify-between px-4 sm:px-6 py-3">
-        {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 text-lg sm:text-xl font-bold">
-          <Globe className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
-          <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">WanderSphere</span>
-        </Link>
+      <div className="container flex items-center justify-between h-16 px-4">
+        <div className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-2">
+            <Globe className="h-6 w-6 text-primary" />
+            <span className="font-bold text-lg">WanderSphere</span>
+          </Link>
+          <NetworkStatus />
+        </div>
 
         {/* Right Side Actions */}
         <div className="flex items-center gap-2 sm:gap-3">

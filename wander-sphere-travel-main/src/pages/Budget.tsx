@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { Plus, DollarSign, Calendar, MapPin, TrendingUp, PieChart, Loader2 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Plus, DollarSign, Calendar, MapPin, TrendingUp, PieChart, Loader2, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { budgetService, Budget as BudgetType, CreateBudgetData } from "@/services/budgetService";
+import { userService } from "@/services/supabaseService";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -35,12 +36,44 @@ const Budget = () => {
   });
   const { toast } = useToast();
   
+  // Load currency preference from database on mount
+  useEffect(() => {
+    const loadCurrencyPreference = async () => {
+      try {
+        const savedCurrency = await userService.getUserCurrency();
+        setCurrency(savedCurrency);
+      } catch (error) {
+        console.error('Error loading currency preference:', error);
+        // Keep default USD if error
+      }
+    };
+
+    loadCurrencyPreference();
+  }, []);
+
+  // Save currency preference to database when changed
+  const handleCurrencyChange = async (newCurrency: string) => {
+    setCurrency(newCurrency);
+    try {
+      await userService.updateUserPreferences({ currency: newCurrency });
+    } catch (error) {
+      console.error('Error saving currency preference:', error);
+      toast({
+        title: "Warning",
+        description: "Currency preference could not be saved, but it will work for this session.",
+        variant: "default",
+      });
+    }
+  };
+
   useEffect(() => {
     const fetchBudgets = async () => {
       try {
         setIsLoading(true);
         setError(null);
-        const budgetsData = await budgetService.getBudgets();
+        const rawBudgetsData = await budgetService.getBudgets();
+        // FIX: This line filters out any null or undefined items from the API response
+        const budgetsData = rawBudgetsData.filter(Boolean); 
         setBudgets(budgetsData);
       } catch (err) {
         setError('Failed to load budgets');
@@ -91,6 +124,23 @@ const Budget = () => {
         description: "Please fill in all required fields.",
         variant: "destructive",
       });
+      return;
+    }
+
+    // Check if user is authenticated
+    const isAuthenticated = localStorage.getItem('user') !== null;
+    
+    // If not authenticated, redirect to login
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in or sign up to save your budget.",
+      });
+      // Store budget data in localStorage to restore after login
+      localStorage.setItem('pendingBudget', JSON.stringify(newBudget));
+      // Store the current page URL to redirect back after login
+      localStorage.setItem('redirectAfterAuth', '/budget');
+      window.location.href = '/login';
       return;
     }
 
@@ -167,9 +217,9 @@ const Budget = () => {
   const calculateSummary = (budgetList: BudgetItem[]) => {
     return budgetList.reduce((acc, budget) => {
       return {
-        totalBudget: acc.totalBudget + budget.totalBudget,
-        spent: acc.spent + budget.spent,
-        remaining: acc.remaining + budget.remaining,
+        totalBudget: acc.totalBudget + (budget?.totalBudget || 0),
+        spent: acc.spent + (budget?.spent || 0),
+        remaining: acc.remaining + (budget?.remaining || 0),
         count: acc.count + 1
       };
     }, { totalBudget: 0, spent: 0, remaining: 0, count: 0 });
@@ -184,12 +234,17 @@ const Budget = () => {
       {/* Header */}
       <div className="mb-8">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Trip Budget Planner</h1>
-            <p className="text-muted-foreground mt-1">Keep your travel expenses organized and on track.</p>
+          <div className="flex items-center gap-4">
+            <Link to="/" className="flex items-center justify-center w-10 h-10 rounded-full bg-surface-elevated hover:bg-surface-elevated/80 transition-colors">
+              <ArrowLeft className="w-5 h-5 text-foreground" />
+            </Link>
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">Trip Budget Planner</h1>
+              <p className="text-muted-foreground mt-1">Keep your travel expenses organized and on track.</p>
+            </div>
           </div>
           <div className="flex items-center gap-3">
-            <Select value={currency} onValueChange={setCurrency}>
+            <Select value={currency} onValueChange={handleCurrencyChange}>
               <SelectTrigger className="w-24">
                 <SelectValue />
               </SelectTrigger>
@@ -350,7 +405,7 @@ const Budget = () => {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Total Budgeted</p>
-                      <p className="text-lg font-semibold">{getCurrencySymbol(currency)}{activeSummary.totalBudget.toLocaleString()}</p>
+                      <p className="text-lg font-semibold">{getCurrencySymbol(currency)}{(activeSummary?.totalBudget || 0).toLocaleString()}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -363,7 +418,7 @@ const Budget = () => {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Total Spent</p>
-                      <p className="text-lg font-semibold">{getCurrencySymbol(currency)}{activeSummary.spent.toLocaleString()}</p>
+                      <p className="text-lg font-semibold">{getCurrencySymbol(currency)}{(activeSummary?.spent || 0).toLocaleString()}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -376,7 +431,7 @@ const Budget = () => {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Remaining</p>
-                      <p className="text-lg font-semibold">{getCurrencySymbol(currency)}{activeSummary.remaining.toLocaleString()}</p>
+                      <p className="text-lg font-semibold">{getCurrencySymbol(currency)}{(activeSummary?.remaining || 0).toLocaleString()}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -425,7 +480,7 @@ const Budget = () => {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Total Budgeted</p>
-                      <p className="text-lg font-semibold">{getCurrencySymbol(currency)}{upcomingSummary.totalBudget.toLocaleString()}</p>
+                      <p className="text-lg font-semibold">{getCurrencySymbol(currency)}{(upcomingSummary?.totalBudget || 0).toLocaleString()}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -438,7 +493,7 @@ const Budget = () => {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Total Spent</p>
-                      <p className="text-lg font-semibold">{getCurrencySymbol(currency)}{upcomingSummary.spent.toLocaleString()}</p>
+                      <p className="text-lg font-semibold">{getCurrencySymbol(currency)}{(upcomingSummary?.spent || 0).toLocaleString()}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -451,7 +506,7 @@ const Budget = () => {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Remaining</p>
-                      <p className="text-lg font-semibold">{getCurrencySymbol(currency)}{upcomingSummary.remaining.toLocaleString()}</p>
+                      <p className="text-lg font-semibold">{getCurrencySymbol(currency)}{(upcomingSummary?.remaining || 0).toLocaleString()}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -500,7 +555,7 @@ const Budget = () => {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Total Budgeted</p>
-                      <p className="text-lg font-semibold">{getCurrencySymbol(currency)}{completedSummary.totalBudget.toLocaleString()}</p>
+                      <p className="text-lg font-semibold">{getCurrencySymbol(currency)}{(completedSummary?.totalBudget || 0).toLocaleString()}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -513,7 +568,7 @@ const Budget = () => {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Total Spent</p>
-                      <p className="text-lg font-semibold">{getCurrencySymbol(currency)}{completedSummary.spent.toLocaleString()}</p>
+                      <p className="text-lg font-semibold">{getCurrencySymbol(currency)}{(completedSummary?.spent || 0).toLocaleString()}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -526,7 +581,7 @@ const Budget = () => {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Remaining</p>
-                      <p className="text-lg font-semibold">{getCurrencySymbol(currency)}{completedSummary.remaining.toLocaleString()}</p>
+                      <p className="text-lg font-semibold">{getCurrencySymbol(currency)}{(completedSummary?.remaining || 0).toLocaleString()}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -558,6 +613,8 @@ const Budget = () => {
 };
 
 const BudgetGrid = ({ budgets, currency }: { budgets: BudgetItem[], currency: string }) => {
+  const navigate = useNavigate();
+  
   const getCurrencySymbol = (curr: string) => {
     switch (curr) {
       case "EUR": return "€";
@@ -594,8 +651,8 @@ const BudgetGrid = ({ budgets, currency }: { budgets: BudgetItem[], currency: st
               <div className="flex justify-between items-start">
                 <CardTitle className="text-lg line-clamp-1">{budget.title}</CardTitle>
                 <Badge className={`${budget.status === "active" ? "bg-success text-success-foreground" : 
-                                   budget.status === "upcoming" ? "bg-primary text-primary-foreground" : 
-                                   "bg-muted text-muted-foreground"}`}>
+                                  budget.status === "upcoming" ? "bg-primary text-primary-foreground" : 
+                                  "bg-muted text-muted-foreground"}`}>
                   {budget.status.charAt(0).toUpperCase() + budget.status.slice(1)}
                 </Badge>
               </div>
@@ -605,7 +662,10 @@ const BudgetGrid = ({ budgets, currency }: { budgets: BudgetItem[], currency: st
               </div>
               <div className="flex items-center gap-1 text-sm text-muted-foreground">
                 <Calendar className="w-3 h-3" />
-                {budget.dates}
+                {budget.startDate && budget.endDate 
+                  ? `${new Date(budget.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(budget.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                  : 'Dates not set'
+                }
               </div>
             </CardHeader>
             <CardContent>
@@ -624,22 +684,26 @@ const BudgetGrid = ({ budgets, currency }: { budgets: BudgetItem[], currency: st
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div>
                     <p className="text-xs text-muted-foreground">Total Budget</p>
-                    <p className="font-semibold">{symbol}{budget.totalBudget.toLocaleString()}</p>
+                    <p className="font-semibold">{symbol}{(budget?.totalBudget || 0).toLocaleString()}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Spent</p>
-                    <p className="font-semibold text-destructive">{symbol}{budget.spent.toLocaleString()}</p>
+                    <p className="font-semibold text-destructive">{symbol}{(budget?.spent || 0).toLocaleString()}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Remaining</p>
-                    <p className="font-semibold text-success">{symbol}{budget.remaining.toLocaleString()}</p>
+                    <p className="font-semibold text-success">{symbol}{(budget?.remaining || 0).toLocaleString()}</p>
                   </div>
                 </div>
 
                 <Button
                   size="sm" 
                   className="w-full bg-gradient-primary text-white"
-                  onClick={() => window.location.href = `/budget/${budget.id}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    navigate(`/budget/${budget.id}`);
+                  }}
                 >
                   View & Add Expenses
                 </Button>

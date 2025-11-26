@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { authService, User as AuthServiceUser } from '@/services/authService';
 import { User } from '@/types/auth';
 import { toast } from '@/components/ui/use-toast';
+import { supabase } from '@/config/supabase';
 
 interface AuthContextType {
   user: User | null;
@@ -128,9 +129,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
       
       try {
-        // Create a timeout promise (increased to 8 seconds for slower connections)
+        // Create a timeout promise (30 seconds for better reliability)
         const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Auth initialization timeout')), 8000);
+          setTimeout(() => reject(new Error('Auth initialization timeout')), 30000);
         });
 
         // Race between session retrieval and timeout
@@ -142,18 +143,86 @@ export function AuthProvider({ children }: AuthProviderProps) {
         console.log('📋 Session retrieved:', session ? 'Found' : 'None');
         
         if (session?.user && session?.access_token) {
-          console.log('👤 Validating session and getting user profile...');
+          console.log('👤 Session found, getting user profile...');
           try {
-            // Validate session by trying to get user profile
-            const userProfile = await authService.getProfile();
+            // Get user profile with timeout protection
+            const profilePromise = authService.getProfile();
+            const profileTimeout = new Promise((_, reject) => {
+              setTimeout(() => reject(new Error('Profile fetch timeout')), 25000);
+            });
+            
+            const userProfile = await Promise.race([profilePromise, profileTimeout]) as any;
             const convertedUser = convertAuthServiceUser(userProfile);
             setUser(convertedUser);
             console.log('✅ User profile validated and set successfully');
           } catch (profileError) {
-            console.error('❌ Session validation failed, clearing invalid session:', profileError);
-            // Clear invalid session
-            await authService.logout();
-            setUser(null);
+            console.error('❌ Profile fetch failed:', profileError);
+            // For timeout errors, set a basic user from session data
+            if (profileError.message.includes('timeout')) {
+              console.log('⚡ Using fallback user data from session');
+              const fallbackUser: User = {
+                id: session.user.id,
+                email: session.user.email || '',
+                username: session.user.user_metadata?.username || '',
+                firstName: session.user.user_metadata?.name?.split(' ')[0] || session.user.email?.split('@')[0] || '',
+                lastName: session.user.user_metadata?.name?.split(' ')[1] || '',
+                avatar: session.user.user_metadata?.avatar_url,
+                bio: '',
+                location: '',
+                isVerified: session.user.email_confirmed_at !== null,
+                isOnline: true,
+                lastSeen: new Date().toISOString(),
+                createdAt: session.user.created_at,
+                updatedAt: session.user.updated_at || session.user.created_at,
+                preferences: {
+                  language: 'en',
+                  currency: 'USD',
+                  timezone: 'UTC',
+                  notifications: {
+                    email: true,
+                    push: true,
+                    sms: false,
+                    tripUpdates: true,
+                    friendRequests: true,
+                    messages: true,
+                    promotions: false
+                  },
+                  privacy: {
+                    profileVisibility: 'public',
+                    showEmail: false,
+                    showPhone: false,
+                    showLocation: true,
+                    allowFriendRequests: true,
+                    allowMessages: true
+                  },
+                  travelPreferences: {
+                    budgetRange: { min: 0, max: 5000 },
+                    preferredDestinations: [],
+                    travelStyle: 'mid-range',
+                    accommodationType: [],
+                    transportModes: [],
+                    interests: []
+                  }
+                },
+                stats: {
+                  tripsCompleted: 0,
+                  countriesVisited: 0,
+                  citiesVisited: 0,
+                  totalDistance: 0,
+                  totalSpent: 0,
+                  friendsCount: 0,
+                  followersCount: 0,
+                  followingCount: 0,
+                  reviewsCount: 0,
+                  averageRating: 0
+                }
+              };
+              setUser(fallbackUser);
+            } else {
+              // For other errors, clear invalid session
+              await authService.logout();
+              setUser(null);
+            }
           }
         } else {
           console.log('❌ No valid session found');
@@ -187,18 +256,115 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     initializeAuth();
 
-    // Listen to auth state changes
-    const { data: { subscription } } = authService.onAuthStateChange(async (event, session) => {
+    // Listen to auth state changes - PERSISTENT LISTENER
+    // This ensures session persists across navigation
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('🔄 Auth state changed:', event, session ? 'Session exists' : 'No session');
+      
       if (event === 'SIGNED_IN' && session?.user) {
+        try {
+          console.log('✅ User signed in, fetching profile...');
+          setIsLoading(true);
+          
+          // Add timeout for profile fetch to prevent hanging
+          const profilePromise = authService.getProfile();
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Profile fetch timeout')), 10000);
+          });
+          
+          const userProfile = await Promise.race([profilePromise, timeoutPromise]) as any;
+          setUser(convertAuthServiceUser(userProfile));
+          setIsLoading(false);
+          console.log('✅ User profile set successfully');
+        } catch (error) {
+          console.error('❌ Error getting user profile:', error);
+          setIsLoading(false); // Ensure loading is false even on error
+          
+          // Use fallback user data from session
+          if (session?.user) {
+            const fallbackUser: User = {
+              id: session.user.id,
+              email: session.user.email || '',
+              username: session.user.user_metadata?.username || '',
+              firstName: session.user.user_metadata?.name?.split(' ')[0] || session.user.email?.split('@')[0] || '',
+              lastName: session.user.user_metadata?.name?.split(' ')[1] || '',
+              avatar: session.user.user_metadata?.avatar_url,
+              bio: '',
+              location: '',
+              isVerified: session.user.email_confirmed_at !== null,
+              isOnline: true,
+              lastSeen: new Date().toISOString(),
+              createdAt: session.user.created_at,
+              updatedAt: session.user.updated_at || session.user.created_at,
+              preferences: {
+                language: 'en',
+                currency: 'USD',
+                timezone: 'UTC',
+                notifications: {
+                  email: true,
+                  push: true,
+                  sms: false,
+                  tripUpdates: true,
+                  friendRequests: true,
+                  messages: true,
+                  promotions: false
+                },
+                privacy: {
+                  profileVisibility: 'public',
+                  showEmail: false,
+                  showPhone: false,
+                  showLocation: true,
+                  allowFriendRequests: true,
+                  allowMessages: true
+                },
+                travelPreferences: {
+                  budgetRange: { min: 0, max: 5000 },
+                  preferredDestinations: [],
+                  travelStyle: 'mid-range',
+                  accommodationType: [],
+                  transportModes: [],
+                  interests: []
+                }
+              },
+              stats: {
+                tripsCompleted: 0,
+                countriesVisited: 0,
+                citiesVisited: 0,
+                totalDistance: 0,
+                totalSpent: 0,
+                friendsCount: 0,
+                followersCount: 0,
+                followingCount: 0,
+                reviewsCount: 0,
+                averageRating: 0
+              }
+            };
+            setUser(fallbackUser);
+            setIsLoading(false); // Ensure loading is false when using fallback
+          } else {
+            setIsLoading(false); // Ensure loading is false even if no fallback
+          }
+        }
+      } else if (event === 'SIGNED_OUT') {
+        console.log('👋 User signed out');
+        setUser(null);
+        authService.clearAuthData();
+      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+        console.log('🔄 Token refreshed, updating user state');
         try {
           const userProfile = await authService.getProfile();
           setUser(convertAuthServiceUser(userProfile));
         } catch (error) {
-          console.error('Error getting user profile:', error);
+          console.error('Error updating user after token refresh:', error);
         }
-      } else if (event === 'SIGNED_OUT') {
-        setUser(null);
-        authService.clearAuthData();
+      } else if (event === 'USER_UPDATED' && session?.user) {
+        console.log('👤 User updated, refreshing profile');
+        try {
+          const userProfile = await authService.getProfile();
+          setUser(convertAuthServiceUser(userProfile));
+        } catch (error) {
+          console.error('Error updating user:', error);
+        }
       }
     });
 
@@ -207,19 +373,103 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
   }, []);
 
-  // Supabase handles token refresh automatically, so we don't need a manual refresh interval
+  // Automatic token refresh mechanism to keep users logged in
+  useEffect(() => {
+    if (!user) return;
+
+    // Check and refresh token every 5 minutes
+    const refreshInterval = setInterval(async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('❌ Error getting session:', error);
+          return;
+        }
+        
+        if (session) {
+          // Check if token expires in less than 10 minutes
+          const expiresAt = session.expires_at ? session.expires_at * 1000 : Date.now() + 3600000;
+          const timeUntilExpiry = expiresAt - Date.now();
+          const tenMinutes = 10 * 60 * 1000;
+
+          if (timeUntilExpiry < tenMinutes) {
+            console.log('🔄 Token expiring soon, refreshing...');
+            try {
+              await authService.refreshToken();
+              console.log('✅ Token refreshed successfully');
+            } catch (refreshError) {
+              console.error('❌ Token refresh failed:', refreshError);
+              // If refresh fails, try to get new session
+              const { data: { session: newSession } } = await supabase.auth.getSession();
+              if (!newSession) {
+                console.log('⚠️ No valid session, user may need to re-login');
+              }
+            }
+          }
+        } else {
+          console.log('⚠️ No active session found');
+        }
+      } catch (error) {
+        console.error('❌ Error checking session:', error);
+      }
+    }, 5 * 60 * 1000); // Check every 5 minutes
+
+    // Also set up a listener for token refresh events
+    const { data: { subscription: refreshSubscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'TOKEN_REFRESHED' && session?.user) {
+          console.log('✅ Token automatically refreshed by Supabase');
+          try {
+            const userProfile = await authService.getProfile();
+            setUser(convertAuthServiceUser(userProfile));
+          } catch (error) {
+            console.error('Error updating user after token refresh:', error);
+          }
+        } else if (event === 'SIGNED_OUT') {
+          console.log('👋 User signed out');
+          setUser(null);
+        }
+      }
+    );
+
+    return () => {
+      clearInterval(refreshInterval);
+      refreshSubscription.unsubscribe();
+    };
+  }, [user]);
 
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true);
+      console.log('🔐 Starting login process...');
+      
       const response = await authService.login({ email, password });
-      setUser(convertAuthServiceUser(response.user));
+      console.log('✅ Login successful, converting user...');
+      
+      const convertedUser = convertAuthServiceUser(response.user);
+      
+      // Set user first
+      setUser(convertedUser);
+      
+      // Force a small delay to ensure state updates propagate
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      // Ensure loading is set to false immediately after setting user
+      setIsLoading(false);
+      console.log('✅ User set, loading complete, isAuthenticated should be true');
       
       toast({
         title: "Welcome back!",
-        description: `Hello ${response.user.name}, you're successfully logged in.`,
+        description: `Hello ${response.user.name || email}, you're successfully logged in.`,
       });
+      
+      // Return success to allow navigation
+      return convertedUser;
     } catch (error) {
+      console.error('❌ Login failed:', error);
+      setIsLoading(false); // Ensure loading is false on error
+      
       const message = error instanceof Error ? error.message : 'Login failed';
       toast({
         title: "Login Failed",
@@ -227,8 +477,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         variant: "destructive"
       });
       throw error;
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -287,7 +535,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         description: "You have been successfully logged out.",
       });
       
-      // Force a page reload to clear any cached state
+      // Navigate to login - use window.location only for logout to ensure clean state
       setTimeout(() => {
         window.location.href = '/login';
       }, 500);
@@ -304,7 +552,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         localStorage.removeItem('dev-user');
       }
       
-      // Still redirect to login
+      // Still redirect to login on error
       setTimeout(() => {
         window.location.href = '/login';
       }, 500);

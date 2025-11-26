@@ -16,9 +16,12 @@ const isValidImageType = (mimetype) => {
 
 // File filter function
 const fileFilter = (req, file, cb) => {
+  console.log('File filter - Processing file:', file.originalname, 'mimetype:', file.mimetype);
   if (isValidImageType(file.mimetype)) {
+    console.log('File filter - File accepted');
     cb(null, true);
   } else {
+    console.log('File filter - File rejected - invalid mimetype');
     cb(new Error('Only image files are allowed!'), false);
   }
 };
@@ -58,9 +61,18 @@ const uploadTemp = multer({
 // @desc    Upload user avatar
 // @access  Private
 router.post('/avatar', auth, (req, res) => {
+  console.log('Avatar upload - Starting upload process');
+  console.log('Avatar upload - Request headers:', req.headers);
+  console.log('Avatar upload - Request content-type:', req.headers['content-type']);
+  console.log('Avatar upload - Request body keys:', Object.keys(req.body || {}));
   uploadAvatar.single('avatar')(req, res, async (err) => {
     try {
+      console.log('Avatar upload - Multer callback triggered');
+      console.log('Avatar upload - Error:', err?.message);
+      console.log('Avatar upload - Request file:', req.file);
+      
       if (err) {
+        console.log('Avatar upload - Multer error:', err);
         if (err instanceof multer.MulterError) {
           if (err.code === 'LIMIT_FILE_SIZE') {
             return res.status(400).json({
@@ -76,11 +88,14 @@ router.post('/avatar', auth, (req, res) => {
       }
 
       if (!req.file) {
+        console.log('Avatar upload - No file in request');
         return res.status(400).json({
           success: false,
           message: 'No file uploaded'
         });
       }
+      
+      console.log('Avatar upload - File received:', req.file.originalname, req.file.mimetype, req.file.size);
 
       // Generate unique filename
       const fileExtension = req.file.originalname.split('.').pop();
@@ -117,7 +132,7 @@ router.post('/avatar', auth, (req, res) => {
       }
 
       // Update user with new avatar URL
-      await SupabaseUser.updateById(req.user.id, { avatar: publicUrl });
+      await SupabaseUser.findByIdAndUpdate(req.user.id, { avatar: publicUrl });
 
       res.json({
         success: true,

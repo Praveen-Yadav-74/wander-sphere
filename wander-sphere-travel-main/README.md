@@ -20,7 +20,7 @@ A modern travel social platform built with React, TypeScript, and Node.js, featu
 - **Database**: Supabase (PostgreSQL)
 - **Deployment**: 
   - Backend: Render (https://wander-sphere-ue7e.onrender.com)
-  - Frontend: Ready for Vercel deployment
+  - Frontend: Vercel (https://wander-sphere-zpml.vercel.app)
 
 ## Getting Started
 
@@ -68,7 +68,7 @@ The frontend will be available at `http://localhost:5173`
 cd backend
 npm run dev
 ```
-The backend API will be available at `http://localhost:3000`
+The backend API will be available at `http://localhost:5000`
 
 ### Building for Production
 
@@ -156,10 +156,14 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 
 ### Backend (backend/.env)
 ```
+NODE_ENV=production
+PORT=5000
+FRONTEND_URL=https://wander-sphere-zpml.vercel.app
 SUPABASE_URL=your_supabase_url
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 JWT_SECRET=your_jwt_secret
-PORT=3000
+JWT_EXPIRES_IN=7d
+JWT_REFRESH_EXPIRES_IN=30d
 ```
 
 ## Deployment

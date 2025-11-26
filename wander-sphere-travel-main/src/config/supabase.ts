@@ -12,11 +12,22 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true
+    detectSessionInUrl: true,
+    flowType: 'pkce',
+    storage: window.localStorage, // Use localStorage for persistence
+    storageKey: 'sb-auth-token', // Custom storage key
+    // Session duration: 7 days (604800 seconds)
+    // Refresh token duration: 30 days
   },
   global: {
     headers: {
       'apikey': supabaseAnonKey
+    },
+    fetch: (url, options = {}) => {
+      return fetch(url, {
+        ...options,
+        signal: AbortSignal.timeout(15000) // 15 second timeout for all requests
+      });
     }
   },
   db: {

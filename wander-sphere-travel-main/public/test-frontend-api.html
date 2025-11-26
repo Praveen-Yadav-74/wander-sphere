@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend API Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Frontend API Connectivity Test</h1>
+    
+    <div class="test-section info">
+        <h3>Environment Information</h3>
+        <div id="env-info"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>API Tests</h3>
+        <button onclick="runAllTests()">Run All Tests</button>
+        <button onclick="testDirectFetch()">Test Direct Fetch</button>
+        <button onclick="testWithCORS()">Test with CORS</button>
+        <button onclick="testHealthEndpoint()">Test Health Endpoint</button>
+        <button onclick="clearResults()">Clear Results</button>
+    </div>
+    
+    <div id="test-results"></div>
+
+    <script>
+        // Environment information
+        function displayEnvInfo() {
+            const envInfo = document.getElementById('env-info');
+            envInfo.innerHTML = `
+                <strong>Current URL:</strong> ${window.location.href}<br>
+                <strong>Origin:</strong> ${window.location.origin}<br>
+                <strong>Protocol:</strong> ${window.location.protocol}<br>
+                <strong>User Agent:</strong> ${navigator.userAgent}<br>
+                <strong>Online Status:</strong> ${navigator.onLine}<br>
+                <strong>Cookies Enabled:</strong> ${navigator.cookieEnabled}<br>
+                <strong>Language:</strong> ${navigator.language}
+            `;
+        }
+
+        // Add test result to page
+        function addTestResult(title, success, data, error = null) {
+            const resultsDiv = document.getElementById('test-results');
+            const testDiv = document.createElement('div');
+            testDiv.className = `test-section ${success ? 'success' : 'error'}`;
+            
+            let content = `<h4>${title}</h4>`;
+            
+            if (success) {
+                content += `<p><strong>✅ Success</strong></p>`;
+                if (data) {
+                    content += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                }
+            } else {
+                content += `<p><strong>❌ Failed</strong></p>`;
+                if (error) {
+                    content += `<p><strong>Error:</strong> ${error.message}</p>`;
+                    content += `<p><strong>Error Type:</strong> ${error.name}</p>`;
+                    if (error.stack) {
+                        content += `<details><summary>Stack Trace</summary><pre>${error.stack}</pre></details>`;
+                    }
+                }
+            }
+            
+            testDiv.innerHTML = content;
+            resultsDiv.appendChild(testDiv);
+        }
+
+        // Test 1: Direct fetch to backend
+        async function testDirectFetch() {
+            try {
+                console.log('Testing direct fetch to backend...');
+                
+                const response = await fetch('http://localhost:5000/api/trips', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                const responseData = {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: Object.fromEntries(response.headers.entries()),
+                    ok: response.ok
+                };
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    responseData.data = data;
+                    addTestResult('Direct Fetch Test', true, responseData);
+                } else {
+                    const errorText = await response.text();
+                    responseData.errorBody = errorText;
+                    addTestResult('Direct Fetch Test', false, responseData);
+                }
+                
+            } catch (error) {
+                console.error('Direct fetch error:', error);
+                addTestResult('Direct Fetch Test', false, null, error);
+            }
+        }
+
+        // Test 2: Test with explicit CORS headers
+        async function testWithCORS() {
+            try {
+                console.log('Testing with CORS headers...');
+                
+                const response = await fetch('http://localhost:5000/api/trips', {
+                    method: 'GET',
+                    mode: 'cors',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Origin': window.location.origin
+                    }
+                });
+                
+                const responseData = {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: Object.fromEntries(response.headers.entries()),
+                    ok: response.ok
+                };
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    responseData.data = data;
+                    addTestResult('CORS Test', true, responseData);
+                } else {
+                    const errorText = await response.text();
+                    responseData.errorBody = errorText;
+                    addTestResult('CORS Test', false, responseData);
+                }
+                
+            } catch (error) {
+                console.error('CORS test error:', error);
+                addTestResult('CORS Test', false, null, error);
+            }
+        }
+
+        // Test 3: Health endpoint
+        async function testHealthEndpoint() {
+            try {
+                console.log('Testing health endpoint...');
+                
+                const response = await fetch('http://localhost:5000/health', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                const responseData = {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: Object.fromEntries(response.headers.entries()),
+                    ok: response.ok
+                };
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    responseData.data = data;
+                    addTestResult('Health Endpoint Test', true, responseData);
+                } else {
+                    const errorText = await response.text();
+                    responseData.errorBody = errorText;
+                    addTestResult('Health Endpoint Test', false, responseData);
+                }
+                
+            } catch (error) {
+                console.error('Health endpoint error:', error);
+                addTestResult('Health Endpoint Test', false, null, error);
+            }
+        }
+
+        // Run all tests
+        async function runAllTests() {
+            clearResults();
+            await testDirectFetch();
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+            await testWithCORS();
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+            await testHealthEndpoint();
+        }
+
+        // Clear results
+        function clearResults() {
+            document.getElementById('test-results').innerHTML = '';
+        }
+
+        // Initialize page
+        window.onload = function() {
+            displayEnvInfo();
+        };
+    </script>
+</body>
+</html>

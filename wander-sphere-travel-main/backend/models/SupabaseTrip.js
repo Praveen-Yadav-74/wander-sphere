@@ -12,8 +12,11 @@ class SupabaseTrip {
 
       if (error) throw error;
       
-      // Add organizer as participant
-      await this.addParticipant(data.id, tripData.organizer_id, 'organizer', 'accepted');
+      // Add organizer as participant (use user_id if organizer_id not provided)
+      const userId = tripData.organizer_id || tripData.user_id;
+      if (userId) {
+        await this.addParticipant(data.id, userId, 'organizer', 'accepted');
+      }
       
       return data;
     } catch (error) {
@@ -28,12 +31,12 @@ class SupabaseTrip {
         .from('trips')
         .select(`
           *,
-          organizer:users!trips_organizer_id_fkey(
+          organizer:users!trips_user_id_fkey(
             id,
             first_name,
             last_name,
             email,
-            avatar
+            avatar_url
           ),
           participants:trip_participants(
             id,
@@ -45,7 +48,7 @@ class SupabaseTrip {
               first_name,
               last_name,
               email,
-              avatar
+              avatar_url
             )
           )
         `)
@@ -67,21 +70,23 @@ class SupabaseTrip {
         .from('trips')
         .select(`
           *,
-          organizer:users!trips_organizer_id_fkey(
+          organizer:users!trips_user_id_fkey(
             id,
             first_name,
             last_name,
-            avatar
+            avatar_url
           )
         `)
         .eq('is_active', true);
 
       // Apply filters
-      if (filters.organizer_id) {
-        query = query.eq('organizer_id', filters.organizer_id);
+      if (filters.organizer_id || filters.user_id) {
+        const userId = filters.organizer_id || filters.user_id;
+        query = query.eq('user_id', userId);
       }
       if (filters.category) {
-        query = query.eq('category', filters.category);
+        // Support both category and trip_type columns for backward compatibility
+        query = query.or(`category.eq.${filters.category},trip_type.eq.${filters.category}`);
       }
       if (filters.status) {
         query = query.eq('status', filters.status);
@@ -332,7 +337,7 @@ class SupabaseTrip {
             id,
             first_name,
             last_name,
-            avatar
+            avatar_url
           )
         `)
         .single();
@@ -397,12 +402,12 @@ class SupabaseTrip {
         .from('trips')
         .select(`
           *,
-          organizer:users!trips_organizer_id_fkey(
-            id,
-            first_name,
-            last_name,
-            avatar
-          )
+          organizer:users!trips_user_id_fkey(
+          id,
+          first_name,
+          last_name,
+          avatar_url
+        )
         `)
         .eq('is_active', true)
         .eq('visibility', 'public');
@@ -443,11 +448,13 @@ class SupabaseTrip {
         .eq('is_active', true);
 
       // Apply filters (same logic as find method)
-      if (filters.organizer_id) {
-        query = query.eq('organizer_id', filters.organizer_id);
+      if (filters.organizer_id || filters.user_id) {
+        const userId = filters.organizer_id || filters.user_id;
+        query = query.eq('user_id', userId);
       }
       if (filters.category) {
-        query = query.eq('category', filters.category);
+        // Support both category and trip_type columns for backward compatibility
+        query = query.or(`category.eq.${filters.category},trip_type.eq.${filters.category}`);
       }
       if (filters.status) {
         query = query.eq('status', filters.status);
@@ -488,12 +495,12 @@ class SupabaseTrip {
         .from('trips')
         .select(`
           *,
-          organizer:users!trips_organizer_id_fkey(
-            id,
-            first_name,
-            last_name,
-            avatar
-          )
+          organizer:users!trips_user_id_fkey(
+           id,
+           first_name,
+           last_name,
+           avatar_url
+         )
         `)
         .eq('is_active', true)
         .eq('featured', true)
@@ -515,14 +522,14 @@ class SupabaseTrip {
         .from('trips')
         .select(`
           *,
-          organizer:users!trips_organizer_id_fkey(
+          organizer:users!trips_user_id_fkey(
             id,
             first_name,
             last_name,
-            avatar
+            avatar_url
           )
         `)
-        .eq('organizer_id', userId)
+        .eq('user_id', userId)
         .eq('is_active', true);
 
       if (!includePrivate) {
@@ -546,7 +553,7 @@ class SupabaseTrip {
       const { data, error } = await supabase
         .from('trips')
         .select('*')
-        .eq('organizer_id', organizerId)
+        .eq('user_id', organizerId)
         .eq('is_active', true)
         .contains('images', [storagePath])
         .single();

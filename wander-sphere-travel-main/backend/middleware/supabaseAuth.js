@@ -15,13 +15,35 @@ const auth = async (req, res, next) => {
 
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
     
-    // Verify token with Supabase
-    const { data: { user }, error } = await supabase.auth.getUser(token);
+    console.log('Auth middleware - Received token:', token.substring(0, 20) + '...'); // Log first 20 chars
+    console.log('Auth middleware - Full token length:', token.length);
     
-    if (error || !user) {
+    let user;
+    let error;
+    
+    try {
+      // Verify token with Supabase
+      const result = await supabase.auth.getUser(token);
+      user = result.data?.user;
+      error = result.error;
+      
+      console.log('Auth middleware - Supabase getUser result:', { user: !!user, error: error?.message });
+      
+      if (error || !user) {
+        console.log('Auth middleware - Token validation failed:', error?.message || 'No user found');
+        return res.status(401).json({ 
+          success: false, 
+          message: 'Invalid token.' 
+        });
+      }
+      
+      console.log('Auth middleware - Token validated successfully, user ID:', user.id);
+      
+    } catch (verifyError) {
+      console.log('Auth middleware - Exception during token verification:', verifyError.message);
       return res.status(401).json({ 
         success: false, 
-        message: 'Invalid token.' 
+        message: 'Token verification failed.' 
       });
     }
 
