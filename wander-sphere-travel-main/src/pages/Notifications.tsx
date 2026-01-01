@@ -137,7 +137,7 @@ const Notifications = () => {
     return date.toLocaleDateString();
   };
 
-  const filteredNotifications = notifications.filter(notification => {
+  const filteredNotifications = (notifications || []).filter(notification => {
     if (activeTab === 'all') return true;
     return notification.type === activeTab;
   });
@@ -199,7 +199,7 @@ const Notifications = () => {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {filteredNotifications.map((notification) => (
+                  {(filteredNotifications || []).map((notification) => (
                     <div
                       key={notification.id}
                       className={`flex items-start gap-3 p-4 rounded-lg border transition-colors hover:bg-muted/50 ${
