@@ -21,13 +21,14 @@ const HEALTH_CHECK_CACHE_DURATION = 2 * 60 * 1000; // 2 minutes cache
 /**
  * Check if local backend is healthy and reachable
  * @param baseUrl - The backend URL to check
+ * @param timeout - Timeout in milliseconds (default: 2000 for local, 10000 for production)
  * @returns Promise<boolean> - true if healthy, false otherwise
  */
-const checkBackendHealth = async (baseUrl: string): Promise<boolean> => {
+const checkBackendHealth = async (baseUrl: string, timeout: number = 2000): Promise<boolean> => {
   try {
-    console.log(`[API Config] 🏥 Checking backend health: ${baseUrl}`);
+    console.log(`[API Config] 🏥 Checking backend health: ${baseUrl} (timeout: ${timeout}ms)`);
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000); // 2s timeout
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
     
     const response = await fetch(`${baseUrl}/health`, {
       method: 'GET',
@@ -82,12 +83,11 @@ const getApiBaseUrl = async (): Promise<string> => {
                       window.location.hostname === '127.0.0.1';
   
   const isProduction = import.meta.env.MODE === 'production' || 
-                       import.meta.env.PROD === true ||
-                       (!isLocalhost && window.location.hostname !== '10.0.2.2');
+                       import.meta.env.PROD === true;
 
-  // If definitely production (Vercel, etc.), skip health checks
-  if (isProduction && !isLocalhost) {
-    console.log('[API Config] 🌐 Production environment detected, using Render backend');
+  // If production build, always use production backend (skip health checks)
+  if (isProduction) {
+    console.log('[API Config] 🌐 Production build detected, using Render backend');
     cachedBackendUrl = PRODUCTION_BACKEND;
     lastHealthCheck = now;
     return PRODUCTION_BACKEND;
