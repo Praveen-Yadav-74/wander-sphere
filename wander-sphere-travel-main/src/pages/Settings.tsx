@@ -73,9 +73,28 @@ const Settings = () => {
           location: userProfile.location || "",
           avatar: userProfile.avatar || "",
         });
+
+        if (userProfile.privacy_settings || typeof userProfile.is_private !== 'undefined') {
+          setPrivacy({
+            privateAccount: userProfile.is_private || false,
+            showLocation: userProfile.privacy_settings?.show_location ?? true,
+            showTravelStats: userProfile.privacy_settings?.show_travel_stats ?? true,
+            allowTagging: userProfile.privacy_settings?.allow_tagging ?? true,
+          });
+        }
         
         if (notificationSettings && typeof notificationSettings === 'object') {
           setNotifications(prev => ({ ...prev, ...notificationSettings }));
+        }
+
+        // Set privacy settings from profile
+        if (userProfile) {
+          setPrivacy({
+            privateAccount: userProfile.is_private || false,
+            showLocation: userProfile.preferences?.privacy?.showLocation ?? true,
+            showTravelStats: userProfile.preferences?.privacy?.showTravelStats ?? true,
+            allowTagging: userProfile.preferences?.privacy?.allowTagging ?? true,
+          });
         }
       } catch (error) {
         console.error('Error loading user data:', error);
@@ -135,7 +154,11 @@ const Settings = () => {
   const handleSavePrivacy = async () => {
     try {
       setSaving(prev => ({ ...prev, privacy: true }));
-      await userService.updatePrivacySettings(privacy);
+      const privacySettings = {
+        ...privacy,
+        isPrivate: privacy.privateAccount
+      };
+      await userService.updatePrivacySettings(privacySettings);
       toast({
         title: "Privacy settings updated",
         description: "Your privacy preferences have been saved.",

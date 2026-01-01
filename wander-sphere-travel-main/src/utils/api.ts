@@ -39,21 +39,17 @@ export async function apiRequest<T>(url: string, options: ApiOptions = {}): Prom
     offlineStrategy = 'network-first'
   } = options;
 
-  // Ensure we have a session before making authenticated requests
-  if (!skipAuth && method !== 'GET') {
-    // For write operations, always wait for session
+  // Always fetch fresh auth token for authenticated requests
+  let authHeaders: Record<string, string> = {};
+  if (!skipAuth) {
     const { getAuthHeader } = await import('@/config/api');
-    const authHeaders = await getAuthHeader();
+    authHeaders = await getAuthHeader();
+    
+    // For all authenticated requests, fail immediately if no token
     if (!authHeaders.Authorization) {
-      throw new Error('No authentication token available. Please log in.');
-    }
-    Object.assign(headers, authHeaders);
-  } else if (!skipAuth) {
-    // For read operations, try to get auth header but don't fail if missing
-    const { getAuthHeader } = await import('@/config/api');
-    const authHeaders = await getAuthHeader();
-    if (authHeaders.Authorization) {
-      Object.assign(headers, authHeaders);
+      const error: any = new Error('Not authenticated. Please log in.');
+      error.status = 401;
+      throw error;
     }
   }
 
@@ -111,6 +107,14 @@ export async function apiRequest<T>(url: string, options: ApiOptions = {}): Prom
   const isRetryableError = (error: any): boolean => {
     if (!error) return false;
     
+    const status = (error as any).status;
+    
+    // NEVER retry authentication errors - fail fast
+    if (status === 401 || status === 403) return false;
+    
+    // Don't retry client errors (except rate limiting)
+    if (status >= 400 && status < 500 && status !== 429) return false;
+    
     // Retry on network errors, timeouts, and 5xx server errors
     if (error instanceof DOMException && error.name === 'AbortError') return true;
     if (error.message && (
@@ -120,7 +124,6 @@ export async function apiRequest<T>(url: string, options: ApiOptions = {}): Prom
       error.message.includes('timeout')
     )) return true;
     
-    const status = (error as any).status;
     if (status >= 500 && status < 600) return true; // Server errors
     if (status === 429) return true; // Rate limiting
     
@@ -138,7 +141,7 @@ export async function apiRequest<T>(url: string, options: ApiOptions = {}): Prom
         method,
         headers: {
           ...apiConfig.headers,
-          ...(skipAuth ? {} : getAuthHeaderSync()),
+          ...authHeaders,
           ...headers
         },
         signal: controller.signal,
@@ -205,6 +208,14 @@ export async function apiRequest<T>(url: string, options: ApiOptions = {}): Prom
         const error = new Error(errorData.message || `HTTP ${response.status}`);
         (error as any).status = response.status;
         (error as any).data = errorData;
+        
+        // For 401 errors, immediately throw without retry
+        if (response.status === 401) {
+          if (apiConfig.enableLogging || import.meta.env.DEV) {
+            console.error('[API] Authentication failed - redirecting to login');
+          }
+          throw error;
+        }
         
         // Don't retry on client errors (4xx) except 429
         if (response.status >= 400 && response.status < 500 && response.status !== 429) {

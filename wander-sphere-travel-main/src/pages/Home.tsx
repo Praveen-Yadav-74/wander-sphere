@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import { Switch } from "@/components/ui/switch";
+import { useAuth } from "@/contexts/AuthContext";
+import { useDataCache } from "@/contexts/DataCacheContext";
 import { apiRequest } from "@/utils/api";
 import { apiConfig, endpoints } from "@/config/api";
 import { journeyService } from "@/services/journeyService";
@@ -587,6 +589,16 @@ interface Post {
 
 // --- Main Home Component ---
 const Home: FC = () => {
+  const { isLoading: authLoading } = useAuth();
+  const {
+    stories: cachedStories,
+    posts: cachedPosts,
+    setStories: cacheStories,
+    setPosts: cachePosts,
+    shouldRefetchStories,
+    shouldRefetchPosts,
+  } = useDataCache();
+  
   const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
   const [isAddStoryOpen, setIsAddStoryOpen] = useState(false);
   const [activeStoryIndex, setActiveStoryIndex] = useState<number | null>(null);
@@ -594,14 +606,21 @@ const Home: FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("feed");
 
-  const [stories, setStories] = useState<Story[]>([]);
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [isLoadingPosts, setIsLoadingPosts] = useState(true);
-  const [isLoadingStories, setIsLoadingStories] = useState(true);
+  const [stories, setStories] = useState<Story[]>(cachedStories);
+  const [posts, setPosts] = useState<Post[]>(cachedPosts);
+  const [isLoadingPosts, setIsLoadingPosts] = useState(false);
+  const [isLoadingStories, setIsLoadingStories] = useState(false);
 
   // Load posts from API with REAL like status from database
   const fetchPosts = useCallback(async () => {
+    // ✅ CHECK CACHE FIRST - Prevent unnecessary API calls
+    if (posts.length > 0 && !shouldRefetchPosts()) {
+      console.log('[Home] Using cached posts - no refetch needed');
+      return;
+    }
+
     try {
+      console.log('[Home] Fetching fresh posts from API...');
       setIsLoadingPosts(true);
       
       // User must be authenticated to see this page
@@ -627,7 +646,7 @@ const Home: FC = () => {
          }
          
          // Get like counts for all posts
-         const postIds = journeys.map((j: any) => j.id?.toString() || '');
+         const postIds = Array.isArray(journeys) ? journeys.map((j: any) => j.id?.toString() || '') : [];
          let likeCounts: Record<string, number> = {};
          
          if (postIds.length > 0) {
@@ -683,7 +702,14 @@ const Home: FC = () => {
   // Load stories from API
   // STRICT AUTH: Only fetch user's own stories (user must be authenticated)
   const fetchStories = useCallback(async () => {
+    // ✅ CHECK CACHE FIRST - Prevent unnecessary API calls
+    if (stories.length > 0 && !shouldRefetchStories()) {
+      console.log('[Home] Using cached stories - no refetch needed');
+      return;
+    }
+
     try {
+      console.log('[Home] Fetching fresh stories from API...');
       setIsLoadingStories(true);
       
       // User must be authenticated to see this page
@@ -708,9 +734,13 @@ const Home: FC = () => {
          const otherStories = transformedStories.filter(story => !story.isOwn);
          
          if (userStories.length > 0) {
-           setStories([{ id: "user-stories", user: "Your Story", avatar: "", media: userStories[0].media, isOwn: true, hasStory: true }, ...otherStories]);
+           const finalStories = [{ id: "user-stories", user: "Your Story", avatar: "", media: userStories[0].media, isOwn: true, hasStory: true }, ...otherStories];
+           setStories(finalStories);
+           cacheStories(finalStories);
          } else {
-           setStories([{ id: "1", user: "Your Story", avatar: "", media: "", isOwn: true }, ...otherStories]);
+           const finalStories = [{ id: "1", user: "Your Story", avatar: "", media: "", isOwn: true }, ...otherStories];
+           setStories(finalStories);
+           cacheStories(finalStories);
          }
       } else {
         // Show only "Your Story" option if no stories available
@@ -731,11 +761,20 @@ const Home: FC = () => {
   }, [toast]);
 
   // Load data on component mount with timeout
-  // Always fetch data (public or private) - no need to check auth here
+  // Wait for auth to be ready before fetching data
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
     
-    // Always fetch posts and stories (will use public endpoints if not authenticated)
+    // Only fetch data after auth context has finished loading
+    // This prevents premature API calls before token is available
+    if (authLoading) {
+      console.log('[Home] Waiting for auth to initialize...');
+      return;
+    }
+    
+    console.log('[Home] Auth ready, fetching data...');
+    
+    // Fetch posts and stories (will use public endpoints if not authenticated)
     fetchPosts();
     fetchStories();
     
@@ -751,7 +790,7 @@ const Home: FC = () => {
         clearTimeout(timeoutId);
       }
     };
-  }, [fetchPosts, fetchStories]);
+  }, [authLoading, fetchPosts, fetchStories]);
   
   // REAL LIKE FUNCTIONALITY - Uses post_likes table in Supabase
   const handleLikeToggle = useCallback(async (postId: number | string) => {
@@ -879,9 +918,9 @@ const Home: FC = () => {
 
 
 
-      {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto pt-20 lg:pt-6 pb-20 lg:pb-6">
-        <div className="w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl mx-auto px-3 sm:px-4 md:px-6 py-4 md:py-6">
+      {/* Main Content Area - Reduced top padding for tighter layout */}
+      <div className="flex-1 overflow-y-auto pt-16 lg:pt-6 pb-20 lg:pb-6">
+        <div className="w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl mx-auto px-3 sm:px-4 md:px-6 py-2 md:py-3">
           {/* Header with Create Post Button */}
           <div className="hidden lg:flex justify-end items-center mb-6 lg:mb-8">
             <div className="flex gap-3">
@@ -895,8 +934,8 @@ const Home: FC = () => {
               </Button>
             </div>
           </div>
-          {/* Top Search Bar */}
-          <div className="mb-4 md:mb-6">
+          {/* Top Search Bar - Reduced margin */}
+          <div className="mb-3 md:mb-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input 
@@ -911,9 +950,9 @@ const Home: FC = () => {
           
           {activeTab === 'feed' && (
             <div className="space-y-4 lg:space-y-6">
-              {/* Stories */}
+              {/* Stories - Horizontal scroll on all screen sizes */}
               {isLoadingStories ? (
-                <div className="grid grid-cols-1 sm:flex sm:gap-4 gap-3 sm:overflow-x-auto pb-4">
+                <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide">
                   {[...Array(5)].map((_, i) => (
                     <div key={i} className="flex flex-col items-center gap-1 sm:gap-2 min-w-fit">
                       <div className="w-14 h-14 sm:w-16 sm:h-16 lg:w-18 lg:h-18 rounded-full bg-gray-200 animate-pulse"></div>
@@ -922,7 +961,7 @@ const Home: FC = () => {
                   ))}
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:flex sm:gap-4 gap-3 sm:overflow-x-auto pb-4 scrollbar-hide">
+                <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide">
                   {stories.map((story, index) => (
                     <div key={story.id} className="flex flex-col items-center gap-1 sm:gap-2 min-w-fit cursor-pointer" onClick={() => openStory(index)}>
                       <div className={`p-[2px] rounded-full ${story.isOwn ? '' : 'bg-gradient-to-tr from-yellow-400 to-purple-600'}`}>
@@ -936,6 +975,28 @@ const Home: FC = () => {
                   ))}
                 </div>
               )}
+
+              {/* Clubs Section - Horizontal Scroll */}
+              <div className="my-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-lg font-semibold">Travel Clubs</h2>
+                  <Link to="/clubs" className="text-sm text-primary hover:underline">See all</Link>
+                </div>
+                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                  {/* Clubs Loading Skeleton */}
+                  {[1, 2, 3, 4].map((i) => (
+                    <Card key={i} className="min-w-[140px] sm:min-w-[160px] flex-shrink-0 overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+                      <div className="aspect-video bg-gradient-to-br from-primary/10 to-primary/5 p-3 flex flex-col justify-end">
+                        <div className="w-8 h-8 rounded-full bg-primary/20 mb-2"></div>
+                        <div className="h-4 bg-primary/20 rounded w-3/4"></div>
+                      </div>
+                      <CardContent className="p-2">
+                        <p className="text-xs text-muted-foreground">Tap to explore clubs</p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
 
               {/* Posts */}
               {isLoadingPosts ? (

@@ -2,6 +2,8 @@ import express from 'express';
 import { body, query, validationResult } from 'express-validator';
 import SupabaseTrip from '../models/SupabaseTrip.js';
 import SupabaseUser from '../models/SupabaseUser.js';
+import SupabaseTripRequest from '../models/SupabaseTripRequest.js';
+import SupabaseNotification from '../models/SupabaseNotification.js';
 import { auth, optionalAuth } from '../middleware/supabaseAuth.js';
 
 const router = express.Router();
@@ -571,6 +573,172 @@ router.post('/:id/comments', auth, [
       success: false,
       message: 'Server error while adding comment'
     });
+  }
+});
+
+// @route   POST /api/trips/:id/request
+// @desc    Request to join a trip
+// @access  Private
+router.post('/:id/request', auth, async (req, res) => {
+  try {
+    const { message } = req.body;
+    const tripId = req.params.id;
+    const userId = req.user.id;
+
+    const trip = await SupabaseTrip.findById(tripId);
+    if (!trip) {
+      return res.status(404).json({ success: false, message: 'Trip not found' });
+    }
+
+    // Check if already a participant
+    const participants = await SupabaseTrip.getParticipants(tripId);
+    if (participants.some(p => p.user_id === userId)) {
+      return res.status(400).json({ success: false, message: 'You have already joined this trip' });
+    }
+
+    // Check if request already exists
+    // (We rely on unique constraint in DB, but can check here too)
+    try {
+      await SupabaseTripRequest.create({
+        trip_id: tripId,
+        user_id: userId,
+        message
+      });
+    } catch (err) {
+      if (err.message.includes('unique constraint') || err.message.includes('duplicate key')) {
+         return res.status(400).json({ success: false, message: 'Request already sent' });
+      }
+      throw err;
+    }
+
+    // Send notification to organizer
+    await SupabaseNotification.create({
+      user_id: trip.organizer_id,
+      type: 'system', // or new type 'trip_request'
+      title: 'New Trip Request',
+      message: `${req.user.first_name || 'Someone'} requested to join "${trip.title}"`,
+      data: { tripId, requesterId: userId },
+      action_url: `/trips/${tripId}/requests` // Or dashboard link
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Request sent successfully'
+    });
+  } catch (error) {
+    console.error('Create trip request error:', error);
+    res.status(500).json({ success: false, message: 'Failed to create request' });
+  }
+});
+
+// @route   GET /api/trips/requests/my
+// @desc    Get current user's trip requests
+// @access  Private
+router.get('/requests/my', auth, async (req, res) => {
+  try {
+    const requests = await SupabaseTripRequest.getByUserId(req.user.id);
+    res.json({ success: true, data: requests });
+  } catch (error) {
+    console.error('Get user requests error:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch requests' });
+  }
+});
+
+// @route   GET /api/trips/:id/requests
+// @desc    Get requests for a trip (Host only)
+// @access  Private
+router.get('/:id/requests', auth, async (req, res) => {
+  try {
+    const trip = await SupabaseTrip.findById(req.params.id);
+    if (!trip) return res.status(404).json({ success: false, message: 'Trip not found' });
+
+    if (trip.organizer_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    const requests = await SupabaseTripRequest.getByTripId(req.params.id);
+    res.json({ success: true, data: requests });
+  } catch (error) {
+    console.error('Get trip requests error:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch requests' });
+  }
+});
+
+// @route   POST /api/trips/requests/:requestId/approve
+// @desc    Approve a trip request
+// @access  Private (Host only)
+router.post('/requests/:requestId/approve', auth, async (req, res) => {
+  try {
+    const request = await SupabaseTripRequest.findById(req.params.requestId);
+    if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
+
+    const trip = await SupabaseTrip.findById(request.trip_id);
+    if (trip.organizer_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    // Check capacity
+    const participants = await SupabaseTrip.getParticipants(trip.id);
+    const acceptedCount = participants.filter(p => p.status === 'accepted').length;
+    
+    if (acceptedCount >= trip.max_participants) {
+      return res.status(400).json({ success: false, message: 'Trip is full' });
+    }
+
+    // Approve request
+    await SupabaseTripRequest.updateStatus(req.params.requestId, 'approved');
+
+    // Add participant
+    await SupabaseTrip.addParticipant(trip.id, request.user_id, 'participant', 'accepted');
+
+    // Notify user
+    await SupabaseNotification.create({
+      user_id: request.user_id,
+      type: 'system', // or 'trip_request_approved'
+      title: 'Request Approved',
+      message: `Your request to join "${trip.title}" has been approved!`,
+      data: { tripId: trip.id },
+      action_url: `/trips/${trip.id}`
+    });
+
+    res.json({ success: true, message: 'Request approved' });
+  } catch (error) {
+    console.error('Approve request error:', error);
+    res.status(500).json({ success: false, message: 'Failed to approve request' });
+  }
+});
+
+// @route   POST /api/trips/requests/:requestId/reject
+// @desc    Reject a trip request
+// @access  Private (Host only)
+router.post('/requests/:requestId/reject', auth, async (req, res) => {
+  try {
+    const request = await SupabaseTripRequest.findById(req.params.requestId);
+    if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
+
+    const trip = await SupabaseTrip.findById(request.trip_id);
+    if (trip.organizer_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    // Reject request
+    await SupabaseTripRequest.updateStatus(req.params.requestId, 'rejected');
+
+    // Notify user (optional? maybe don't notify on rejection to be nice, or do.)
+    // Let's notify.
+    await SupabaseNotification.create({
+      user_id: request.user_id,
+      type: 'system',
+      title: 'Request Rejected',
+      message: `Your request to join "${trip.title}" was declined.`,
+      data: { tripId: trip.id },
+      action_url: `/trips/${trip.id}`
+    });
+
+    res.json({ success: true, message: 'Request rejected' });
+  } catch (error) {
+    console.error('Reject request error:', error);
+    res.status(500).json({ success: false, message: 'Failed to reject request' });
   }
 });
 

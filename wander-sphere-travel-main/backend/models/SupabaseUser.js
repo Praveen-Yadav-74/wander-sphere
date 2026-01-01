@@ -1,4 +1,5 @@
 import supabase from '../config/supabase.js';
+import SupabaseNotification from './SupabaseNotification.js';
 
 class SupabaseUser {
   // Create a new user (used internally, registration handled by auth service)
@@ -85,6 +86,78 @@ class SupabaseUser {
     }
   }
 
+  // Update user privacy settings
+  static async updatePrivacySettings(userId, settings) {
+    try {
+      const user = await this.findById(userId);
+      if (!user) throw new Error('User not found');
+
+      const currentPreferences = user.preferences || {
+        travelStyle: 'mid-range',
+        interests: [],
+        notifications: {
+          email: true,
+          push: true,
+          tripUpdates: true,
+          socialActivity: true
+        },
+        privacy: {
+          profileVisibility: 'public',
+          showEmail: false,
+          showPhone: false,
+          showLocation: true,
+          showTravelStats: true,
+          allowTagging: true
+        }
+      };
+
+      // Extract is_private (default to current value or false)
+      const isPrivate = settings.isPrivate !== undefined ? settings.isPrivate : (user.is_private || false);
+      
+      // Update privacy preferences
+      // Map flat settings to nested privacy object if needed, or merge
+      const privacyUpdates = {};
+      if (settings.profileVisibility) privacyUpdates.profileVisibility = settings.profileVisibility;
+      // If isPrivate is true, force profileVisibility to 'private' (or handle logic here)
+      if (isPrivate) {
+        privacyUpdates.profileVisibility = 'private';
+      } else if (settings.isPrivate === false && currentPreferences.privacy.profileVisibility === 'private') {
+        // If switching from private to public, set visibility to public? Or let user decide?
+        // For now, let's default to 'public' if switching off private, unless specified
+        privacyUpdates.profileVisibility = 'public';
+      }
+
+      if (settings.showLocation !== undefined) privacyUpdates.showLocation = settings.showLocation;
+      if (settings.showTravelStats !== undefined) privacyUpdates.showTravelStats = settings.showTravelStats;
+      if (settings.allowTagging !== undefined) privacyUpdates.allowTagging = settings.allowTagging;
+      if (settings.showEmail !== undefined) privacyUpdates.showEmail = settings.showEmail;
+      if (settings.showPhone !== undefined) privacyUpdates.showPhone = settings.showPhone;
+
+      const updatedPreferences = {
+        ...currentPreferences,
+        privacy: {
+          ...currentPreferences.privacy,
+          ...privacyUpdates
+        }
+      };
+
+      const { data, error } = await supabase
+        .from('users')
+        .update({ 
+          is_private: isPrivate,
+          preferences: updatedPreferences 
+        })
+        .eq('id', userId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      throw new Error(`Failed to update privacy settings: ${error.message}`);
+    }
+  }
+
   // Get user followers
   static async getFollowers(userId) {
     try {
@@ -133,39 +206,176 @@ class SupabaseUser {
     }
   }
 
-  // Follow a user
-  static async followUser(followerId, followingId) {
+  // Check if user is following another user
+  static async isFollowing(followerId, followingId) {
     try {
-      // Check if already following
+      const { data, error } = await supabase
+        .from('user_relationships')
+        .select('status')
+        .eq('follower_id', followerId)
+        .eq('following_id', followingId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      return !!data && data.status === 'accepted';
+    } catch (error) {
+      // If error is PGRST116 (no rows), return false
+      return false;
+    }
+  }
+
+  // Check if follow request is pending
+  static async isFollowPending(followerId, followingId) {
+    try {
+      const { data, error } = await supabase
+        .from('user_relationships')
+        .select('status')
+        .eq('follower_id', followerId)
+        .eq('following_id', followingId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      return !!data && data.status === 'pending';
+    } catch (error) {
+      return false;
+    }
+  }
+
+  // Follow a user
+  static async follow(followerId, followingId) {
+    try {
+      // Check if already following or pending
       const { data: existing } = await supabase
         .from('user_relationships')
-        .select('id')
+        .select('id, status')
         .eq('follower_id', followerId)
         .eq('following_id', followingId)
         .single();
 
       if (existing) {
-        throw new Error('Already following this user');
+        if (existing.status === 'accepted') {
+          throw new Error('Already following this user');
+        } else if (existing.status === 'pending') {
+          throw new Error('Follow request already sent');
+        } else if (existing.status === 'blocked') {
+          throw new Error('Cannot follow this user');
+        }
       }
+
+      // Check target user privacy
+      const targetUser = await this.findById(followingId);
+      if (!targetUser) throw new Error('User not found');
+
+      // Check privacy settings (is_private or privacy_settings.profile_visibility)
+      const isPrivate = targetUser.is_private || 
+                        targetUser.privacy_settings?.profile_visibility === 'private' ||
+                        targetUser.preferences?.privacy?.profileVisibility === 'private';
+
+      const status = isPrivate ? 'pending' : 'accepted';
 
       const { data, error } = await supabase
         .from('user_relationships')
         .insert({
           follower_id: followerId,
-          following_id: followingId
+          following_id: followingId,
+          status: status
         })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Send notification
+      const follower = await this.findById(followerId);
+      const followerName = `${follower.first_name} ${follower.last_name}`;
+
+      if (status === 'pending') {
+        await SupabaseNotification.sendFollowRequestNotification(followingId, followerName, followerId);
+      } else {
+        await SupabaseNotification.sendFollowNotification(followingId, followerName, followerId);
+      }
+
+      return { ...data, isPending: status === 'pending' };
+    } catch (error) {
+      throw new Error(`Failed to follow user: ${error.message}`);
+    }
+  }
+
+  // Get pending follow requests
+  static async getFollowRequests(userId) {
+    try {
+      const { data, error } = await supabase
+        .from('user_relationships')
+        .select(`
+          created_at,
+          follower:users!user_relationships_follower_id_fkey(
+            id,
+            first_name,
+            last_name,
+            username,
+            avatar_url
+          )
+        `)
+        .eq('following_id', userId)
+        .eq('status', 'pending');
+
+      if (error) throw error;
+      return data.map(item => ({
+        ...item.follower,
+        requestedAt: item.created_at
+      }));
+    } catch (error) {
+      throw new Error(`Failed to get follow requests: ${error.message}`);
+    }
+  }
+
+  // Accept follow request
+  static async acceptFollowRequest(userId, followerId) {
+    try {
+      const { data, error } = await supabase
+        .from('user_relationships')
+        .update({ status: 'accepted' })
+        .eq('follower_id', followerId)
+        .eq('following_id', userId) // current user is the one being followed
+        .eq('status', 'pending')
+        .select()
+        .single();
+
+      if (error) throw error;
+      if (!data) throw new Error('No pending follow request found');
+
+      // Send notification to the follower
+      const user = await this.findById(userId);
+      const userName = `${user.first_name} ${user.last_name}`;
+      await SupabaseNotification.sendFollowAcceptedNotification(followerId, userName, userId);
+
+      return data;
+    } catch (error) {
+      throw new Error(`Failed to accept follow request: ${error.message}`);
+    }
+  }
+
+  // Reject/Cancel follow request
+  static async rejectFollowRequest(userId, followerId) {
+    try {
+      const { data, error } = await supabase
+        .from('user_relationships')
+        .delete()
+        .eq('follower_id', followerId)
+        .eq('following_id', userId)
+        .eq('status', 'pending')
         .select()
         .single();
 
       if (error) throw error;
       return data;
     } catch (error) {
-      throw new Error(`Failed to follow user: ${error.message}`);
+      throw new Error(`Failed to reject follow request: ${error.message}`);
     }
   }
 
   // Unfollow a user
-  static async unfollowUser(followerId, followingId) {
+  static async unfollow(followerId, followingId) {
     try {
       const { data, error } = await supabase
         .from('user_relationships')

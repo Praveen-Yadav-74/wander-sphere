@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Bell, Globe, Heart, Luggage, MessageCircle, User, UserPlus, LogOut, Settings, UserCircle } from "lucide-react";
+import { Bell, Globe, Heart, Luggage, MessageCircle, User, UserPlus, LogOut, Settings, UserCircle, Briefcase } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -15,7 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { notificationService, Notification } from "@/services/notificationService";
-import NetworkStatus from "./NetworkStatus";
+import { supabase } from "@/config/supabase";
 
 const Header = () => {
   const { user, logout } = useAuth();
@@ -23,12 +24,64 @@ const Header = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [activeNotificationTab, setActiveNotificationTab] = useState("all");
+  
+  // 🛑 CACHE: Prevent refetch on tab switch
+  const lastFetchTime = useRef<number>(0);
+  const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes
+
+  // ✨ Animated text for mobile booking button
+  const bookingPhrases = [
+    { text: "Book", icon: "📅" },
+    { text: "Travel", icon: "✈️" },
+    { text: "Enjoy", icon: "🏖️" }
+  ];
+  const [phraseIndex, setPhraseIndex] = useState(0);
 
   useEffect(() => {
-    // Only fetch notifications if user is authenticated
+    // Cycle through phrases every 2 seconds
+    const timer = setInterval(() => {
+      setPhraseIndex((prev) => (prev + 1) % bookingPhrases.length);
+    }, 2000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    // Only fetch notifications if user is authenticated AND cache is stale
     if (user) {
-      fetchNotifications();
-      fetchUnreadCount();
+      const now = Date.now();
+      const shouldFetch = now - lastFetchTime.current > CACHE_DURATION;
+      
+      if (shouldFetch) {
+        console.log('[Header] Cache stale, fetching notifications');
+        fetchNotifications();
+        fetchUnreadCount();
+        lastFetchTime.current = now;
+      } else {
+        console.log('[Header] Using cached notifications, skipping fetch');
+      }
+
+      // Subscribe to realtime notifications
+      const channel = supabase
+        .channel('header_notifications')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            // Refresh notifications and count when a new notification is received
+            fetchNotifications();
+            fetchUnreadCount();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [user]);
 
@@ -95,25 +148,45 @@ const Header = () => {
             <Globe className="h-6 w-6 text-primary" />
             <span className="font-bold text-lg">WanderSphere</span>
           </Link>
-          <NetworkStatus />
         </div>
 
         {/* Right Side Actions */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Network Status */}
-          <NetworkStatus className="hidden sm:flex" />
           
-          {/* Bookings Button */}
-          <Button 
-            asChild
-            size="sm"
-            className="bg-gradient-to-r from-primary to-primary/80 text-white shadow-sm hover:shadow-md transition-all duration-300 hidden md:flex rounded-lg"
-          >
-            <Link to="/booking" className="flex items-center gap-2">
-              <Luggage className="w-4 h-4" />
-              <span className="text-sm">Bookings</span>
-            </Link>
-          </Button>
+          {/* Bookings Button - Desktop: Full text, Mobile: Animated text + icon */}
+          <Link to="/booking">
+            <Button 
+              size="sm"
+              className="bg-gradient-to-r from-primary to-primary/80 text-white shadow-sm hover:shadow-md transition-all duration-300 rounded-lg px-2 sm:px-4"
+            >
+              {/* Mobile: Text FIRST, then emoji icon */}
+              <div className="flex items-center gap-1.5 md:hidden">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={phraseIndex}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.3 }}
+                    className="flex items-center gap-1.5"
+                  >
+                    <span className="text-xs font-semibold">
+                      {bookingPhrases[phraseIndex].text}
+                    </span>
+                    <span className="text-sm">
+                      {bookingPhrases[phraseIndex].icon}
+                    </span>
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+              
+              {/* Desktop: Full text button */}
+              <div className="hidden md:flex items-center gap-2">
+                <Luggage className="w-4 h-4" />
+                <span className="text-sm">Bookings</span>
+              </div>
+            </Button>
+          </Link>
 
           {/* Notifications */}
           <DropdownMenu>

@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { DataCacheProvider } from "./contexts/DataCacheContext";
 import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import Clubs from "./pages/Clubs";
@@ -24,8 +25,20 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Notifications from "./pages/Notifications";
 import NotFound from "./pages/NotFound";
+import BusBooking from "./pages/BusBooking";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false, // Prevent refetch when tab regains focus
+      refetchOnMount: false, // Only refetch if data is stale
+      staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+      gcTime: 10 * 60 * 1000, // Keep unused data in cache for 10 minutes
+      retry: 1, // Only retry failed requests once
+      retryDelay: 1000, // Wait 1 second before retry
+    },
+  },
+});
 
 // Protected Route Component - Redirects to login if not authenticated
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -158,6 +171,14 @@ const AppRoutes = () => (
       }
     />
     <Route
+      path="/booking/bus"
+      element={
+        <ProtectedRoute>
+          <BusBooking />
+        </ProtectedRoute>
+      }
+    />
+    <Route
       path="/notifications"
       element={
         <ProtectedRoute>
@@ -175,15 +196,17 @@ const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Layout>
-              <AppRoutes />
-            </Layout>
-          </BrowserRouter>
-        </TooltipProvider>
+        <DataCacheProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Layout>
+                <AppRoutes />
+              </Layout>
+            </BrowserRouter>
+          </TooltipProvider>
+        </DataCacheProvider>
       </AuthProvider>
     </QueryClientProvider>
   </ErrorBoundary>

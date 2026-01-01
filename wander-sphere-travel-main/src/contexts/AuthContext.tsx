@@ -8,7 +8,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
   register: (userData: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   refreshToken: () => Promise<void>;
@@ -46,7 +46,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Helper function to convert AuthService User to App User
   const convertAuthServiceUser = (authUser: AuthServiceUser): User => {
-    const [firstName = '', lastName = ''] = authUser.name.split(' ');
+    // Safely extract first and last name with defensive coding
+    const safeName = authUser.name && typeof authUser.name === 'string' ? authUser.name : 'Traveler';
+    const [firstName = 'Traveler', lastName = ''] = safeName.split(' ');
     return {
       id: authUser.id,
       email: authUser.email,
@@ -145,84 +147,75 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (session?.user && session?.access_token) {
           console.log('👤 Session found, getting user profile...');
           try {
-            // Get user profile with timeout protection
-            const profilePromise = authService.getProfile();
-            const profileTimeout = new Promise((_, reject) => {
-              setTimeout(() => reject(new Error('Profile fetch timeout')), 25000);
-            });
-            
-            const userProfile = await Promise.race([profilePromise, profileTimeout]) as any;
+            // Get user profile - authService.getProfile() now returns ghost profile on failure
+            // No need for timeout wrapper as it handles errors gracefully
+            const userProfile = await authService.getProfile();
             const convertedUser = convertAuthServiceUser(userProfile);
             setUser(convertedUser);
             console.log('✅ User profile validated and set successfully');
           } catch (profileError) {
-            console.error('❌ Profile fetch failed:', profileError);
-            // For timeout errors, set a basic user from session data
-            if (profileError.message.includes('timeout')) {
-              console.log('⚡ Using fallback user data from session');
-              const fallbackUser: User = {
-                id: session.user.id,
-                email: session.user.email || '',
-                username: session.user.user_metadata?.username || '',
-                firstName: session.user.user_metadata?.name?.split(' ')[0] || session.user.email?.split('@')[0] || '',
-                lastName: session.user.user_metadata?.name?.split(' ')[1] || '',
-                avatar: session.user.user_metadata?.avatar_url,
-                bio: '',
-                location: '',
-                isVerified: session.user.email_confirmed_at !== null,
-                isOnline: true,
-                lastSeen: new Date().toISOString(),
-                createdAt: session.user.created_at,
-                updatedAt: session.user.updated_at || session.user.created_at,
-                preferences: {
-                  language: 'en',
-                  currency: 'USD',
-                  timezone: 'UTC',
-                  notifications: {
-                    email: true,
-                    push: true,
-                    sms: false,
-                    tripUpdates: true,
-                    friendRequests: true,
-                    messages: true,
-                    promotions: false
-                  },
-                  privacy: {
-                    profileVisibility: 'public',
-                    showEmail: false,
-                    showPhone: false,
-                    showLocation: true,
-                    allowFriendRequests: true,
-                    allowMessages: true
-                  },
-                  travelPreferences: {
-                    budgetRange: { min: 0, max: 5000 },
-                    preferredDestinations: [],
-                    travelStyle: 'mid-range',
-                    accommodationType: [],
-                    transportModes: [],
-                    interests: []
-                  }
+            console.warn('⚠️ Profile fetch failed, using fallback user data from session:', profileError);
+            // CRITICAL: Never logout on profile fetch failure - user stays logged in
+            // Use fallback user data from session to ensure app continues working
+            const fallbackUser: User = {
+              id: session.user.id,
+              email: session.user.email || '',
+              username: session.user.user_metadata?.username || '',
+              firstName: session.user.user_metadata?.name?.split(' ')[0] || session.user.email?.split('@')[0] || 'Traveler',
+              lastName: session.user.user_metadata?.name?.split(' ')[1] || '',
+              avatar: session.user.user_metadata?.avatar_url,
+              bio: '',
+              location: '',
+              isVerified: session.user.email_confirmed_at !== null,
+              isOnline: true,
+              lastSeen: new Date().toISOString(),
+              createdAt: session.user.created_at,
+              updatedAt: session.user.updated_at || session.user.created_at,
+              preferences: {
+                language: 'en',
+                currency: 'USD',
+                timezone: 'UTC',
+                notifications: {
+                  email: true,
+                  push: true,
+                  sms: false,
+                  tripUpdates: true,
+                  friendRequests: true,
+                  messages: true,
+                  promotions: false
                 },
-                stats: {
-                  tripsCompleted: 0,
-                  countriesVisited: 0,
-                  citiesVisited: 0,
-                  totalDistance: 0,
-                  totalSpent: 0,
-                  friendsCount: 0,
-                  followersCount: 0,
-                  followingCount: 0,
-                  reviewsCount: 0,
-                  averageRating: 0
+                privacy: {
+                  profileVisibility: 'public',
+                  showEmail: false,
+                  showPhone: false,
+                  showLocation: true,
+                  allowFriendRequests: true,
+                  allowMessages: true
+                },
+                travelPreferences: {
+                  budgetRange: { min: 0, max: 5000 },
+                  preferredDestinations: [],
+                  travelStyle: 'mid-range',
+                  accommodationType: [],
+                  transportModes: [],
+                  interests: []
                 }
-              };
-              setUser(fallbackUser);
-            } else {
-              // For other errors, clear invalid session
-              await authService.logout();
-              setUser(null);
-            }
+              },
+              stats: {
+                tripsCompleted: 0,
+                countriesVisited: 0,
+                citiesVisited: 0,
+                totalDistance: 0,
+                totalSpent: 0,
+                friendsCount: 0,
+                followersCount: 0,
+                followingCount: 0,
+                reviewsCount: 0,
+                averageRating: 0
+              }
+            };
+            setUser(fallbackUser);
+            console.log('✅ Fallback user set - user remains logged in despite profile fetch failure');
           }
         } else {
           console.log('❌ No valid session found');
@@ -250,32 +243,94 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setUser(null);
       } finally {
         console.log('🏁 Auth initialization complete, setting loading to false');
-        setIsLoading(false);
+        // Always set loading to false, even if there was an error
+        // Use setTimeout to ensure state update happens
+        setTimeout(() => {
+          setIsLoading(false);
+        }, 100);
       }
     };
 
-    initializeAuth();
+    // Add a safety timeout - if initialization takes more than 10 seconds, force loading to false
+    const safetyTimeout = setTimeout(() => {
+      console.log('⚠️ Auth initialization safety timeout - forcing loading to false');
+      setIsLoading(false);
+    }, 10000);
+
+    initializeAuth().finally(() => {
+      clearTimeout(safetyTimeout);
+    });
 
     // Listen to auth state changes - PERSISTENT LISTENER
     // This ensures session persists across navigation
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('🔄 Auth state changed:', event, session ? 'Session exists' : 'No session');
+      console.log('🔊 Auth event:', event, session ? 'Session exists' : 'No session');
       
+      // 🛑 CRITICAL FIX: ONLY respond to SIGNED_IN and SIGNED_OUT
+      // Ignore ALL other events including TOKEN_REFRESHED to prevent tab-switch reloads
+      const criticalEvents = ['SIGNED_IN', 'SIGNED_OUT'];
+      
+      if (!criticalEvents.includes(event)) {
+        console.log(`⏭️ Ignoring non-critical auth event: ${event} (no action taken)`);
+        return; // Completely ignore token refresh, visibility changes, etc.
+      }
+      
+      // CRITICAL: Don't set loading to true on every auth state change
+      // Only set loading for SIGNED_IN if user doesn't exist (first time login)
+      // This prevents loading screen on every navigation/tab switch
       if (event === 'SIGNED_IN' && session?.user) {
         try {
-          console.log('✅ User signed in, fetching profile...');
-          setIsLoading(true);
+          console.log('✅ User signed in event detected');
           
-          // Add timeout for profile fetch to prevent hanging
-          const profilePromise = authService.getProfile();
-          const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('Profile fetch timeout')), 10000);
-          });
+          // ✅ SKIP PROFILE FETCH IF USER ALREADY IN STATE - Prevents reload on tab switch
+          if (user && user.id === session.user.id) {
+            console.log('✅ User already in state, skipping profile fetch');
+            return; // Don't refetch if we already have this user's profile
+          }
           
-          const userProfile = await Promise.race([profilePromise, timeoutPromise]) as any;
-          setUser(convertAuthServiceUser(userProfile));
+          // Only set loading if we don't already have a user (first time login only)
+          if (!user) {
+            console.log('🔄 First time login, fetching profile...');
+            setIsLoading(true);
+          }
+          
+          // 🛑 NON-BLOCKING PROFILE FETCH - Prevents 2-minute hangs
+          // Fetch profile in background, use fallback immediately if timeout
+          try {
+            const profilePromise = authService.getProfile();
+            const timeoutPromise = new Promise((_, reject) => {
+              setTimeout(() => reject(new Error('Profile fetch timeout')), 5000); // Fast 5s timeout
+            });
+            
+            const userProfile = await Promise.race([profilePromise, timeoutPromise]) as any;
+            setUser(convertAuthServiceUser(userProfile));
+            console.log('✅ User profile loaded from API');
+          } catch (error) {
+            console.warn('⚠️ Profile fetch failed/timeout, using session fallback:', error.message);
+            // 🛑 IMMEDIATE FALLBACK - Don't block the UI
+            if (session?.user) {
+              const fallbackUser: User = {
+                id: session.user.id,
+                email: session.user.email || '',
+                username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || '',
+                firstName: session.user.user_metadata?.first_name || session.user.user_metadata?.name?.split(' ')[0] || 'Traveler',
+                lastName: session.user.user_metadata?.last_name || session.user.user_metadata?.name?.split(' ')[1] || '',
+                avatar: session.user.user_metadata?.avatar_url,
+                bio: '',
+                location: '',
+                isVerified: session.user.email_confirmed_at !== null,
+                isOnline: true,
+                lastSeen: new Date().toISOString(),
+                createdAt: session.user.created_at,
+                updatedAt: session.user.updated_at || session.user.created_at,
+                preferences: {} as any, // Use defaults
+                stats: {} as any, // Use defaults
+              };
+              setUser(fallbackUser);
+              console.log('✅ Using session fallback user');
+            }
+          }
           setIsLoading(false);
-          console.log('✅ User profile set successfully');
         } catch (error) {
           console.error('❌ Error getting user profile:', error);
           setIsLoading(false); // Ensure loading is false even on error
@@ -348,22 +403,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
       } else if (event === 'SIGNED_OUT') {
         console.log('👋 User signed out');
         setUser(null);
+        setIsLoading(false); // Ensure loading is false on logout
         authService.clearAuthData();
       } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-        console.log('🔄 Token refreshed, updating user state');
-        try {
-          const userProfile = await authService.getProfile();
-          setUser(convertAuthServiceUser(userProfile));
-        } catch (error) {
-          console.error('Error updating user after token refresh:', error);
-        }
+        console.log('✅ Token refreshed silently - no profile refetch needed');
+        // 🛑 CRITICAL: Don't refetch profile on token refresh
+        // Token refresh happens in background and should be completely silent
+        // User data already in state - no need to fetch again
       } else if (event === 'USER_UPDATED' && session?.user) {
         console.log('👤 User updated, refreshing profile');
+        // CRITICAL: Don't set loading for user updates - it should be completely silent
+        // User updates happen in background and should never interrupt user flow
         try {
           const userProfile = await authService.getProfile();
           setUser(convertAuthServiceUser(userProfile));
         } catch (error) {
           console.error('Error updating user:', error);
+          // Don't clear user on profile fetch error during update
+          // User stays logged in even if profile fetch fails
         }
       }
     });
@@ -449,13 +506,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       const convertedUser = convertAuthServiceUser(response.user);
       
-      // Set user first
+      // Set user first - this will trigger isAuthenticated to become true
       setUser(convertedUser);
       
-      // Force a small delay to ensure state updates propagate
-      await new Promise(resolve => setTimeout(resolve, 50));
-      
       // Ensure loading is set to false immediately after setting user
+      // Don't wait - let the auth state change handler manage subsequent updates
       setIsLoading(false);
       console.log('✅ User set, loading complete, isAuthenticated should be true');
       

@@ -15,6 +15,16 @@ export interface UserProfile extends User {
   journeysCount: number;
   isFollowing?: boolean;
   isFollowedBy?: boolean;
+  is_private?: boolean;
+  privacy_settings?: {
+    profile_visibility?: 'public' | 'private' | 'friends';
+    location_sharing?: boolean;
+    showEmail?: boolean;
+    showPhone?: boolean;
+    show_location?: boolean;
+    show_travel_stats?: boolean;
+    allow_tagging?: boolean;
+  };
   stats: {
     countriesVisited: number;
     citiesVisited: number;
@@ -71,6 +81,13 @@ export interface FollowUser {
   location?: string;
   isFollowing: boolean;
   followedAt?: string;
+}
+
+export interface PrivacySettings {
+  isPrivate: boolean;
+  showLocation: boolean;
+  showTravelStats: boolean;
+  allowTagging: boolean;
 }
 
 class UserService {

@@ -5,6 +5,8 @@
 
 import { tripService as supabaseTripService, userService as supabaseUserService } from './supabaseService';
 import type { DatabaseTrip, InsertTrip } from '@/types/database';
+import { apiRequest } from '@/utils/api';
+import { endpoints, buildUrl, ApiResponse } from '@/config/api';
 import type { PaginatedResponse } from '@/config/api';
 
 export interface Trip {
@@ -72,6 +74,64 @@ export interface TripComment {
   updatedAt: string;
 }
 
+interface TripUserAPI {
+  id: string;
+  first_name?: string;
+  last_name?: string;
+  username?: string;
+  avatar_url?: string;
+}
+
+interface TripParticipantAPI {
+  id: string;
+  user?: TripUserAPI;
+  role?: string;
+  status?: string;
+  joined_at?: string;
+}
+
+interface TripCommentAPI {
+  id: string;
+  user?: TripUserAPI;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  likes?: number;
+}
+
+interface TripAPI {
+  id: string;
+  title: string;
+  description?: string;
+  destination?: {
+    country?: string;
+    city?: string;
+    coordinates?: {
+      latitude: number;
+      longitude: number;
+    };
+  } | string;
+  start_date?: string;
+  end_date?: string;
+  budget?: { total?: number; currency?: string } | string;
+  max_participants?: number;
+  maxParticipants?: number;
+  organizer?: TripUserAPI;
+  organizer_id?: string;
+  participants?: TripParticipantAPI[];
+  images?: string[];
+  tags?: string[];
+  category?: string;
+  trip_type?: string;
+  status?: string;
+  meetingPoint?: string;
+  requirements?: string[];
+  itinerary?: unknown[];
+  created_at?: string;
+  updated_at?: string;
+  comments?: TripCommentAPI[];
+}
+
 export interface CreateTripData {
   title: string;
   description: string;
@@ -97,7 +157,7 @@ export interface CreateTripData {
   visibility?: string;
   tags?: string[];
   images?: string[];
-  itinerary?: any[];
+  itinerary?: unknown[];
   requirements?: string[];
 }
 
@@ -124,23 +184,31 @@ async function transformDatabaseTripToTrip(dbTrip: DatabaseTrip): Promise<Trip> 
   // Get organizer info
   const organizer = await supabaseUserService.getUserProfile(dbTrip.user_id);
   
+  // Format destination as string
+  const destinationStr = dbTrip.destination?.city && dbTrip.destination?.country
+    ? `${dbTrip.destination.city}, ${dbTrip.destination.country}`
+    : 'Unknown destination';
+  
+  // Format budget as string
+  const budgetStr = dbTrip.budget?.total
+    ? `${dbTrip.budget.currency || 'USD'} ${dbTrip.budget.total}`
+    : 'Not specified';
+  
+  // Calculate duration
+  const startDate = new Date(dbTrip.start_date);
+  const endDate = new Date(dbTrip.end_date);
+  const durationDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+  const durationStr = `${durationDays} day${durationDays !== 1 ? 's' : ''}`;
+  
   return {
     id: dbTrip.id,
     title: dbTrip.title,
     description: dbTrip.description || '',
-    destination: {
-      country: dbTrip.destination.country,
-      city: dbTrip.destination.city,
-      coordinates: dbTrip.destination.coordinates,
-    },
-    dates: {
-      startDate: dbTrip.start_date,
-      endDate: dbTrip.end_date,
-    },
-    budget: {
-      total: dbTrip.budget?.total || 0,
-      currency: dbTrip.budget?.currency || 'USD',
-    },
+    destination: destinationStr,
+    startDate: dbTrip.start_date,
+    endDate: dbTrip.end_date,
+    duration: durationStr,
+    budget: budgetStr,
     maxParticipants: dbTrip.max_participants || 1,
     currentParticipants: dbTrip.current_participants || 1,
     organizer: {
@@ -156,7 +224,7 @@ async function transformDatabaseTripToTrip(dbTrip: DatabaseTrip): Promise<Trip> 
     type: dbTrip.trip_type || '',
     status: mapTripStatus(dbTrip.status || 'planning'),
     requirements: [], // TODO: Extract from trip data if needed
-    itinerary: dbTrip.itinerary || [],
+    itinerary: (dbTrip.itinerary || []) as TripItinerary[],
     createdAt: dbTrip.created_at,
     updatedAt: dbTrip.updated_at,
   };
@@ -186,7 +254,7 @@ function transformCreateTripDataToInsertTrip(tripData: CreateTripData): InsertTr
     visibility: (tripData.visibility as 'public' | 'private' | 'friends') || 'public',
     tags: tripData.tags,
     images: tripData.images,
-    itinerary: tripData.itinerary,
+    itinerary: tripData.itinerary as any,
     status: 'planning',
     is_active: true,
   };
@@ -237,11 +305,62 @@ class TripService {
    */
   async getTripById(tripId: string): Promise<Trip> {
     try {
-      const dbTrip = await supabaseTripService.getTripById(tripId);
-      if (!dbTrip) {
-        throw new Error('Trip not found');
-      }
-      return await transformDatabaseTripToTrip(dbTrip);
+      const response = await apiRequest<ApiResponse<{ trip: TripAPI }>>(buildUrl(endpoints.trips.detail(tripId)), {
+        method: 'GET',
+      });
+      const trip = response.data.trip;
+      const acceptedParticipants = (trip.participants || []).filter((p: TripParticipantAPI) => p.status === 'accepted');
+      
+      // Format destination as string
+      const destinationStr = typeof trip.destination === 'object' && trip.destination?.city
+        ? `${trip.destination.city}, ${trip.destination.country || ''}`
+        : (typeof trip.destination === 'string' ? trip.destination : 'Unknown destination');
+      
+      // Calculate duration
+      const startDate = new Date(trip.start_date);
+      const endDate = new Date(trip.end_date);
+      const durationDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+      const durationStr = `${durationDays} day${durationDays !== 1 ? 's' : ''}`;
+      
+      return {
+        id: trip.id,
+        title: trip.title,
+        description: trip.description || '',
+        destination: destinationStr,
+        startDate: trip.start_date || '',
+        endDate: trip.end_date || '',
+        duration: durationStr,
+        budget: typeof trip.budget === 'object' && trip.budget?.total
+          ? `${trip.budget.currency || 'USD'} ${trip.budget.total}`
+          : (typeof trip.budget === 'string' ? trip.budget : ''),
+        maxParticipants: trip.max_participants || trip.maxParticipants || 1,
+        currentParticipants: acceptedParticipants.length || 1,
+        organizer: {
+          id: (trip.organizer?.id || trip.organizer_id) || '',
+          name: trip.organizer ? `${trip.organizer.first_name || ''} ${trip.organizer.last_name || ''}`.trim() : '',
+          username: trip.organizer?.username || '',
+          avatar: trip.organizer?.avatar_url || undefined,
+          bio: '',
+        },
+        participants: (trip.participants || []).map((p: TripParticipantAPI) => ({
+          id: p.id,
+          userId: p.user?.id || '',
+          name: p.user ? `${p.user.first_name || ''} ${p.user.last_name || ''}`.trim() : '',
+          username: p.user?.username || '',
+          avatar: p.user?.avatar_url || undefined,
+          role: p.role === 'organizer' ? 'organizer' : 'participant',
+          joinedAt: p.joined_at,
+        })),
+        images: trip.images || [],
+        tags: trip.tags || [],
+        type: trip.category || trip.trip_type || '',
+        status: trip.status === 'cancelled' ? 'closed' : (acceptedParticipants.length >= (trip.max_participants || 0) ? 'full' : 'open'),
+        meetingPoint: trip.meetingPoint,
+        requirements: trip.requirements || [],
+        itinerary: (trip.itinerary || []) as TripItinerary[],
+        createdAt: trip.created_at || '',
+        updatedAt: trip.updated_at || '',
+      };
     } catch (error) {
       throw new Error(error instanceof Error ? error.message : 'Failed to get trip details');
     }
@@ -266,7 +385,7 @@ class TripService {
    */
   async updateTrip(tripData: UpdateTripData): Promise<Trip> {
     try {
-      const updates: any = {};
+      const updates: Record<string, unknown> = {};
       if (tripData.title) updates.title = tripData.title;
       if (tripData.description) updates.description = tripData.description;
       if (tripData.destination) {
@@ -315,9 +434,11 @@ class TripService {
   /**
    * Join a trip (placeholder - would need trip_participants table)
    */
-  async joinTrip(tripId: string): Promise<void> {
-    // TODO: Implement using trip_participants table
-    throw new Error('Not implemented yet - requires trip_participants table');
+  async joinTrip(tripId: string, message?: string): Promise<void> {
+    await apiRequest<ApiResponse<Record<string, unknown>>>(buildUrl(endpoints.trips.request(tripId)), {
+      method: 'POST',
+      body: { message: message || '' }
+    });
   }
 
   /**
@@ -326,6 +447,52 @@ class TripService {
   async leaveTrip(tripId: string): Promise<void> {
     // TODO: Implement using trip_participants table
     throw new Error('Not implemented yet - requires trip_participants table');
+  }
+
+  /**
+   * Get user's trip requests ("My Interests")
+   */
+  async getMyTripRequests(): Promise<any[]> {
+    try {
+      const response = await apiRequest<ApiResponse<any[]>>(buildUrl(endpoints.trips.requestsMy), {
+        method: 'GET',
+      });
+      return response.data || [];
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Failed to fetch trip requests');
+    }
+  }
+
+  /**
+   * Get requests for a specific trip (Host only)
+   */
+  async getTripRequests(tripId: string): Promise<any[]> {
+    try {
+      const response = await apiRequest<ApiResponse<any[]>>(buildUrl(endpoints.trips.requestsForTrip(tripId)), {
+        method: 'GET',
+      });
+      return response.data || [];
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Failed to fetch trip requests');
+    }
+  }
+
+  /**
+   * Approve a trip request (Host only)
+   */
+  async approveTripRequest(requestId: string): Promise<void> {
+    await apiRequest(buildUrl(endpoints.trips.approveRequest(requestId)), {
+      method: 'POST',
+    });
+  }
+
+  /**
+   * Reject a trip request (Host only)
+   */
+  async rejectTripRequest(requestId: string): Promise<void> {
+    await apiRequest(buildUrl(endpoints.trips.rejectRequest(requestId)), {
+      method: 'POST',
+    });
   }
 
   /**
@@ -340,16 +507,49 @@ class TripService {
    * Get trip comments (placeholder)
    */
   async getTripComments(tripId: string): Promise<TripComment[]> {
-    // TODO: Implement using trip_comments table
-    return [];
+    const response = await apiRequest<ApiResponse<{ trip: TripAPI }>>(buildUrl(endpoints.trips.detail(tripId)), {
+      method: 'GET',
+    });
+    const comments = (response.data.trip.comments || []) as TripCommentAPI[];
+    return comments.map((c: TripCommentAPI) => ({
+      id: c.id,
+      userId: c.user?.id || '',
+      user: {
+        name: c.user ? `${c.user.first_name || ''} ${c.user.last_name || ''}`.trim() : 'Unknown',
+        username: c.user?.username || '',
+        avatar: c.user?.avatar_url || undefined,
+      },
+      content: c.content,
+      likes: c.likes ?? 0,
+      isLiked: false,
+      createdAt: c.created_at,
+      updatedAt: c.updated_at,
+    }));
   }
 
   /**
    * Add a comment to a trip (placeholder)
    */
   async addTripComment(tripId: string, content: string): Promise<TripComment> {
-    // TODO: Implement using trip_comments table
-    throw new Error('Not implemented yet - requires trip_comments table');
+    const response = await apiRequest<ApiResponse<{ comment: TripCommentAPI }>>(buildUrl(endpoints.trips.comments(tripId)), {
+      method: 'POST',
+      body: { content }
+    });
+    const c = response.data.comment;
+    return {
+      id: c.id,
+      userId: c.user?.id || '',
+      user: {
+        name: c.user ? `${c.user.first_name || ''} ${c.user.last_name || ''}`.trim() : 'Unknown',
+        username: c.user?.username || '',
+        avatar: c.user?.avatar_url || undefined,
+      },
+      content: c.content,
+      likes: c.likes ?? 0,
+      isLiked: false,
+      createdAt: c.created_at,
+      updatedAt: c.updated_at,
+    };
   }
 
   /**

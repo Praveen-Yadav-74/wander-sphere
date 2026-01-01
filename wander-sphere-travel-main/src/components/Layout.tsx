@@ -1,5 +1,6 @@
-import { ReactNode, useState } from "react";
+import React, { ReactNode, useState, useRef } from "react";
 import { useLocation, Link, NavLink, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import Header from "./Header";
 import BottomNav from "./BottomNav";
@@ -53,9 +54,60 @@ const Layout = ({ children }: LayoutProps) => {
     location.pathname === route || location.pathname.startsWith(route)
   );
   
-  // Show loading screen during auth initialization
-  if (isLoading) {
+  // Check if we should hide navigation (login/register pages)
+  const hideNavigation = ['/login', '/register', '/forgot-password', '/reset-password'].includes(location.pathname);
+  
+  // Track if this is the very first app load (initialization)
+  // After first load, NEVER show loading screen again (even on tab switches during booking)
+  const hasInitializedRef = useRef(false);
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
+  
+  React.useEffect(() => {
+    // Mark as initialized once auth check completes
+    // This happens only once when app first loads - never again
+    if (!isLoading && !hasInitializedRef.current) {
+      const timer = setTimeout(() => {
+        hasInitializedRef.current = true;
+        setIsFirstLoad(false);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading]);
+  
+  // Show beautiful LoadingScreen ONLY on the very first app load
+  // After initialization, never show it again - even if isLoading becomes true
+  // This prevents loading screen from appearing when user switches tabs during booking
+  if (isLoading && isFirstLoad && !hasInitializedRef.current) {
     return <LoadingScreen />;
+  }
+  
+  // After first load, if loading happens (rare - like token refresh), show subtle top bar
+  // This should be extremely rare and won't interrupt user during booking
+  // Content still renders - just a thin progress bar at top
+  if (isLoading && hasInitializedRef.current) {
+    return (
+      <>
+        {/* Subtle top loading bar - doesn't block content */}
+        <div className="fixed top-0 left-0 right-0 h-1 bg-primary/10 z-50">
+          <motion.div
+            className="h-full bg-primary"
+            initial={{ width: '0%' }}
+            animate={{ width: '100%' }}
+            transition={{ duration: 0.3 }}
+          />
+        </div>
+        <OfflineBanner />
+        <Header />
+        <main className={`min-h-screen bg-background pt-16 pb-20 md:pb-0 ${!hideNavigation ? (navCollapsed ? 'md:ml-16' : 'md:ml-64') : ''} transition-all duration-300`}>
+          {children}
+        </main>
+        {!hideNavigation && (
+          <div className="md:hidden">
+            <BottomNav />
+          </div>
+        )}
+      </>
+    );
   }
   
   // For protected routes when user is not authenticated, show auth prompt instead of redirecting
@@ -82,9 +134,6 @@ const Layout = ({ children }: LayoutProps) => {
       </>
     );
   }
-  
-  // Check if we should hide navigation (login/register pages)
-  const hideNavigation = ['/login', '/register', '/forgot-password', '/reset-password'].includes(location.pathname);
   
   // For auth pages, render without header and navigation
   if (hideNavigation) {
@@ -156,6 +205,18 @@ const Layout = ({ children }: LayoutProps) => {
           >
             <span className="flex justify-center items-center w-6 h-6">💰</span>
             {!navCollapsed && <span className="ml-2">Budget</span>}
+          </NavLink>
+          <NavLink 
+            to="/clubs" 
+            className={({ isActive }) => cn(
+              "flex items-center p-2 rounded-lg transition-all duration-200",
+              isActive 
+                ? "text-primary bg-primary/15 shadow-sm" 
+                : "text-muted-foreground hover:text-foreground hover:bg-accent"
+            )}
+          >
+            <span className="flex justify-center items-center w-6 h-6">👥</span>
+            {!navCollapsed && <span className="ml-2">Clubs</span>}
           </NavLink>
           <NavLink 
             to="/booking" 

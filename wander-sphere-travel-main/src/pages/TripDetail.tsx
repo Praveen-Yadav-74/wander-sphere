@@ -80,19 +80,18 @@ const TripDetail = () => {
     
     try {
       if (isInterested) {
-        await tripService.leaveTrip(id);
         toast({
-          title: "Interest removed",
-          description: "You're no longer interested in this trip.",
+          title: "Already sent",
+          description: "You've already expressed interest in this trip.",
         });
-      } else {
-        await tripService.joinTrip(id);
-        toast({
-          title: "Interest expressed!",
-          description: "The organizer will be notified of your interest.",
-        });
+        return;
       }
-      setIsInterested(!isInterested);
+      await tripService.joinTrip(id);
+      setIsInterested(true);
+      toast({
+        title: "Interest expressed!",
+        description: "The organizer will be notified of your interest.",
+      });
     } catch (err: any) {
       toast({
         title: "Error",
@@ -208,10 +207,13 @@ const TripDetail = () => {
           </div>
           <div className="absolute bottom-6 left-6 text-white">
             <h1 className="text-3xl font-bold mb-4">{trip.title}</h1>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4" />
-                {trip.destination}
+                {/* Safely render destination even if it's an object */}
+                {typeof trip.destination === 'string'
+                  ? trip.destination
+                  : `${trip.destination.city}, ${trip.destination.country}`}
               </div>
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4" />
@@ -223,7 +225,10 @@ const TripDetail = () => {
               </div>
               <div className="flex items-center gap-2">
                 <DollarSign className="w-4 h-4" />
-                {trip.budget}
+                {/* Safely render budget even if it's an object */}
+                {typeof trip.budget === 'string'
+                  ? trip.budget
+                  : `${trip.budget.currency} ${trip.budget.total}`}
               </div>
             </div>
           </div>
@@ -241,14 +246,29 @@ const TripDetail = () => {
             <CardContent>
               <div className="flex items-start gap-4">
                 <Avatar className="w-16 h-16">
-                  <AvatarImage src={trip.organizer.avatar} />
+                  <AvatarImage src={trip.organizer?.avatar} />
                   <AvatarFallback className="bg-primary text-primary-foreground text-lg">
-                    {trip.organizer.name.split(' ').map(n => n[0]).join('')}
+                    {(() => {
+                      const name =
+                        (typeof trip.organizer?.name === 'string' && trip.organizer.name) ||
+                        trip.organizer?.username ||
+                        'Nomad Admin';
+                      return name
+                        .split(' ')
+                        .filter(Boolean)
+                        .map((n) => n[0]?.toUpperCase() || '')
+                        .join('')
+                        .slice(0, 2) || 'NA';
+                    })()}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold">{trip.organizer.name}</h3>
-                  <p className="text-muted-foreground text-sm mb-3">{trip.organizer.bio || 'Travel enthusiast'}</p>
+                  <h3 className="text-lg font-semibold">
+                    {trip.organizer?.name || trip.organizer?.username || 'Nomad Admin'}
+                  </h3>
+                  <p className="text-muted-foreground text-sm mb-3">
+                    {trip.organizer?.bio || 'Travel enthusiast'}
+                  </p>
                   <Button size="sm" variant="outline">
                     View Profile
                   </Button>
@@ -354,7 +374,11 @@ const TripDetail = () => {
             <CardContent className="p-6">
               <div className="text-center space-y-4">
                 <div className="space-y-2">
-                  <p className="text-2xl font-bold text-primary">{trip.budget}</p>
+                  <p className="text-2xl font-bold text-primary">
+                    {typeof trip.budget === 'string'
+                      ? trip.budget
+                      : `${trip.budget.currency} ${trip.budget.total}`}
+                  </p>
                   <p className="text-sm text-muted-foreground">per person</p>
                 </div>
                 <Button 

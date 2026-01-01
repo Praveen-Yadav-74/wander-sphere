@@ -413,8 +413,22 @@ const FindTrips = () => {
             const endDate = new Date(trip.dates?.endDate || '');
             const dateText = startDate.toLocaleDateString() + ' - ' + endDate.toLocaleDateString();
             
-            const organizerName = trip.organizer || 'Unknown Organizer';
+            // Safely extract organizer name with defensive coding
+            const organizerName = (() => {
+              if (!trip.organizer) return 'Nomad Admin';
+              if (typeof trip.organizer === 'string') return trip.organizer;
+              if (typeof trip.organizer === 'object' && trip.organizer.name) return trip.organizer.name;
+              return 'Nomad Admin';
+            })();
             const budgetText = trip.budget ? `$${trip.budget.total} ${trip.budget.currency}` : 'Budget TBD';
+            
+            // Safely get initials from organizer name
+            const getInitials = (name: string): string => {
+              if (!name || typeof name !== 'string') return 'NA';
+              const parts = name.trim().split(' ').filter(Boolean);
+              if (parts.length === 0) return 'NA';
+              return parts.map(n => n[0]?.toUpperCase() || '').join('').slice(0, 2);
+            };
             
             return (
               <Card key={trip.id} className="overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer group">
@@ -441,7 +455,7 @@ const FindTrips = () => {
                       <Avatar className="w-6 h-6">
                         <AvatarImage src={trip.organizerAvatar} />
                         <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                          {organizerName.split(' ').map(n => n[0]).join('')}
+                          {getInitials(organizerName)}
                         </AvatarFallback>
                       </Avatar>
                       <span className="text-sm text-muted-foreground">by {organizerName}</span>

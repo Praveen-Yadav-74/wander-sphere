@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">WanderSphere</string>
+    <string name="title_activity_main">WanderSphere</string>
+    <string name="package_name">com.nomad.app</string>
+    <string name="custom_url_scheme">com.nomad.app</string>
+</resources>

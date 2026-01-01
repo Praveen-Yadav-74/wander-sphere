@@ -8,12 +8,26 @@ import { supabase } from './supabase';
 // Environment variables with fallbacks
 // Production: https://wander-sphere-ue7e.onrender.com
 // Development: http://localhost:5000
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-  (import.meta.env.PROD 
+const getApiBaseUrl = () => {
+  // If explicitly set in env, use that
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  
+  // Check if we're in production build
+  const isProduction = import.meta.env.MODE === 'production' || 
+                       import.meta.env.PROD === true ||
+                       window.location.hostname !== 'localhost' && 
+                       window.location.hostname !== '127.0.0.1';
+  
+  return isProduction 
     ? 'https://wander-sphere-ue7e.onrender.com' 
-    : 'http://localhost:5000');
+    : 'http://localhost:5000';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 const API_BASE_URL_WITH_PREFIX = `${API_BASE_URL}/api`;
-const API_TIMEOUT = parseInt(import.meta.env.VITE_API_TIMEOUT || '15000'); // Reduced from 20s to 15s
+const API_TIMEOUT = parseInt(import.meta.env.VITE_API_TIMEOUT || '60000'); // Increased to 60s for cold starts
 // Enable logging in development by default
 const ENABLE_API_LOGGING = import.meta.env.VITE_ENABLE_API_LOGGING === 'true' || import.meta.env.DEV;
 const MAX_RETRIES = 3;
@@ -72,6 +86,11 @@ export const endpoints = {
     like: (tripId: string) => `/trips/${tripId}/like`,
     search: '/trips/search',
     nearby: '/trips/nearby',
+    request: (tripId: string) => `/trips/${tripId}/request`,
+    requestsMy: '/trips/requests/my',
+    requestsForTrip: (tripId: string) => `/trips/${tripId}/requests`,
+    approveRequest: (requestId: string) => `/trips/requests/${requestId}/approve`,
+    rejectRequest: (requestId: string) => `/trips/requests/${requestId}/reject`,
   },
 
   // Clubs
@@ -173,6 +192,39 @@ export const endpoints = {
     nearby: '/map/nearby',
     geocode: '/map/geocode',
     reverseGeocode: '/map/reverse-geocode',
+  },
+
+  // Wallet
+  wallet: {
+    details: '/wallet',
+    createOrder: '/wallet/create-order',
+    verifyPayment: '/wallet/verify-payment',
+    withdraw: '/wallet/withdraw',
+  },
+
+  // Etrav API (B2B Travel APIs)
+  etrav: {
+    // Bus
+    bus: {
+      search: '/etrav/bus/search',
+      seatLayout: '/etrav/bus/seat-layout',
+      block: '/etrav/bus/block',
+      book: '/etrav/bus/book',
+    },
+    // Flight
+    flight: {
+      search: '/etrav/flight/search',
+      fareRules: '/etrav/flight/fare-rules',
+      ssr: '/etrav/flight/ssr',
+      book: '/etrav/flight/book',
+    },
+    // Hotel
+    hotel: {
+      search: '/etrav/hotel/search',
+      roomTypes: '/etrav/hotel/room-types',
+      block: '/etrav/hotel/block',
+      book: '/etrav/hotel/book',
+    },
   },
 };
 

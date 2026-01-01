@@ -239,6 +239,7 @@ class AuthService {
 
   /**
    * Get current user profile
+   * Returns a "ghost profile" if database fetch fails, ensuring user stays logged in
    */
   async getProfile(): Promise<User> {
     const { data: { user }, error } = await supabase.auth.getUser();
@@ -247,9 +248,34 @@ class AuthService {
       throw new Error(error?.message || 'Failed to get user profile');
     }
 
-    const userProfile = await this.convertSupabaseUser(user);
-    this.setUser(userProfile);
-    return userProfile;
+    try {
+      const userProfile = await this.convertSupabaseUser(user);
+      this.setUser(userProfile);
+      return userProfile;
+    } catch (profileError) {
+      // Database fetch failed (timeout, network error, or missing row)
+      // Return ghost profile instead of throwing - user stays logged in
+      console.warn('⚠️ Profile fetch failed, using ghost profile:', profileError);
+      
+      const ghostProfile: User = {
+        id: user.id,
+        email: user.email || '',
+        username: user.user_metadata?.username || '',
+        // Keep name logic consistent with AuthContext fallback:
+        // prefer explicit name, then email prefix, then generic \"Traveler\"
+        name: user.user_metadata?.name || user.email?.split('@')[0] || 'Traveler',
+        avatar: user.user_metadata?.avatar_url,
+        bio: '',
+        location: '',
+        verified: user.email_confirmed_at !== null,
+        createdAt: user.created_at,
+        updatedAt: user.updated_at || user.created_at
+      };
+      
+      // Store ghost profile so app can continue
+      this.setUser(ghostProfile);
+      return ghostProfile;
+    }
   }
 
   /**

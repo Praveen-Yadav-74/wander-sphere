@@ -84,6 +84,65 @@ router.get('/profile', auth, async (req, res) => {
   }
 });
 
+// @route   PUT /api/users/profile/privacy
+// @desc    Update user privacy settings
+// @access  Private
+router.put('/profile/privacy', auth, async (req, res) => {
+  try {
+    const { isPrivate, showLocation, showTravelStats, allowTagging } = req.body;
+    const userId = req.user.id;
+
+    // Validate input (basic)
+    if (typeof isPrivate !== 'undefined' && typeof isPrivate !== 'boolean') {
+      return res.status(400).json({ success: false, message: 'isPrivate must be a boolean' });
+    }
+
+    const updateData = {};
+    
+    // Handle is_private column
+    if (typeof isPrivate !== 'undefined') {
+      updateData.is_private = isPrivate;
+    }
+
+    // Handle privacy_settings JSONB column
+    // First fetch existing settings to merge to avoid overwriting other potential settings
+    const currentUser = await SupabaseUser.findById(userId);
+    
+    if (!currentUser) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    const currentPrivacySettings = currentUser.privacy_settings || {};
+    
+    const newPrivacySettings = {
+        ...currentPrivacySettings,
+        profile_visibility: isPrivate !== undefined ? (isPrivate ? 'private' : 'public') : currentPrivacySettings.profile_visibility,
+        show_location: showLocation !== undefined ? showLocation : currentPrivacySettings.show_location,
+        show_travel_stats: showTravelStats !== undefined ? showTravelStats : currentPrivacySettings.show_travel_stats,
+        allow_tagging: allowTagging !== undefined ? allowTagging : currentPrivacySettings.allow_tagging
+    };
+    
+    updateData.privacy_settings = newPrivacySettings;
+
+    const updatedUser = await SupabaseUser.findByIdAndUpdate(userId, updateData);
+
+    res.json({
+      success: true,
+      data: {
+        isPrivate: updatedUser.is_private,
+        privacySettings: updatedUser.privacy_settings
+      }
+    });
+
+  } catch (error) {
+    console.error('Update privacy settings error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update privacy settings'
+    });
+  }
+});
+
 // @route   GET /api/users/profile/:id
 // @desc    Get user profile by ID
 // @access  Public
@@ -106,16 +165,21 @@ router.get('/profile/:id', optionalAuth, async (req, res) => {
 
     // Check privacy settings
     const isOwnProfile = req.user && req.user.id === req.params.id;
-    const isFollowing = req.user && followers.some(f => f.id === req.user.id);
+    const isFollowing = req.user ? followers.some(f => f.id === req.user.id) : false;
     
-    if (user.preferences.privacy.profileVisibility === 'private' && !isOwnProfile) {
+    // Check both new flags and old preferences
+    const isPrivateAccount = user.is_private || 
+                            (user.privacy_settings?.profile_visibility === 'private') || 
+                            (user.preferences?.privacy?.profileVisibility === 'private');
+
+    if (isPrivateAccount && !isOwnProfile && !isFollowing) {
       return res.status(403).json({
         success: false,
         message: 'This profile is private'
       });
     }
 
-    if (user.preferences.privacy.profileVisibility === 'friends' && !isOwnProfile && !isFollowing) {
+    if (user.preferences?.privacy?.profileVisibility === 'friends' && !isOwnProfile && !isFollowing) {
       return res.status(403).json({
         success: false,
         message: 'This profile is only visible to friends'
@@ -314,6 +378,68 @@ router.post('/follow/:id', auth, async (req, res) => {
   }
 });
 
+// @route   GET /api/users/requests
+// @desc    Get pending follow requests
+// @access  Private
+router.get('/requests', auth, async (req, res) => {
+  try {
+    const requests = await SupabaseUser.getFollowRequests(req.user.id);
+
+    res.json({
+      success: true,
+      data: requests
+    });
+  } catch (error) {
+    console.error('Get follow requests error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching follow requests'
+    });
+  }
+});
+
+// @route   POST /api/users/requests/:id/accept
+// @desc    Accept follow request
+// @access  Private
+router.post('/requests/:id/accept', auth, async (req, res) => {
+  try {
+    const followerId = req.params.id;
+    await SupabaseUser.acceptFollowRequest(req.user.id, followerId);
+
+    res.json({
+      success: true,
+      message: 'Follow request accepted'
+    });
+  } catch (error) {
+    console.error('Accept follow request error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while accepting follow request'
+    });
+  }
+});
+
+// @route   POST /api/users/requests/:id/reject
+// @desc    Reject follow request
+// @access  Private
+router.post('/requests/:id/reject', auth, async (req, res) => {
+  try {
+    const followerId = req.params.id;
+    await SupabaseUser.rejectFollowRequest(req.user.id, followerId);
+
+    res.json({
+      success: true,
+      message: 'Follow request rejected'
+    });
+  } catch (error) {
+    console.error('Reject follow request error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while rejecting follow request'
+    });
+  }
+});
+
 // @route   GET /api/users/:id/followers
 // @desc    Get user followers
 // @access  Public
@@ -337,7 +463,13 @@ router.get('/:id/followers', optionalAuth, [
 
     // Check privacy
     const isOwnProfile = req.user && req.user.id === req.params.id;
-    if (user.preferences.privacy.profileVisibility === 'private' && !isOwnProfile) {
+    const isFollowing = req.user ? await SupabaseUser.isFollowing(req.user.id, req.params.id) : false;
+    
+    const isPrivateAccount = user.is_private || 
+                            (user.privacy_settings?.profile_visibility === 'private') || 
+                            (user.preferences?.privacy?.profileVisibility === 'private');
+
+    if (isPrivateAccount && !isOwnProfile && !isFollowing) {
       return res.status(403).json({
         success: false,
         message: 'This profile is private'
@@ -390,7 +522,13 @@ router.get('/:id/following', optionalAuth, [
 
     // Check privacy
     const isOwnProfile = req.user && req.user.id === req.params.id;
-    if (user.preferences.privacy.profileVisibility === 'private' && !isOwnProfile) {
+    const isFollowing = req.user ? await SupabaseUser.isFollowing(req.user.id, req.params.id) : false;
+
+    const isPrivateAccount = user.is_private || 
+                            (user.privacy_settings?.profile_visibility === 'private') || 
+                            (user.preferences?.privacy?.profileVisibility === 'private');
+
+    if (isPrivateAccount && !isOwnProfile && !isFollowing) {
       return res.status(403).json({
         success: false,
         message: 'This profile is private'
@@ -509,6 +647,42 @@ router.get('/:id/trips', optionalAuth, [
     res.status(500).json({
       success: false,
       message: 'Server error while fetching user trips'
+    });
+  }
+});
+
+// @route   PUT /api/users/profile/privacy
+// @desc    Update user privacy settings
+// @access  Private
+router.put('/profile/privacy', auth, [
+  body('isPrivate').optional().isBoolean(),
+  body('showLocation').optional().isBoolean(),
+  body('showTravelStats').optional().isBoolean(),
+  body('allowTagging').optional().isBoolean(),
+  body('profileVisibility').optional().isIn(['public', 'friends', 'private'])
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const updatedUser = await SupabaseUser.updatePrivacySettings(req.user.id, req.body);
+
+    res.json({
+      success: true,
+      message: 'Privacy settings updated successfully',
+      data: updatedUser
+    });
+  } catch (error) {
+    console.error('Update privacy settings error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to update privacy settings'
     });
   }
 });

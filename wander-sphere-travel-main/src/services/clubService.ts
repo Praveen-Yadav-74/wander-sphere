@@ -100,8 +100,11 @@ class ClubService {
       }
     });
 
-    const url = `${buildUrl(endpoints.clubs.list)}?${queryParams.toString()}`;
-    const cacheKey = `${CacheKeys.clubs()}_${queryParams.toString()}`;
+    const queryParamsString = queryParams.toString();
+    const url = queryParamsString 
+      ? `${buildUrl(endpoints.clubs.list)}?${queryParamsString}`
+      : buildUrl(endpoints.clubs.list);
+    const cacheKey = `${CacheKeys.clubs()}_${queryParamsString}`;
     
     return await cachedApiRequest<PaginatedResponse<Club>>(url, cacheKey, {
       ttl: CacheTTL.MEDIUM,

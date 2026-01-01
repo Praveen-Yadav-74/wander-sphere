@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { handleImageError } from "@/utils/imageHandling";
 import { Link } from "react-router-dom";
-import { Settings, MapPin, Calendar, Users, Heart, MessageCircle, Grid3X3, Bookmark, UserCheck, Loader2, Lock, Camera } from "lucide-react";
+import { Settings, MapPin, Calendar, Users, Heart, MessageCircle, Grid3X3, Bookmark, UserCheck, Loader2, Lock, Camera, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,6 +11,7 @@ import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { userService, UserProfile, FollowUser } from "@/services/userService";
 import { journeyService, Journey } from "@/services/journeyService";
+import WalletPage from "@/pages/WalletPage";
 import heroBeach from "@/assets/hero-beach.jpg";
 import mountainAdventure from "@/assets/mountain-adventure.jpg";
 import streetFood from "@/assets/street-food.jpg";
@@ -414,10 +415,14 @@ const Profile = () => {
 
       {/* Posts Tabs */}
       <Tabs defaultValue="posts" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="posts" className="flex items-center gap-2">
             <Grid3X3 className="w-4 h-4" />
             Posts
+          </TabsTrigger>
+          <TabsTrigger value="wallet" className="flex items-center gap-2">
+            <Wallet className="w-4 h-4" />
+            Wallet
           </TabsTrigger>
           <TabsTrigger value="saved" className="flex items-center gap-2">
             <Bookmark className="w-4 h-4" />
@@ -428,6 +433,10 @@ const Profile = () => {
             Tagged
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="wallet">
+          <WalletPage />
+        </TabsContent>
 
         <TabsContent value="posts">
           <div className="grid grid-cols-3 gap-1">

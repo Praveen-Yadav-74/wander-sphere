@@ -2,50 +2,9 @@ import express from 'express';
 import { body, query, validationResult } from 'express-validator';
 import supabase from '../config/supabase.js';
 import { auth as supabaseAuth } from '../middleware/supabaseAuth.js';
+import SupabaseNotification from '../models/SupabaseNotification.js';
 
 const router = express.Router();
-
-// In-memory notification store (in production, use Redis or database)
-const notifications = new Map();
-
-// Helper function to create notification
-const createNotification = (userId, type, title, message, data = {}) => {
-  const notification = {
-    id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-    userId,
-    type,
-    title,
-    message,
-    data,
-    read: false,
-    createdAt: new Date(),
-    updatedAt: new Date()
-  };
-
-  if (!notifications.has(userId)) {
-    notifications.set(userId, []);
-  }
-  
-  const userNotifications = notifications.get(userId);
-  userNotifications.unshift(notification);
-  
-  // Keep only last 100 notifications per user
-  if (userNotifications.length > 100) {
-    userNotifications.splice(100);
-  }
-  
-  return notification;
-};
-
-// Helper function to send notification to user
-const sendNotification = (userId, type, title, message, data = {}) => {
-  const notification = createNotification(userId, type, title, message, data);
-  
-  // In production, you would emit this via WebSocket/Socket.IO
-  // io.to(userId).emit('notification', notification);
-  
-  return notification;
-};
 
 // @route   GET /api/notifications
 // @desc    Get user notifications
@@ -53,7 +12,7 @@ const sendNotification = (userId, type, title, message, data = {}) => {
 router.get('/', supabaseAuth, [
   query('page').optional().isInt({ min: 1 }),
   query('limit').optional().isInt({ min: 1, max: 50 }),
-  query('type').optional().isIn(['like', 'comment', 'follow', 'trip_update', 'trip_invite', 'system']),
+  query('type').optional().isIn(['like', 'comment', 'follow', 'follow_request', 'follow_accepted', 'trip_update', 'trip_invite', 'system']),
   query('read').optional().isBoolean()
 ], async (req, res) => {
   try {
@@ -69,35 +28,22 @@ router.get('/', supabaseAuth, [
     const { page = 1, limit = 20, type, read } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
     
-    let userNotifications = notifications.get(req.user.id) || [];
-    
-    // Filter by type
-    if (type) {
-      userNotifications = userNotifications.filter(n => n.type === type);
-    }
-    
     // Filter by read status
-    if (read !== undefined) {
-      const isRead = read === 'true';
-      userNotifications = userNotifications.filter(n => n.read === isRead);
-    }
-    
-    // Pagination
-    const total = userNotifications.length;
-    const paginatedNotifications = userNotifications.slice(skip, skip + parseInt(limit));
-    
-    // Count unread notifications
-    const unreadCount = (notifications.get(req.user.id) || []).filter(n => !n.read).length;
+    const isRead = read !== undefined ? read === 'true' : null;
 
+    const [notifications, total] = await Promise.all([
+      SupabaseNotification.findByUser(req.user.id, parseInt(limit), skip, type, isRead),
+      // We don't have a count method with filters in the model yet, but we can get unread count
+      SupabaseNotification.countUnread(req.user.id)
+    ]);
+    
     res.json({
       success: true,
       data: {
-        notifications: paginatedNotifications,
-        unreadCount,
+        notifications,
+        unreadCount: total, // Approximate or specifically unread count
         pagination: {
           currentPage: parseInt(page),
-          totalPages: Math.ceil(total / parseInt(limit)),
-          totalItems: total,
           itemsPerPage: parseInt(limit)
         }
       }
@@ -116,8 +62,7 @@ router.get('/', supabaseAuth, [
 // @access  Private
 router.get('/unread-count', supabaseAuth, async (req, res) => {
   try {
-    const userNotifications = notifications.get(req.user.id) || [];
-    const unreadCount = userNotifications.filter(n => !n.read).length;
+    const unreadCount = await SupabaseNotification.countUnread(req.user.id);
 
     res.json({
       success: true,
@@ -137,18 +82,7 @@ router.get('/unread-count', supabaseAuth, async (req, res) => {
 // @access  Private
 router.put('/:id/read', supabaseAuth, async (req, res) => {
   try {
-    const userNotifications = notifications.get(req.user.id) || [];
-    const notification = userNotifications.find(n => n.id === req.params.id);
-    
-    if (!notification) {
-      return res.status(404).json({
-        success: false,
-        message: 'Notification not found'
-      });
-    }
-    
-    notification.read = true;
-    notification.updatedAt = new Date();
+    const notification = await SupabaseNotification.markAsRead(req.params.id, req.user.id);
 
     res.json({
       success: true,
@@ -169,12 +103,7 @@ router.put('/:id/read', supabaseAuth, async (req, res) => {
 // @access  Private
 router.put('/read-all', supabaseAuth, async (req, res) => {
   try {
-    const userNotifications = notifications.get(req.user.id) || [];
-    
-    userNotifications.forEach(notification => {
-      notification.read = true;
-      notification.updatedAt = new Date();
-    });
+    await SupabaseNotification.markAllAsRead(req.user.id);
 
     res.json({
       success: true,
@@ -194,17 +123,7 @@ router.put('/read-all', supabaseAuth, async (req, res) => {
 // @access  Private
 router.delete('/:id', supabaseAuth, async (req, res) => {
   try {
-    const userNotifications = notifications.get(req.user.id) || [];
-    const notificationIndex = userNotifications.findIndex(n => n.id === req.params.id);
-    
-    if (notificationIndex === -1) {
-      return res.status(404).json({
-        success: false,
-        message: 'Notification not found'
-      });
-    }
-    
-    userNotifications.splice(notificationIndex, 1);
+    await SupabaseNotification.delete(req.params.id, req.user.id);
 
     res.json({
       success: true,
@@ -215,26 +134,6 @@ router.delete('/:id', supabaseAuth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error while deleting notification'
-    });
-  }
-});
-
-// @route   DELETE /api/notifications
-// @desc    Delete all notifications
-// @access  Private
-router.delete('/', supabaseAuth, async (req, res) => {
-  try {
-    notifications.set(req.user.id, []);
-
-    res.json({
-      success: true,
-      message: 'All notifications deleted successfully'
-    });
-  } catch (error) {
-    console.error('Delete all notifications error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error while deleting all notifications'
     });
   }
 });
@@ -314,7 +213,7 @@ router.put('/settings', supabaseAuth, async (req, res) => {
 // @desc    Create test notification (development only)
 // @access  Private
 router.post('/test', supabaseAuth, [
-  body('type').isIn(['like', 'comment', 'follow', 'trip_update', 'trip_invite', 'system']),
+  body('type').isIn(['like', 'comment', 'follow', 'follow_request', 'follow_accepted', 'trip_update', 'trip_invite', 'system']),
   body('title').trim().isLength({ min: 1, max: 100 }),
   body('message').trim().isLength({ min: 1, max: 500 }),
   body('data').optional().isObject()
@@ -339,7 +238,14 @@ router.post('/test', supabaseAuth, [
 
     const { type, title, message, data = {} } = req.body;
     
-    const notification = sendNotification(req.user.id, type, title, message, data);
+    // Use SupabaseNotification model directly
+    const notification = await SupabaseNotification.create({
+        user_id: req.user.id,
+        type,
+        title,
+        message,
+        data
+    });
 
     res.json({
       success: true,
@@ -355,94 +261,4 @@ router.post('/test', supabaseAuth, [
   }
 });
 
-// Notification helper functions for other routes to use
-const notificationHelpers = {
-  sendNotification,
-  createNotification,
-  
-  // Send like notification
-  sendLikeNotification: (userId, likerName, tripTitle, tripId) => {
-    return sendNotification(
-      userId,
-      'like',
-      'New Like',
-      `${likerName} liked your trip "${tripTitle}"`,
-      { tripId, likerName }
-    );
-  },
-  
-  // Send comment notification
-  sendCommentNotification: (userId, commenterName, tripTitle, tripId, commentId) => {
-    return sendNotification(
-      userId,
-      'comment',
-      'New Comment',
-      `${commenterName} commented on your trip "${tripTitle}"`,
-      { tripId, commentId, commenterName }
-    );
-  },
-  
-  // Send follow notification
-  sendFollowNotification: (userId, followerName, followerId) => {
-    return sendNotification(
-      userId,
-      'follow',
-      'New Follower',
-      `${followerName} started following you`,
-      { followerId, followerName }
-    );
-  },
-  
-  // Send trip update notification
-  sendTripUpdateNotification: (userId, tripTitle, tripId, updateType) => {
-    const messages = {
-      'status_change': `Trip "${tripTitle}" status has been updated`,
-      'itinerary_change': `Itinerary for "${tripTitle}" has been updated`,
-      'participant_joined': `Someone joined your trip "${tripTitle}"`,
-      'participant_left': `Someone left your trip "${tripTitle}"`,
-      'date_change': `Dates for "${tripTitle}" have been updated`
-    };
-    
-    return sendNotification(
-      userId,
-      'trip_update',
-      'Trip Update',
-      messages[updateType] || `Your trip "${tripTitle}" has been updated`,
-      { tripId, updateType }
-    );
-  },
-  
-  // Send trip invitation notification
-  sendTripInviteNotification: (userId, inviterName, tripTitle, tripId) => {
-    return sendNotification(
-      userId,
-      'trip_invite',
-      'Trip Invitation',
-      `${inviterName} invited you to join "${tripTitle}"`,
-      { tripId, inviterName }
-    );
-  },
-  
-  // Send system notification
-  sendSystemNotification: (userId, title, message, data = {}) => {
-    return sendNotification(userId, 'system', title, message, data);
-  }
-};
-
-// Export router and helpers
 export default router;
-export {
-  sendNotification,
-  createNotification,
-  notificationHelpers
-};
-
-// Export individual helper functions
-export const {
-  sendLikeNotification,
-  sendCommentNotification,
-  sendFollowNotification,
-  sendTripUpdateNotification,
-  sendTripInviteNotification,
-  sendSystemNotification
-} = notificationHelpers;

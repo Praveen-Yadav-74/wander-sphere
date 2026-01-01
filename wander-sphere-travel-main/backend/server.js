@@ -19,6 +19,8 @@ import mediaRoutes from './routes/media.js';
 import mapRoutes from './routes/maps.js';
 import budgetRoutes from './routes/budget.js';
 import bookingRoutes from './routes/booking.js';
+import walletRoutes from './routes/wallet.js';
+import etravRoutes from './routes/etrav.js';
 
 const app = express();
 const PORT = config.PORT;
@@ -187,6 +189,8 @@ app.use('/api/media', mediaRoutes);
 app.use('/api/map', mapRoutes);
 app.use('/api/budget', budgetRoutes);
 app.use('/api/booking', bookingRoutes);
+app.use('/api/wallet', walletRoutes);
+app.use('/api/etrav', etravRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
