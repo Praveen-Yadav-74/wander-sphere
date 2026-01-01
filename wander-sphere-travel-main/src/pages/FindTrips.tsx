@@ -390,7 +390,7 @@ const FindTrips = () => {
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
             <p className="mt-4 text-muted-foreground">Loading trips...</p>
           </div>
-        ) : trips.length === 0 ? (
+        ) : !trips || trips.length === 0 ? (
           <div className="col-span-full text-center py-12">
             <Camera className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-xl font-semibold mb-2">No trips found</h3>
@@ -404,7 +404,7 @@ const FindTrips = () => {
             </Button>
           </div>
         ) : (
-          trips.map((trip) => {
+          (trips || []).map((trip) => {
             const destinationText = typeof trip.destination === 'string' 
               ? trip.destination 
               : `${trip.destination.city}, ${trip.destination.country}`;
@@ -417,7 +417,7 @@ const FindTrips = () => {
             const organizerName = (() => {
               if (!trip.organizer) return 'Nomad Admin';
               if (typeof trip.organizer === 'string') return trip.organizer;
-              if (typeof trip.organizer === 'object' && trip.organizer.name) return trip.organizer.name;
+              if (typeof trip.organizer === 'object' && (trip.organizer as any)?.name) return (trip.organizer as any).name;
               return 'Nomad Admin';
             })();
             const budgetText = trip.budget ? `$${trip.budget.total} ${trip.budget.currency}` : 'Budget TBD';

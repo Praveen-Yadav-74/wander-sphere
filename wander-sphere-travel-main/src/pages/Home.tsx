@@ -606,8 +606,8 @@ const Home: FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("feed");
 
-  const [stories, setStories] = useState<Story[]>(cachedStories);
-  const [posts, setPosts] = useState<Post[]>(cachedPosts);
+  const [stories, setStories] = useState<Story[]>(cachedStories || []);
+  const [posts, setPosts] = useState<Post[]>(cachedPosts || []);
   const [isLoadingPosts, setIsLoadingPosts] = useState(false);
   const [isLoadingStories, setIsLoadingStories] = useState(false);
 
@@ -962,7 +962,7 @@ const Home: FC = () => {
                 </div>
               ) : (
                 <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide">
-                  {stories.map((story, index) => (
+                  {(stories || []).map((story, index) => (
                     <div key={story.id} className="flex flex-col items-center gap-1 sm:gap-2 min-w-fit cursor-pointer" onClick={() => openStory(index)}>
                       <div className={`p-[2px] rounded-full ${story.isOwn ? '' : 'bg-gradient-to-tr from-yellow-400 to-purple-600'}`}>
                         <Avatar className="w-14 h-14 sm:w-16 sm:h-16 lg:w-18 lg:h-18 shadow-md">
@@ -1018,7 +1018,7 @@ const Home: FC = () => {
                     </CardContent>
                   </Card>
                 ))
-              ) : posts.length === 0 ? (
+              ) : (posts || []).length === 0 ? (
                 // Empty state
                 <Card className="overflow-hidden shadow-sm">
                   <CardContent className="p-8 text-center">
@@ -1034,7 +1034,7 @@ const Home: FC = () => {
                   </CardContent>
                 </Card>
               ) : (
-                posts.map((post) => (
+                (posts || []).map((post) => (
                   <Card key={post.id} className="overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 rounded-xl border-0">
                     <div id={`post-${post.id}`} className="relative">
                     <CardContent className="p-4 sm:p-5 flex items-center justify-between bg-white">
