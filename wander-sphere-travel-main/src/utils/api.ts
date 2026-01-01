@@ -441,6 +441,113 @@ function getMockResponse(url: string, method: string): any {
     };
   }
   
+  // Stories endpoint
+  if (url.includes('/stories') && method === 'GET') {
+    return {
+      success: true,
+      data: {
+        stories: [
+          {
+            id: 'story-1',
+            userId: 'mock-user-123',
+            user: {
+              id: 'mock-user-123',
+              name: 'Demo User',
+              username: 'demouser',
+              avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
+            },
+            mediaUrl: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=1200&fit=crop',
+            mediaType: 'image',
+            caption: 'Exploring beautiful mountains! 🏔️',
+            location: 'Rocky Mountains, CO',
+            createdAt: new Date(Date.now() - 7200000).toISOString(),
+            expiresAt: new Date(Date.now() + 79200000).toISOString(),
+            viewsCount: 42,
+            isViewed: false,
+            isOwn: false
+          },
+          {
+            id: 'story-2',
+            userId: 'mock-user-456',
+            user: {
+              id: 'mock-user-456',
+              name: 'Sarah Travels',
+              username: 'sarah_travels',
+              avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face'
+            },
+            mediaUrl: 'https://images.unsplash.com/photo-1528127269322-539801943592?w=800&h=1200&fit=crop',
+            mediaType: 'image',
+            caption: 'Sunset at the beach 🌅',
+            location: 'Malibu, CA',
+            createdAt: new Date(Date.now() - 3600000).toISOString(),
+            expiresAt: new Date(Date.now() + 82800000).toISOString(),
+            viewsCount: 128,
+            isViewed: false,
+            isOwn: false
+          }
+        ],
+        hasMore: false
+      }
+    };
+  }
+  
+  // Journeys/Posts feed endpoint
+  if (url.includes('/journeys/feed') && method === 'GET') {
+    return {
+      success: true,
+      data: {
+        journeys: [
+          {
+            id: 'journey-1',
+            userId: 'mock-user-123',
+            user: {
+              id: 'mock-user-123',
+              name: 'Demo User',
+              username: 'demouser',
+              avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
+            },
+            title: 'Amazing Weekend in Yosemite',
+            description: 'Had an incredible time hiking through Yosemite National Park. The waterfalls were breathtaking!',
+            images: ['https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=600&fit=crop'],
+            location: 'Yosemite National Park, CA',
+            createdAt: new Date(Date.now() - 86400000).toISOString(),
+            likeCount: 156,
+            commentCount: 23,
+            shareCount: 12,
+            isLiked: false,
+            isBookmarked: false,
+            isPublic: true
+          },
+          {
+            id: 'journey-2',
+            userId: 'mock-user-789',
+            user: {
+              id: 'mock-user-789',
+              name: 'Alex Wanderer',
+              username: 'alex_wanderer',
+              avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face'
+            },
+            title: 'Tokyo Food Tour',
+            description: 'Exploring the best ramen spots in Tokyo! 🍜 Each bowl tells a story.',
+            images: ['https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=800&h=600&fit=crop'],
+            location: 'Tokyo, Japan',
+            createdAt: new Date(Date.now() - 172800000).toISOString(),
+            likeCount: 234,
+            commentCount: 45,
+            shareCount: 28,
+            isLiked: false,
+            isBookmarked: false,
+            isPublic: true
+          }
+        ],
+        hasMore: false,
+        page: 1,
+        limit: 10,
+        total: 2
+      }
+    };
+  }
+  
   // Notifications endpoint
   if (url.includes('/notifications') && method === 'GET') {
     if (url.includes('unread-count')) {
