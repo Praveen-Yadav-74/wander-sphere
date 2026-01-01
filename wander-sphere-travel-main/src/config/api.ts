@@ -8,24 +8,130 @@ import { supabase } from './supabase';
 // Environment variables with fallbacks
 // Production: https://wander-sphere-ue7e.onrender.com
 // Development: http://localhost:5000
-const getApiBaseUrl = () => {
-  // If explicitly set in env, use that
-  if (import.meta.env.VITE_API_BASE_URL) {
-    return import.meta.env.VITE_API_BASE_URL;
+// Android Emulator: http://10.0.2.2:5000
+
+const PRODUCTION_BACKEND = 'https://wander-sphere-ue7e.onrender.com';
+const LOCAL_BACKEND = 'http://localhost:5000';
+const EMULATOR_BACKEND = 'http://10.0.2.2:5000'; // Android emulator host access
+
+let cachedBackendUrl: string | null = null;
+let lastHealthCheck: number = 0;
+const HEALTH_CHECK_CACHE_DURATION = 2 * 60 * 1000; // 2 minutes cache
+
+/**
+ * Check if local backend is healthy and reachable
+ * @param baseUrl - The backend URL to check
+ * @returns Promise<boolean> - true if healthy, false otherwise
+ */
+const checkBackendHealth = async (baseUrl: string): Promise<boolean> => {
+  try {
+    console.log(`[API Config] 🏥 Checking backend health: ${baseUrl}`);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000); // 2s timeout
+    
+    const response = await fetch(`${baseUrl}/health`, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: { 'Accept': 'application/json' },
+    });
+    
+    clearTimeout(timeoutId);
+    const isHealthy = response.ok;
+    console.log(`[API Config] ${isHealthy ? '✅' : '❌'} Backend health check: ${baseUrl} - ${response.status}`);
+    return isHealthy;
+  } catch (error) {
+    console.log(`[API Config] ❌ Backend unreachable: ${baseUrl}`);
+    return false;
   }
-  
-  // Check if we're in production build
-  const isProduction = import.meta.env.MODE === 'production' || 
-                       import.meta.env.PROD === true ||
-                       window.location.hostname !== 'localhost' && 
-                       window.location.hostname !== '127.0.0.1';
-  
-  return isProduction 
-    ? 'https://wander-sphere-ue7e.onrender.com' 
-    : 'http://localhost:5000';
 };
 
-const API_BASE_URL = getApiBaseUrl();
+/**
+ * Detect if running on Android emulator
+ * @returns boolean - true if on emulator
+ */
+const isAndroidEmulator = (): boolean => {
+  const userAgent = navigator.userAgent.toLowerCase();
+  return userAgent.includes('android') && 
+         (window.location.hostname === 'localhost' || window.location.hostname === '10.0.2.2');
+};
+
+/**
+ * Get API base URL with smart environment detection and automatic fallback
+ * Priority:
+ * 1. Explicit VITE_API_BASE_URL env variable
+ * 2. Health check localhost (if on localhost/127.0.0.1)
+ * 3. Health check Android emulator host (if detected)
+ * 4. Fallback to production Render backend
+ */
+const getApiBaseUrl = async (): Promise<string> => {
+  // If explicitly set in env, use that (highest priority)
+  if (import.meta.env.VITE_API_BASE_URL) {
+    console.log('[API Config] 🎯 Using explicit VITE_API_BASE_URL:', import.meta.env.VITE_API_BASE_URL);
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+
+  // Check cache to avoid repeated health checks
+  const now = Date.now();
+  if (cachedBackendUrl && (now - lastHealthCheck) < HEALTH_CHECK_CACHE_DURATION) {
+    console.log('[API Config] 💾 Using cached backend URL:', cachedBackendUrl);
+    return cachedBackendUrl;
+  }
+
+  // Detect environment
+  const isLocalhost = window.location.hostname === 'localhost' || 
+                      window.location.hostname === '127.0.0.1';
+  
+  const isProduction = import.meta.env.MODE === 'production' || 
+                       import.meta.env.PROD === true ||
+                       (!isLocalhost && window.location.hostname !== '10.0.2.2');
+
+  // If definitely production (Vercel, etc.), skip health checks
+  if (isProduction && !isLocalhost) {
+    console.log('[API Config] 🌐 Production environment detected, using Render backend');
+    cachedBackendUrl = PRODUCTION_BACKEND;
+    lastHealthCheck = now;
+    return PRODUCTION_BACKEND;
+  }
+
+  // Development: Try localhost first
+  if (isLocalhost) {
+    console.log('[API Config] 🏠 Localhost detected, checking local backend...');
+    const isLocalHealthy = await checkBackendHealth(LOCAL_BACKEND);
+    
+    if (isLocalHealthy) {
+      console.log('[API Config] ✅ Using local backend:', LOCAL_BACKEND);
+      cachedBackendUrl = LOCAL_BACKEND;
+      lastHealthCheck = now;
+      return LOCAL_BACKEND;
+    }
+    
+    console.log('[API Config] ⚠️ Local backend unavailable, falling back to production');
+  }
+
+  // Android Emulator: Try emulator host access
+  if (isAndroidEmulator()) {
+    console.log('[API Config] 📱 Android emulator detected, checking host backend...');
+    const isEmulatorHealthy = await checkBackendHealth(EMULATOR_BACKEND);
+    
+    if (isEmulatorHealthy) {
+      console.log('[API Config] ✅ Using emulator host backend:', EMULATOR_BACKEND);
+      cachedBackendUrl = EMULATOR_BACKEND;
+      lastHealthCheck = now;
+      return EMULATOR_BACKEND;
+    }
+    
+    console.log('[API Config] ⚠️ Emulator host backend unavailable, falling back to production');
+  }
+
+  // Final fallback: Always use production
+  console.log('[API Config] 🚀 Using production backend (final fallback):', PRODUCTION_BACKEND);
+  cachedBackendUrl = PRODUCTION_BACKEND;
+  lastHealthCheck = now;
+  return PRODUCTION_BACKEND;
+};
+
+// Initialize with production as default (will be updated by getApiBaseUrl)
+let API_BASE_URL = PRODUCTION_BACKEND;
 const API_BASE_URL_WITH_PREFIX = `${API_BASE_URL}/api`;
 const API_TIMEOUT = parseInt(import.meta.env.VITE_API_TIMEOUT || '60000'); // Increased to 60s for cold starts
 // Enable logging in development by default
@@ -228,12 +334,39 @@ export const endpoints = {
   },
 };
 
-// Helper function to build full URL
+// Initialize backend URL asynchronously on module load
+// This ensures the first API call gets the correct backend
+(async () => {
+  try {
+    const detectedUrl = await getApiBaseUrl();
+    API_BASE_URL = detectedUrl;
+    // Update apiConfig to reflect the detected URL
+    apiConfig.baseURL = `${API_BASE_URL}/api`;
+    console.log('[API Config] ✅ Backend initialized:', API_BASE_URL);
+  } catch (error) {
+    console.error('[API Config] ❌ Failed to detect backend, using production:', error);
+    API_BASE_URL = PRODUCTION_BACKEND;
+    apiConfig.baseURL = `${PRODUCTION_BACKEND}/api`;
+  }
+})();
+
+// Helper function to build full URL (synchronous - uses cached backend)
 export const buildUrl = (endpoint: string): string => {
   const url = `${apiConfig.baseURL}${endpoint}`;
   // Log in development to help debug
   if (import.meta.env.DEV) {
     console.log(`[API Config] Building URL: ${url}`);
+  }
+  return url;
+};
+
+// Helper function to build full URL with dynamic backend detection (async)
+// Use this for the first API call or when you need to ensure latest backend
+export const buildUrlAsync = async (endpoint: string): Promise<string> => {
+  const baseUrl = await getApiBaseUrl();
+  const url = `${baseUrl}/api${endpoint}`;
+  if (import.meta.env.DEV) {
+    console.log(`[API Config] Building async URL: ${url}`);
   }
   return url;
 };
