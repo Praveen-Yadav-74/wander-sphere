@@ -499,44 +499,52 @@ function getMockResponse(url: string, method: string): any {
         journeys: [
           {
             id: 'journey-1',
-            userId: 'mock-user-123',
-            user: {
+            title: 'Amazing Weekend in Yosemite',
+            description: 'Had an incredible time hiking through Yosemite National Park. The waterfalls were breathtaking!',
+            content: 'Had an incredible time hiking through Yosemite National Park. The waterfalls were breathtaking!',
+            author: {
               id: 'mock-user-123',
+              firstName: 'Demo',
+              lastName: 'User',
               name: 'Demo User',
               username: 'demouser',
               avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
             },
-            title: 'Amazing Weekend in Yosemite',
-            description: 'Had an incredible time hiking through Yosemite National Park. The waterfalls were breathtaking!',
             images: ['https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=600&fit=crop'],
-            location: 'Yosemite National Park, CA',
+            destinations: ['Yosemite National Park', 'CA'],
+            comments: [],
+            likes: [],
             createdAt: new Date(Date.now() - 86400000).toISOString(),
             likeCount: 156,
             commentCount: 23,
             shareCount: 12,
             isLiked: false,
-            isBookmarked: false,
+            isSaved: false,
             isPublic: true
           },
           {
             id: 'journey-2',
-            userId: 'mock-user-789',
-            user: {
+            title: 'Tokyo Food Tour',
+            description: 'Exploring the best ramen spots in Tokyo! 🍜 Each bowl tells a story.',
+            content: 'Exploring the best ramen spots in Tokyo! 🍜 Each bowl tells a story.',
+            author: {
               id: 'mock-user-789',
+              firstName: 'Alex',
+              lastName: 'Wanderer',
               name: 'Alex Wanderer',
               username: 'alex_wanderer',
               avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face'
             },
-            title: 'Tokyo Food Tour',
-            description: 'Exploring the best ramen spots in Tokyo! 🍜 Each bowl tells a story.',
             images: ['https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=800&h=600&fit=crop'],
-            location: 'Tokyo, Japan',
+            destinations: ['Tokyo', 'Japan'],
+            comments: [],
+            likes: [],
             createdAt: new Date(Date.now() - 172800000).toISOString(),
             likeCount: 234,
             commentCount: 45,
             shareCount: 28,
             isLiked: false,
-            isBookmarked: false,
+            isSaved: false,
             isPublic: true
           }
         ],
