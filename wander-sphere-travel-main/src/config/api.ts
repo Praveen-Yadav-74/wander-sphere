@@ -131,8 +131,13 @@ const getApiBaseUrl = async (): Promise<string> => {
 };
 
 // Initialize with production as default (will be updated by getApiBaseUrl)
-let API_BASE_URL = PRODUCTION_BACKEND;
-const API_BASE_URL_WITH_PREFIX = `${API_BASE_URL}/api`;
+const isProductionBuild = import.meta.env.MODE === 'production' || import.meta.env.PROD === true;
+
+// CRITICAL: For production builds, ALWAYS use production backend (no async detection)
+let API_BASE_URL = isProductionBuild ? PRODUCTION_BACKEND : PRODUCTION_BACKEND; // Start with prod regardless
+
+console.log('[API Config - Module Load] 🔧 Build mode:', import.meta.env.MODE, 'PROD:', import.meta.env.PROD, 'Using:', API_BASE_URL);
+
 const API_TIMEOUT = parseInt(import.meta.env.VITE_API_TIMEOUT || '60000'); // Increased to 60s for cold starts
 // Enable logging in development by default
 const ENABLE_API_LOGGING = import.meta.env.VITE_ENABLE_API_LOGGING === 'true' || import.meta.env.DEV;
@@ -141,7 +146,7 @@ const RETRY_DELAY = 1000; // Initial retry delay in ms
 
 // API Configuration
 export const apiConfig = {
-  baseURL: API_BASE_URL_WITH_PREFIX,
+  baseURL: `${PRODUCTION_BACKEND}/api`, // ALWAYS start with production
   timeout: API_TIMEOUT,
   enableLogging: ENABLE_API_LOGGING,
   maxRetries: MAX_RETRIES,
@@ -336,19 +341,24 @@ export const endpoints = {
 
 // Initialize backend URL asynchronously on module load
 // This ensures the first API call gets the correct backend
-(async () => {
-  try {
-    const detectedUrl = await getApiBaseUrl();
-    API_BASE_URL = detectedUrl;
-    // Update apiConfig to reflect the detected URL
-    apiConfig.baseURL = `${API_BASE_URL}/api`;
-    console.log('[API Config] ✅ Backend initialized:', API_BASE_URL);
-  } catch (error) {
-    console.error('[API Config] ❌ Failed to detect backend, using production:', error);
-    API_BASE_URL = PRODUCTION_BACKEND;
-    apiConfig.baseURL = `${PRODUCTION_BACKEND}/api`;
-  }
-})();
+// NOTE: In production builds, this just confirms the URL - doesn't change it
+if (!isProductionBuild) {
+  (async () => {
+    try {
+      const detectedUrl = await getApiBaseUrl();
+      API_BASE_URL = detectedUrl;
+      // Update apiConfig to reflect the detected URL
+      apiConfig.baseURL = `${API_BASE_URL}/api`;
+      console.log('[API Config] ✅ Backend initialized:', API_BASE_URL);
+    } catch (error) {
+      console.error('[API Config] ❌ Failed to detect backend, using production:', error);
+      API_BASE_URL = PRODUCTION_BACKEND;
+      apiConfig.baseURL = `${PRODUCTION_BACKEND}/api`;
+    }
+  })();
+} else {
+  console.log('[API Config] 📦 Production build - skipping async detection, using:', PRODUCTION_BACKEND);
+}
 
 // Helper function to build full URL (synchronous - uses cached backend)
 export const buildUrl = (endpoint: string): string => {

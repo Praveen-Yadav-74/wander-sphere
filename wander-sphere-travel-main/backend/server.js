@@ -43,6 +43,11 @@ const allowedOrigins = [
   'https://wander-sphere-zpml.vercel.app',
   'https://wander-sphere-zpml.vercel.app/', // With trailing slash
   'https://wander-sphere-travel-main.vercel.app',
+  // Capacitor mobile app origins (Android/iOS)
+  'https://localhost',
+  'capacitor://localhost',
+  'ionic://localhost',
+  'http://localhost',
   // Local development origins
   'http://localhost:8080',
   'http://localhost:5173',
