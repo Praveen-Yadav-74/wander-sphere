@@ -373,7 +373,7 @@ const Clubs = () => {
                 </div>
               </div>
             ) : (
-              sortedClubs.map((club) => (
+              (sortedClubs || []).map((club) => (
                 <ClubCard key={club.id} club={club} onJoinToggle={handleJoinToggle} />
               ))
             )}
@@ -383,7 +383,7 @@ const Clubs = () => {
         <TabsContent value="my-clubs" className="space-y-6">
           {myClubs.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {myClubs.map((club) => (
+              {(myClubs || []).map((club) => (
                 <ClubCard key={club.id} club={club} onJoinToggle={handleJoinToggle} />
               ))}
             </div>

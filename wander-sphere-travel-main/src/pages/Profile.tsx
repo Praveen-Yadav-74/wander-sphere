@@ -324,7 +324,7 @@ const Profile = () => {
                           <Loader2 className="w-6 h-6 animate-spin" />
                         </div>
                       ) : followers.length > 0 ? (
-                        followers.map((follower) => (
+                        (followers || []).map((follower) => (
                           <div key={follower.id} className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
                               <Avatar className="w-10 h-10">
@@ -376,7 +376,7 @@ const Profile = () => {
                           <Loader2 className="w-6 h-6 animate-spin" />
                         </div>
                       ) : following.length > 0 ? (
-                        following.map((followedUser) => (
+                        (following || []).map((followedUser) => (
                           <div key={followedUser.id} className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
                               <Avatar className="w-10 h-10">
@@ -446,7 +446,7 @@ const Profile = () => {
                 <div key={index} className="aspect-square bg-gray-200 animate-pulse" />
               ))
             ) : userJourneys.length > 0 ? (
-              userJourneys.map((journey) => (
+              (userJourneys || []).map((journey) => (
                 <div key={journey.id} className="aspect-square relative group cursor-pointer overflow-hidden">
                   <img 
                     src={journey.images?.[0] || heroBeach} 
