@@ -17,6 +17,7 @@ import { apiConfig, endpoints } from "@/config/api";
 import { journeyService } from "@/services/journeyService";
 import { storyService } from "@/services/storyService";
 import { authService } from "@/services/authService";
+import { uploadToBunny, validateFile } from "@/services/bunnyUpload";
 import heroBeach from "@/assets/hero-beach.jpg";
 import mountainAdventure from "@/assets/mountain-adventure.jpg";
 import streetFood from "@/assets/street-food.jpg";
@@ -99,6 +100,11 @@ const StoryViewer: FC<StoryViewerProps> = React.memo(({ story, onClose, onNext, 
           src={story.media} 
           alt="Story" 
           className="w-full h-full object-cover"
+          onLoad={() => { console.log('✅ Story image loaded:', story.media); }}
+          onError={(e) => {
+            console.error('❌ Story image failed to load:', story.media);
+            console.error('Full story object:', story);
+          }}
         />
         <div className="absolute bottom-4 left-4 right-4 text-white">
           <div className="flex items-center gap-2 mb-2">
@@ -133,6 +139,7 @@ const CreatePostDialog: FC<CreatePostDialogProps> = React.memo(({ open, onOpenCh
     const [location, setLocation] = useState("");
     const [isPublic, setIsPublic] = useState(true);
     const [isUploading, setIsUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
@@ -152,44 +159,37 @@ const CreatePostDialog: FC<CreatePostDialogProps> = React.memo(({ open, onOpenCh
         try {
             setIsUploading(true);
             
-            // Ensure we have a session before making the request
-            const { supabase } = await import('@/config/supabase');
-            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-            
-            if (sessionError || !session?.access_token) {
-                throw new Error('No authentication token available. Please log in.');
+            // Validate file before uploading
+            const validation = validateFile(selectedFile, 'post_image');
+            if (!validation.valid) {
+                throw new Error(validation.error || 'Invalid file');
             }
             
-            // First upload the image to media service
-            const formData = new FormData();
-            formData.append('file', selectedFile);
+            console.log('📤 Uploading directly to Bunny.net...');
             
-            const { getAuthHeader } = await import('@/config/api');
-            const authHeaders = await getAuthHeader();
+            // Upload directly to Bunny.net (posts/images folder)
+            const uploadResult = await uploadToBunny(selectedFile, 'post_image', {
+                compress: true,
+                quality: 0.85,
+                maxWidth: 1920,
+                onProgress: (progress) => {
+                    console.log(`Upload progress: ${progress}%`);
+                },
+            });
             
-            const mediaResponse = await apiRequest(
-                `${apiConfig.baseURL}/media/temp`,
-                {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        ...authHeaders,
-                        // Don't set Content-Type for FormData, let browser set it with boundary
-                    },
-                }
-            ) as { success: boolean; data?: { url: string }; message?: string };
-            
-            if (!mediaResponse.success || !mediaResponse.data) {
-                throw new Error('Failed to upload image');
+            if (!uploadResult.success || !uploadResult.publicUrl) {
+                throw new Error(uploadResult.error || 'Failed to upload image to Bunny.net');
             }
             
-            // Create the journey/post with the uploaded image
+            console.log('✅ Image uploaded to Bunny.net:', uploadResult.publicUrl);
+            
+            // Create the journey/post with the Bunny.net URL
             const journeyData = {
                 title: caption.slice(0, 50) + (caption.length > 50 ? '...' : ''), // Use first part of caption as title
                 description: caption.length >= 20 ? caption : caption + ' '.repeat(20 - caption.length) + 'Shared from my travel experience.',
                 content: caption.length >= 100 ? caption : caption + '\n\nThis is a wonderful travel moment I wanted to share with everyone. Every journey tells a story, and this particular experience holds special memories that I hope will inspire others to explore and discover new places.',
                 isPublic: isPublic,
-                images: [mediaResponse.data.url],
+                images: [uploadResult.publicUrl], // Use Bunny.net CDN URL
                 destinations: location ? [location] : [],
                 tags: [],
             };
@@ -237,7 +237,8 @@ const CreatePostDialog: FC<CreatePostDialogProps> = React.memo(({ open, onOpenCh
 
     return (
         <Dialog open={open} onOpenChange={handleClose}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-2xl max-h-[100dvh] h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-y-auto p-0 sm:p-6 flex flex-col sm:block">
+                <div className="p-6 sm:p-0 flex-1">
                 <DialogHeader>
                     <DialogTitle>Create New Post</DialogTitle>
                 </DialogHeader>
@@ -324,6 +325,7 @@ const CreatePostDialog: FC<CreatePostDialogProps> = React.memo(({ open, onOpenCh
                             </div>
                         </div>
                     )}
+                </div>
                 </div>
             </DialogContent>
         </Dialog>
@@ -608,8 +610,9 @@ const Home: FC = () => {
 
   const [stories, setStories] = useState<Story[]>(cachedStories || []);
   const [posts, setPosts] = useState<Post[]>(cachedPosts || []);
-  const [isLoadingPosts, setIsLoadingPosts] = useState(false);
-  const [isLoadingStories, setIsLoadingStories] = useState(false);
+  // Start with loading=false if we have cached data, true if empty
+  const [isLoadingPosts, setIsLoadingPosts] = useState(!cachedPosts || cachedPosts.length === 0);
+  const [isLoadingStories, setIsLoadingStories] = useState(!cachedStories || cachedStories.length === 0);
 
   // Load posts from API with REAL like status from database
   const fetchPosts = useCallback(async () => {
@@ -621,10 +624,14 @@ const Home: FC = () => {
 
     try {
       console.log('[Home] Fetching fresh posts from API...');
-      setIsLoadingPosts(true);
+      // Only show loading if we don't have cached data
+      if (posts.length === 0) {
+        setIsLoadingPosts(true);
+      }
       
       // User must be authenticated to see this page
-      const response = await journeyService.getMyJourneys();
+      // Use getFeed to fetch combined feed (My posts + Public + Followed)
+      const response = await journeyService.getFeed();
       
       if (response && (response.success || response.data)) {
          // Transform journey data to post format
@@ -710,7 +717,10 @@ const Home: FC = () => {
 
     try {
       console.log('[Home] Fetching fresh stories from API...');
-      setIsLoadingStories(true);
+      // Only show loading if we don't have cached data
+      if (stories.length === 0) {
+        setIsLoadingStories(true);
+      }
       
       // User must be authenticated to see this page
       const response = await storyService.getStories();
@@ -1053,13 +1063,20 @@ const Home: FC = () => {
                         </div>
                         <PostOptionsDropdown />
                     </CardContent>
-                    <div className="aspect-square bg-muted relative overflow-hidden" onDoubleClick={() => handleDoubleTapLike(post.id)}>
+                    <div className="aspect-[4/5] bg-muted relative overflow-hidden" onDoubleClick={() => handleDoubleTapLike(post.id)}>
                         <img 
                           src={post.image} 
                           alt="Post" 
                           className="w-full h-full object-cover transition-transform duration-300 hover:scale-105" 
-                          onError={(e) => handleImageError(e, heroBeach, 'Post image failed to load')} 
+                          onLoad={() => { console.log('✅ Post image loaded:', post.image); }}
+                          onError={(e) => {
+                            console.error('❌ Post image failed to load:', post.image);
+                            console.error('Post object:', post);
+                            handleImageError(e, heroBeach, 'Post image failed to load');
+                          }} 
                         />
+                        {/* Gradient Overlay for aesthetic / text readability if we overlay text */}
+                        <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
                     </div>
                     <CardContent className="p-4 sm:p-5 bg-white">
                         <div className="flex items-center justify-between mb-3">

@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { handleImageError } from "@/utils/imageUtils";
-import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, Users, Settings, Calendar, MapPin, Heart, MessageCircle, Share2, Loader2 } from "lucide-react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { ArrowLeft, Users, Settings, Calendar, MapPin, Heart, MessageCircle, Share2, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { clubService, Club, ClubMember, ClubPost } from "@/services/clubService";
 import mountainAdventure from "@/assets/mountain-adventure.jpg";
 import heroBeach from "@/assets/hero-beach.jpg";
@@ -15,6 +16,8 @@ import travelCommunity from "@/assets/travel-community.jpg";
 
 const ClubDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [club, setClub] = useState<Club | null>(null);
   const [posts, setPosts] = useState<ClubPost[]>([]);
   const [members, setMembers] = useState<ClubMember[]>([]);
@@ -23,7 +26,36 @@ const ClubDetail = () => {
   const [isLoadingPosts, setIsLoadingPosts] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isJoiningLeaving, setIsJoiningLeaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
+
+  const handleDeleteClub = async () => {
+    if (!club || !id) return;
+
+    if (!window.confirm("Are you sure you want to disband this club? This action cannot be undone and all posts/memberships will be removed.")) {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      await clubService.deleteClub(id);
+
+      toast({
+        title: "Club Disbanded",
+        description: "The club has been successfully disbanded.",
+      });
+
+      navigate('/clubs'); // Assuming /clubs is the list page
+    } catch (err: any) {
+      console.error('Error disbanding club:', err);
+      toast({
+        title: "Error",
+        description: err.message || 'Failed to disband club',
+        variant: "destructive",
+      });
+      setIsDeleting(false);
+    }
+  };
 
   useEffect(() => {
     const fetchClubDetails = async () => {
@@ -191,6 +223,26 @@ const ClubDetail = () => {
             </div>
           </div>
           <div className="absolute top-6 right-6">
+            <div className="flex flex-col sm:flex-row gap-2">
+            {user && club.organizer?.id === user.id && (
+                <Button
+                    variant="destructive"
+                    onClick={handleDeleteClub}
+                    disabled={isDeleting}
+                >
+                    {isDeleting ? (
+                        <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Disbanding...
+                        </>
+                    ) : (
+                        <>
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Disband
+                        </>
+                    )}
+                </Button>
+            )}
             <Button 
               onClick={handleJoinLeave} 
               className={club.isJoined ? "bg-secondary text-secondary-foreground" : "bg-gradient-primary text-white"}
@@ -205,6 +257,7 @@ const ClubDetail = () => {
                 club.isJoined ? "Leave Club" : "Join Club"
               )}
             </Button>
+            </div>
           </div>
         </div>
         <CardContent className="p-6">

@@ -42,6 +42,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const userRef = React.useRef<User | null>(null);
+  React.useEffect(() => { userRef.current = user; }, [user]);
+
   const isAuthenticated = !!user;
 
   // Helper function to convert AuthService User to App User
@@ -283,13 +286,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
           console.log('✅ User signed in event detected');
           
           // ✅ SKIP PROFILE FETCH IF USER ALREADY IN STATE - Prevents reload on tab switch
-          if (user && user.id === session.user.id) {
+          const currentUser = userRef.current;
+          if (currentUser && currentUser.id === session.user.id) {
             console.log('✅ User already in state, skipping profile fetch');
             return; // Don't refetch if we already have this user's profile
           }
           
           // Only set loading if we don't already have a user (first time login only)
-          if (!user) {
+          if (!currentUser) {
             console.log('🔄 First time login, fetching profile...');
             setIsLoading(true);
           }
@@ -405,24 +409,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setUser(null);
         setIsLoading(false); // Ensure loading is false on logout
         authService.clearAuthData();
-      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-        console.log('✅ Token refreshed silently - no profile refetch needed');
-        // 🛑 CRITICAL: Don't refetch profile on token refresh
-        // Token refresh happens in background and should be completely silent
-        // User data already in state - no need to fetch again
-      } else if (event === 'USER_UPDATED' && session?.user) {
-        console.log('👤 User updated, refreshing profile');
-        // CRITICAL: Don't set loading for user updates - it should be completely silent
-        // User updates happen in background and should never interrupt user flow
-        try {
-          const userProfile = await authService.getProfile();
-          setUser(convertAuthServiceUser(userProfile));
-        } catch (error) {
-          console.error('Error updating user:', error);
-          // Don't clear user on profile fetch error during update
-          // User stays logged in even if profile fetch fails
-        }
       }
+      // REMOVED: TOKEN_REFRESHED and USER_UPDATED handlers
+      // Token refresh should be completely silent - no profile refetch needed
+      // User data is already in state and should persist across token refreshes
+      // This prevents the aggressive validation that runs on every token refresh
     });
 
     return () => {
@@ -472,27 +463,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     }, 5 * 60 * 1000); // Check every 5 minutes
 
-    // Also set up a listener for token refresh events
-    const { data: { subscription: refreshSubscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === 'TOKEN_REFRESHED' && session?.user) {
-          console.log('✅ Token automatically refreshed by Supabase');
-          try {
-            const userProfile = await authService.getProfile();
-            setUser(convertAuthServiceUser(userProfile));
-          } catch (error) {
-            console.error('Error updating user after token refresh:', error);
-          }
-        } else if (event === 'SIGNED_OUT') {
-          console.log('👋 User signed out');
-          setUser(null);
-        }
-      }
-    );
+    // REMOVED: Duplicate TOKEN_REFRESHED listener that was causing unnecessary profile fetches
+    // Token refresh is now completely silent and handled by Supabase's onAuthStateChange above
+    // This prevents the aggressive profile refetching on every token refresh
 
     return () => {
       clearInterval(refreshInterval);
-      refreshSubscription.unsubscribe();
     };
   }, [user]);
 

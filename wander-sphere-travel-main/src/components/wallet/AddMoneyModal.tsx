@@ -3,9 +3,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, Wallet } from "lucide-react";
-import { walletService } from "@/services/walletService";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRazorpay } from "@/hooks/useRazorpay";
+import { paymentService } from "@/services/paymentService";
 
 interface AddMoneyModalProps {
   open: boolean;
@@ -15,6 +16,7 @@ interface AddMoneyModalProps {
 
 const AddMoneyModal: React.FC<AddMoneyModalProps> = ({ open, onOpenChange, onSuccess }) => {
   const { user } = useAuth();
+  const { isLoaded, openRazorpay } = useRazorpay();
   const [amount, setAmount] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -45,91 +47,54 @@ const AddMoneyModal: React.FC<AddMoneyModalProps> = ({ open, onOpenChange, onSuc
       return;
     }
 
+    if (!isLoaded) {
+      toast({
+        title: "Please Wait",
+        description: "Payment gateway is loading...",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       setIsProcessing(true);
 
-      // Create Razorpay order
-      const { orderId, razorpayOrder } = await walletService.addFunds(numAmount);
+      // Use the payment service to handle the complete flow
+      await paymentService.processPayment(
+        numAmount,
+        'wallet',
+        undefined,
+        openRazorpay,
+        (result) => {
+          // Success callback
+          toast({
+            title: "Success",
+            description: `₹${result.amountAdded?.toFixed(2)} added to your wallet!`,
+          });
 
-      // Load Razorpay script dynamically
-      const script = document.createElement('script');
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-      script.async = true;
-      
-      script.onload = () => {
-        // Initialize Razorpay
-        const options = {
-          key: import.meta.env.VITE_RAZORPAY_KEY_ID || '', // You'll need to add this to your .env
-          amount: razorpayOrder.amount,
-          currency: razorpayOrder.currency,
-          name: 'WanderSphere',
-          description: 'Add money to wallet',
-          order_id: orderId,
-          handler: async (response: any) => {
-            try {
-              // Process the deposit after successful payment
-              await walletService.processDeposit(
-                numAmount,
-                response.razorpay_payment_id,
-                response.razorpay_order_id
-              );
-
-              toast({
-                title: "Success",
-                description: `₹${numAmount} added to your wallet successfully!`,
-              });
-
-              onOpenChange(false);
-              setAmount("");
-              if (onSuccess) {
-                onSuccess();
-              }
-            } catch (error: any) {
-              toast({
-                title: "Error",
-                description: error.message || "Failed to process payment",
-                variant: "destructive"
-              });
-            } finally {
-              setIsProcessing(false);
-            }
-          },
-          prefill: {
-            email: user.email || '',
-            name: `${user.firstName} ${user.lastName}`.trim() || 'User',
-          },
-          theme: {
-            color: '#6366f1',
-          },
-          modal: {
-            ondismiss: () => {
-              setIsProcessing(false);
-            }
+          onOpenChange(false);
+          setAmount("");
+          setIsProcessing(false);
+          
+          if (onSuccess) {
+            onSuccess();
           }
-        };
-
-        const razorpay = new (window as any).Razorpay(options);
-        razorpay.open();
-        razorpay.on('payment.failed', (response: any) => {
+        },
+        (error) => {
+          // Failure callback
+          console.error('Payment error:', error);
           toast({
             title: "Payment Failed",
-            description: response.error.description || "Payment could not be processed",
+            description: error.message || "Failed to process payment",
             variant: "destructive"
           });
           setIsProcessing(false);
-        });
-      };
-
-      script.onerror = () => {
-        toast({
-          title: "Error",
-          description: "Failed to load payment gateway",
-          variant: "destructive"
-        });
-        setIsProcessing(false);
-      };
-
-      document.body.appendChild(script);
+        },
+        {
+          name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User',
+          email: user.email || '',
+        }
+      );
     } catch (error: any) {
       console.error('Error initiating payment:', error);
       toast({

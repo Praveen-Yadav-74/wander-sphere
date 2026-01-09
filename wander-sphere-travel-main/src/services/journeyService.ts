@@ -4,6 +4,7 @@
  */
 
 import { journeyService as supabaseJourneyService, userService as supabaseUserService, tripService as supabaseTripService } from './supabaseService';
+import { deleteFromBunny } from './bunnyUpload';
 import type { DatabaseJourney, InsertJourney } from '@/types/database';
 import type { ApiResponse, PaginatedResponse } from '@/config/api';
 
@@ -185,6 +186,23 @@ class JourneyService {
   }
 
   /**
+   * Get main feed (My posts + Public + Followed)
+   */
+  async getFeed(limit: number = 20): Promise<ApiResponse<{ journeys: Journey[] }>> {
+    try {
+      const dbJourneys = await supabaseJourneyService.getFeed(limit);
+      const transformedJourneys = await Promise.all(dbJourneys.map(transformDatabaseJourneyToJourney));
+      
+      return {
+        success: true,
+        data: { journeys: transformedJourneys },
+      };
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Failed to fetch feed');
+    }
+  }
+
+  /**
    * Get user's own journeys
    */
   async getMyJourneys(status?: 'draft' | 'published' | 'archived'): Promise<ApiResponse<{ journeys: Journey[] }>> {
@@ -270,7 +288,36 @@ class JourneyService {
    */
   async deleteJourney(journeyId: string): Promise<ApiResponse<{}>> {
     try {
+      // 1. Get journey details to find images
+      const { data } = await this.getJourney(journeyId);
+      const journey = data.journey;
+
+      // 2. Delete images from Bunny.net
+      if (journey.images && journey.images.length > 0) {
+        // Extract storage path from URL
+        // URL format: https://{pullZoneUrl}/{path}
+        // We need just the path part after the domain
+        const deletePromises = journey.images.map(imageUrl => {
+          try {
+             // Assuming simple extraction, or we can iterate known folders
+             // The upload result gives us "stories/filename.jpg"
+             // The URL is "https://nomad-app.b-cdn.net/stories/filename.jpg"
+             const urlObj = new URL(imageUrl);
+             // path is "/stories/filename.jpg". We need "stories/filename.jpg"
+             const storagePath = urlObj.pathname.substring(1); 
+             return deleteFromBunny(storagePath);
+          } catch (e) {
+             console.warn('Failed to parse image URL for deletion:', imageUrl);
+             return Promise.resolve(false);
+          }
+        });
+        
+        await Promise.all(deletePromises);
+      }
+
+      // 3. Delete from Supabase
       await supabaseJourneyService.deleteJourney(journeyId);
+      
       return {
         success: true,
         data: {},
@@ -301,7 +348,11 @@ class JourneyService {
    */
   async getFeaturedJourneys(): Promise<ApiResponse<{ journeys: Journey[] }>> {
     // Return public journeys as featured for now
-    return this.getJourneys({ limit: 10 });
+    const response = await this.getJourneys({ limit: 10 });
+    return {
+      success: true,
+      data: { journeys: response.data },
+    };
   }
 
   /**

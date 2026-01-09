@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, MapPin, Calendar, Users, DollarSign, MessageCircle, Heart, Share2, Loader2 } from "lucide-react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { ArrowLeft, MapPin, Calendar, Users, DollarSign, MessageCircle, Heart, Share2, Loader2, Trash2 } from "lucide-react";
 import { tripService, Trip, TripComment } from '@/services/tripService';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,11 +9,14 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import castleEurope from "@/assets/castle-europe.jpg";
 
 const TripDetail = () => {
   const { id } = useParams();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [comments, setComments] = useState<TripComment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -21,6 +24,35 @@ const TripDetail = () => {
   const [comment, setComment] = useState("");
   const [isInterested, setIsInterested] = useState(false);
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteTrip = async () => {
+    if (!trip || !id || !user) return;
+    
+    if (!window.confirm("Are you sure you want to cancel this trip? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      await tripService.deleteTrip(id);
+      
+      toast({
+        title: "Trip Cancelled",
+        description: "The trip has been successfully cancelled and removed.",
+      });
+      
+      navigate('/find-trips');
+    } catch (err: any) {
+      console.error('Error cancelling trip:', err);
+      toast({
+        title: "Error",
+        description: err.message || 'Failed to cancel trip',
+        variant: "destructive",
+      });
+      setIsDeleting(false);
+    }
+  };
 
   useEffect(() => {
     const fetchTripDetails = async () => {
@@ -211,9 +243,7 @@ const TripDetail = () => {
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4" />
                 {/* Safely render destination even if it's an object */}
-                {typeof trip.destination === 'string'
-                  ? trip.destination
-                  : `${trip.destination.city}, ${trip.destination.country}`}
+                {trip.destination}
               </div>
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4" />
@@ -226,9 +256,7 @@ const TripDetail = () => {
               <div className="flex items-center gap-2">
                 <DollarSign className="w-4 h-4" />
                 {/* Safely render budget even if it's an object */}
-                {typeof trip.budget === 'string'
-                  ? trip.budget
-                  : `${trip.budget.currency} ${trip.budget.total}`}
+                {trip.budget}
               </div>
             </div>
           </div>
@@ -375,9 +403,7 @@ const TripDetail = () => {
               <div className="text-center space-y-4">
                 <div className="space-y-2">
                   <p className="text-2xl font-bold text-primary">
-                    {typeof trip.budget === 'string'
-                      ? trip.budget
-                      : `${trip.budget.currency} ${trip.budget.total}`}
+                {trip.budget}
                   </p>
                   <p className="text-sm text-muted-foreground">per person</p>
                 </div>
@@ -474,6 +500,38 @@ const TripDetail = () => {
               </Button>
             </CardContent>
           </Card>
+
+          {/* Organizer Actions */}
+          {user && trip.organizer?.id === user.id && (
+            <Card className="bg-surface-elevated border-destructive/20">
+              <CardHeader>
+                <CardTitle className="text-lg text-destructive">Organizer Actions</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                 <p className="text-sm text-muted-foreground">
+                   As the organizer, you can cancel this trip. This will notify all participants.
+                 </p>
+                 <Button 
+                   variant="destructive" 
+                   className="w-full"
+                   onClick={handleDeleteTrip}
+                   disabled={isDeleting}
+                 >
+                   {isDeleting ? (
+                     <>
+                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                       Cancelling...
+                     </>
+                   ) : (
+                     <>
+                       <Trash2 className="w-4 h-4 mr-2" />
+                       Cancel Trip
+                     </>
+                   )}
+                 </Button>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>

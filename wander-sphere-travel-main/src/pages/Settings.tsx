@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { User, Lock, Shield, Bell, LogOut, Camera, Save, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,7 +53,43 @@ const Settings = () => {
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
+
   });
+
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setSaving(prev => ({ ...prev, profile: true }));
+      
+      // Use userService to upload
+      const { avatarUrl } = await userService.uploadAvatar(file);
+      
+      setProfile(prev => ({ ...prev, avatar: avatarUrl }));
+      
+      toast({
+        title: "Avatar updated",
+        description: "Your profile picture has been updated successfully.",
+      });
+    } catch (error: any) {
+      console.error('Error uploading avatar:', error);
+      toast({
+        title: "Upload Failed",
+        description: error.message || "Failed to upload profile picture.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(prev => ({ ...prev, profile: false }));
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
 
   // Load user data on component mount
   useEffect(() => {
@@ -87,15 +123,7 @@ const Settings = () => {
           setNotifications(prev => ({ ...prev, ...notificationSettings }));
         }
 
-        // Set privacy settings from profile
-        if (userProfile) {
-          setPrivacy({
-            privateAccount: userProfile.is_private || false,
-            showLocation: userProfile.preferences?.privacy?.showLocation ?? true,
-            showTravelStats: userProfile.preferences?.privacy?.showTravelStats ?? true,
-            allowTagging: userProfile.preferences?.privacy?.allowTagging ?? true,
-          });
-        }
+
       } catch (error) {
         console.error('Error loading user data:', error);
         toast({
@@ -283,10 +311,24 @@ const Settings = () => {
                     {profile.name.split(' ').map(n => n[0]).join('')}
                   </AvatarFallback>
                 </Avatar>
-                <Button variant="outline" className="flex items-center gap-2">
-                  <Camera className="w-4 h-4" />
-                  Change Photo
-                </Button>
+                <div>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                  />
+                  <Button 
+                    variant="outline" 
+                    className="flex items-center gap-2"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={saving.profile}
+                  >
+                    {saving.profile ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+                    Change Photo
+                  </Button>
+                </div>
               </div>
 
               <Separator />

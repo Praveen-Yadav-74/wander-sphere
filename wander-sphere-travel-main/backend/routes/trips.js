@@ -636,11 +636,17 @@ router.post('/:id/request', auth, async (req, res) => {
 // @access  Private
 router.get('/requests/my', auth, async (req, res) => {
   try {
+    console.log('Fetching requests for user:', req.user.id);
     const requests = await SupabaseTripRequest.getByUserId(req.user.id);
-    res.json({ success: true, data: requests });
+    res.json({ success: true, data: requests || [] });
   } catch (error) {
-    console.error('Get user requests error:', error);
-    res.status(500).json({ success: false, message: 'Failed to fetch requests' });
+    console.error('Get user requests error [CRITICAL]:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch requests', 
+      error: error.message,
+      stack: error.stack 
+    });
   }
 });
 

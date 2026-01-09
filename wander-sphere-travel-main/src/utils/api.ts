@@ -99,7 +99,7 @@ export async function apiRequest<T>(url: string, options: ApiOptions = {}): Prom
   }
 
   // Retry logic with exponential backoff
-  const maxRetries = apiConfig.maxRetries || 3;
+  const maxRetries = apiConfig.maxRetries || 1; // Default to 1 retry
   const retryDelay = apiConfig.retryDelay || 1000;
   let lastError: Error | null = null;
 
@@ -115,12 +115,16 @@ export async function apiRequest<T>(url: string, options: ApiOptions = {}): Prom
     // Don't retry client errors (except rate limiting)
     if (status >= 400 && status < 500 && status !== 429) return false;
     
+    // CRITICAL: Don't retry connection refused errors - fail immediately with toast
+    if (error.message && error.message.includes('ERR_CONNECTION_REFUSED')) {
+      return false; // Stop retrying immediately
+    }
+    
     // Retry on network errors, timeouts, and 5xx server errors
     if (error instanceof DOMException && error.name === 'AbortError') return true;
     if (error.message && (
       error.message.includes('NetworkError') || 
-      error.message.includes('Failed to fetch') || 
-      error.message.includes('ERR_CONNECTION_REFUSED') ||
+      error.message.includes('Failed to fetch') ||
       error.message.includes('timeout')
     )) return true;
     
@@ -312,7 +316,18 @@ export async function apiRequest<T>(url: string, options: ApiOptions = {}): Prom
       
       // Handle network errors (after all retries exhausted)
       if (error instanceof Error) {
-        if (error.message.includes('NetworkError') || error.message.includes('Failed to fetch') || error.message.includes('ERR_CONNECTION_REFUSED')) {
+        // CRITICAL: Handle ERR_CONNECTION_REFUSED immediately with clear toast
+        if (error.message.includes('ERR_CONNECTION_REFUSED')) {
+          toast({
+            title: "Server Offline",
+            description: "Cannot connect to the server. Please check if the backend is running or try again later.",
+            variant: "destructive",
+            duration: 5000,
+          });
+          throw new Error('Server is offline or unreachable');
+        }
+        
+        if (error.message.includes('NetworkError') || error.message.includes('Failed to fetch')) {
           // Try to serve cached data first
           if (method === 'GET') {
             const cachedData = cacheService.get<T>(cacheKey, cache?.version);

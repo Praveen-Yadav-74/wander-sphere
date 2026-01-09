@@ -136,6 +136,26 @@ export const userService = {
       return 'USD'; // Default on error
     }
   },
+  /**
+   * Get IDs of users that the current user is following
+   */
+  async getFollowingIds(): Promise<string[]> {
+    const userId = await getCurrentUserId();
+    
+    // We need to check the 'followers' table where follower_id is the current user
+    // The 'following_id' is the user they are following
+    const { data, error } = await supabase
+      .from('follows')
+      .select('following_id')
+      .eq('follower_id', userId);
+
+    if (error) {
+      console.error('Error fetching following IDs:', error);
+      return [];
+    }
+
+    return data.map(row => row.following_id);
+  },
 };
 
 // =============================================
@@ -448,6 +468,44 @@ export const journeyService = {
     if (error) {
       throw new Error(`Failed to delete journey: ${error.message}`);
     }
+  },
+  /**
+   * Get Main Feed (Own + Public + Followed)
+   */
+  async getFeed(limit: number = 20): Promise<DatabaseJourney[]> {
+    const userId = await getCurrentUserId();
+    
+    // 1. Get IDs of users I follow
+    const followingIds = await userService.getFollowingIds();
+    
+    // 2. Build combined query
+    // Logic: My posts OR Public posts OR Followed users' posts
+    // We can't easily do a perfect OR with mixed conditions in one go with simple filters if we strictly follow "OR user_id IN ..."
+    // But we can approximate or use RPC.
+    // For now, client-side approach:
+    // We want: user_id == me || is_public == true || user_id IN followingIds
+    
+    // Efficient approach using Supabase 'or' syntax:
+    // .or(`user_id.eq.${userId},is_public.eq.true,user_id.in.(${followingIds.join(',')})`)
+    
+    // Handle empty following list
+    let orCondition = `user_id.eq.${userId},is_public.eq.true`;
+    if (followingIds.length > 0) {
+      orCondition += `,user_id.in.(${followingIds.join(',')})`;
+    }
+    
+    const { data, error } = await supabase
+      .from('journeys')
+      .select('*')
+      .or(orCondition)
+      .order('journey_date', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      throw new Error(`Failed to fetch feed: ${error.message}`);
+    }
+
+    return data as DatabaseJourney[];
   },
 };
 

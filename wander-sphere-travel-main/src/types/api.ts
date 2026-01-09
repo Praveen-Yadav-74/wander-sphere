@@ -20,7 +20,7 @@ export interface Trip {
       latitude: number;
       longitude: number;
     };
-  };
+  } | string; // Can be string for backward compatibility
   dates: {
     startDate: string;
     endDate: string;
@@ -39,7 +39,14 @@ export interface Trip {
   itinerary?: any[];
   requirements?: string[];
   organizer_id: string;
-  organizer?: string;
+  user_id?: string;
+  organizer?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    avatar_url?: string;
+    email?: string;
+  } | string; // Can be string for backward compatibility
   organizerAvatar?: string;
   participants?: any[];
   participantCount?: number;
@@ -48,6 +55,8 @@ export interface Trip {
   comments?: any[];
   commentCount?: number;
   isLiked?: boolean;
+  isParticipant?: boolean;
+  isOrganizer?: boolean;
   created_at: string;
   updated_at: string;
 }

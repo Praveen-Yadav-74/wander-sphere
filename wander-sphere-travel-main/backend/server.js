@@ -21,6 +21,8 @@ import budgetRoutes from './routes/budget.js';
 import bookingRoutes from './routes/booking.js';
 import walletRoutes from './routes/wallet.js';
 import etravRoutes from './routes/etrav.js';
+import followRoutes from './routes/follows.js';
+import paymentRoutes from './routes/paymentRoutes.js';
 
 const app = express();
 const PORT = config.PORT;
@@ -150,6 +152,8 @@ app.get('/', (req, res) => {
       map: '/api/map',
       budget: '/api/budget',
       booking: '/api/booking',
+      follows: '/api/follows',
+      payment: '/api/payment',
       health: '/health'
     },
     timestamp: new Date().toISOString()
@@ -196,6 +200,8 @@ app.use('/api/budget', budgetRoutes);
 app.use('/api/booking', bookingRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/etrav', etravRoutes);
+app.use('/api/follows', followRoutes);
+app.use('/api/payment', paymentRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

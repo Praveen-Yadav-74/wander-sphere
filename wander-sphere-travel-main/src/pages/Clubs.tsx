@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { Plus, Users, Search, MapPin, Tag, ArrowUpDown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,13 +11,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import clubService, { Club, CreateClubData, CreateClubBackendData } from '@/services/clubService';
+import clubService, { Club, CreateClubData } from '@/services/clubService';
 import { handleImageError } from "@/utils/imageUtils";
 import mountainAdventure from "@/assets/mountain-adventure.jpg";
-import streetFood from "@/assets/street-food.jpg";
-import castleEurope from "@/assets/castle-europe.jpg";
-import travelCommunity from "@/assets/travel-community.jpg";
-import heroBeach from "@/assets/hero-beach.jpg";
+import { SimpleAutocomplete } from "@/components/ui/search-autocomplete";
+import { clubCategories, countries } from "@/data/suggestions";
 
 const Clubs = () => {
   const [clubs, setClubs] = useState<Club[]>([]);
@@ -37,34 +35,39 @@ const Clubs = () => {
   });
   const { toast } = useToast();
 
-  useEffect(() => {
-    const fetchClubs = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const response = await clubService.getClubs();
-        // Handle PaginatedResponse structure - data is always an array in PaginatedResponse
-        if (response.success && Array.isArray(response.data)) {
-          setClubs(response.data);
-        } else {
-          setClubs([]);
-        }
-      } catch (err) {
-        setError('Failed to load clubs');
-        console.error('Error fetching clubs:', err);
-        setClubs([]); // Ensure clubs is always an array
-        toast({
-          title: "Error",
-          description: "Failed to load clubs. Please try again.",
-          variant: "destructive",
-        });
-      } finally {
-        setIsLoading(false);
+  // Safely fetch clubs with error handling
+  const fetchClubs = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await clubService.getClubs();
+      
+      // Defensive check: Ensure data is an array
+      if (response && response.success && Array.isArray(response.data)) {
+        setClubs(response.data);
+      } else {
+        console.warn("Invalid clubs response format", response);
+        setClubs([]);
       }
-    };
-
-    fetchClubs();
+    } catch (err: any) {
+      setError('Failed to load clubs');
+      console.error('Error fetching clubs:', err);
+      setClubs([]);
+      
+      // Avoid passing 'err' directly if it causes issues, use primitive message
+      toast({
+        title: "Error",
+        description: "Failed to load clubs. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   }, [toast]);
+
+  useEffect(() => {
+    fetchClubs();
+  }, [fetchClubs]);
 
   const handleJoinToggle = async (clubId: string) => {
     try {
@@ -85,9 +88,9 @@ const Clubs = () => {
         });
       }
 
-      // Update local state
-      setClubs(clubs.map(c => 
-        c.id === clubId ? { ...c, isJoined: !c.isJoined, members: c.isJoined ? c.members - 1 : c.members + 1 } : c
+      // Update local state safely
+      setClubs(prevClubs => prevClubs.map(c => 
+        c.id === clubId ? { ...c, isJoined: !c.isJoined, members: c.isJoined ? (c.members || 0) - 1 : (c.members || 0) + 1 } : c
       ));
     } catch (err) {
       console.error('Error toggling club membership:', err);
@@ -112,30 +115,31 @@ const Clubs = () => {
     try {
       setIsCreatingClub(true);
       
-      // Transform frontend data to match backend expectations
       const clubDataForBackend = {
         name: newClub.name,
         description: newClub.description,
-        isPrivate: false, // Default to public
-        tags: newClub.category ? [newClub.category] : [], // Convert category to tags array
-        rules: [] // Empty rules array
+        isPrivate: false,
+        tags: newClub.category ? [newClub.category] : [],
+        rules: []
       };
       
-      console.log('Sending club data to backend:', clubDataForBackend);
       const createdClub = await clubService.createClub(clubDataForBackend);
-      setClubs([createdClub, ...clubs]);
-      setIsCreateClubOpen(false);
-      setNewClub({
-        name: '',
-        description: '',
-        category: '',
-        country: '',
-        state: ''
-      });
-      toast({
-        title: "Success",
-        description: "Club created successfully!",
-      });
+      
+      if (createdClub) {
+        setClubs(prev => [createdClub, ...prev]);
+        setIsCreateClubOpen(false);
+        setNewClub({
+          name: '',
+          description: '',
+          category: '',
+          country: '',
+          state: ''
+        });
+        toast({
+          title: "Success",
+          description: "Club created successfully!",
+        });
+      }
     } catch (err) {
       console.error('Error creating club:', err);
       toast({
@@ -148,33 +152,33 @@ const Clubs = () => {
     }
   };
 
-  const myClubs = (Array.isArray(clubs) ? clubs : []).filter(club => club.isJoined);
+  // Safe filtering
+  const myClubs = Array.isArray(clubs) ? clubs.filter(club => club?.isJoined) : [];
 
-  const filteredClubs = (Array.isArray(clubs) ? clubs : []).filter(club =>
-    ((club.category?.toLowerCase() || '').includes(searchCategory.toLowerCase()) || 
-     (club.name?.toLowerCase() || '').includes(searchCategory.toLowerCase())) &&
-    // Note: Country filtering would require country data in the club object. This is a UI demonstration.
-    (searchCountry ? (club.name?.toLowerCase() || '').includes(searchCountry.toLowerCase()) : true)
-  );
+  const filteredClubs = Array.isArray(clubs) ? clubs.filter(club => {
+    if (!club) return false;
+    const matchesCategory = (club.category?.toLowerCase() || '').includes(searchCategory.toLowerCase()) || 
+                            (club.name?.toLowerCase() || '').includes(searchCategory.toLowerCase());
+    const matchesCountry = searchCountry ? (club.name?.toLowerCase() || '').includes(searchCountry.toLowerCase()) : true;
+    return matchesCategory && matchesCountry;
+  }) : [];
   
-  // Note: Sorting logic is for demonstration. "New", "Trending", "Active" would need backend data.
   const sortedClubs = [...filteredClubs].sort((a, b) => {
       switch(sortBy) {
           case 'members':
-              return b.members - a.members;
-          case 'new': // Needs creation date
-              return b.id.localeCompare(a.id);
-          case 'trending': // Needs trending score
-          case 'active': // Needs activity score
+              return (b.members || 0) - (a.members || 0);
+          case 'new': 
+              return (b.id || '').localeCompare(a.id || '');
+          case 'trending': 
+          case 'active': 
           case 'popular':
           default:
-              return b.members - a.members;
+              return (b.members || 0) - (a.members || 0);
       }
   });
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
-      {/* Header */}
       <div className="mb-8">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div>
@@ -271,15 +275,24 @@ const Clubs = () => {
           </Dialog>
         </div>
 
-        {/* Search and Filters */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="relative lg:col-span-1">
-                <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                <Input placeholder="Search by category..." value={searchCategory} onChange={(e) => setSearchCategory(e.target.value)} className="pl-10" />
+                <SimpleAutocomplete
+                    suggestions={clubCategories}
+                    value={searchCategory}
+                    onChange={setSearchCategory}
+                    placeholder="Search by category..."
+                    icon={<Tag className="w-4 h-4" />}
+                />
             </div>
             <div className="relative lg:col-span-1">
-                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                <Input placeholder="Search by country..." value={searchCountry} onChange={(e) => setSearchCountry(e.target.value)} className="pl-10" />
+                <SimpleAutocomplete
+                    suggestions={countries}
+                    value={searchCountry}
+                    onChange={setSearchCountry}
+                    placeholder="Search by country..."
+                    icon={<MapPin className="w-4 h-4" />}
+                />
             </div>
             <div className="lg:col-span-1">
                 <Select value={sortBy} onValueChange={setSortBy}>
@@ -301,7 +314,6 @@ const Clubs = () => {
         </div>
       </div>
 
-      {/* Tabs */}
       <Tabs defaultValue="discover" className="space-y-6">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="discover">Discover</TabsTrigger>
@@ -311,7 +323,6 @@ const Clubs = () => {
         <TabsContent value="discover" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {isLoading ? (
-              // Loading skeleton
               [...Array(6)].map((_, i) => (
                 <Card key={`loading-skeleton-${i}`} className="overflow-hidden hover:shadow-lg transition-all duration-300 group">
                   <div className="aspect-video overflow-hidden">

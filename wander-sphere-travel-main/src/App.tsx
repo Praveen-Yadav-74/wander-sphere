@@ -11,6 +11,7 @@ import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import Clubs from "./pages/Clubs";
 import FindTrips from "./pages/FindTrips";
+import MyTrips from "./pages/MyTrips";
 import TravelMap from "./pages/TravelMap";
 import Budget from "./pages/Budget";
 import Profile from "./pages/Profile";
@@ -26,16 +27,29 @@ import Register from "./pages/Register";
 import Notifications from "./pages/Notifications";
 import NotFound from "./pages/NotFound";
 import BusBooking from "./pages/BusBooking";
+import BusSeatSelection from "./pages/BusSeatSelection";
+import BookingPayment from "./components/booking/BookingPayment";
+import FlightBooking from "./pages/FlightBooking";
+import HotelBooking from "./pages/HotelBooking";
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchOnWindowFocus: false, // Prevent refetch when tab regains focus
-      refetchOnMount: false, // Only refetch if data is stale
-      staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
-      gcTime: 10 * 60 * 1000, // Keep unused data in cache for 10 minutes
+      // CRITICAL: Prevent tab switch reloads (like Instagram/Facebook)
+      refetchOnWindowFocus: false, // Never refetch when tab regains focus
+      refetchOnMount: false, // Don't refetch on component mount if data exists
+      refetchOnReconnect: false, // Don't refetch when internet reconnects
+      
+      // Cache configuration for social media experience
+      staleTime: 5 * 60 * 1000, // Data stays fresh for 5 minutes (no refetch during this time)
+      gcTime: 30 * 60 * 1000, // Keep data in memory for 30 minutes even if unused
+      
+      // Network optimization
       retry: 1, // Only retry failed requests once
       retryDelay: 1000, // Wait 1 second before retry
+      
+      // Enable structural sharing to preserve object references
+      structuralSharing: true, // Prevents unnecessary re-renders
     },
   },
 });
@@ -59,13 +73,16 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+
 const AppRoutes = () => (
   <Routes>
     {/* Authentication routes - Public */}
     <Route path="/login" element={<Login />} />
     <Route path="/register" element={<Register />} />
+    <Route path="/privacy" element={<PrivacyPolicy />} />
     
-    {/* All other routes require authentication */}
+    {/* All other routes requires authentication */}
     <Route
       path="/"
       element={
@@ -95,6 +112,14 @@ const AppRoutes = () => (
       element={
         <ProtectedRoute>
           <FindTrips />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/my-trips"
+      element={
+        <ProtectedRoute>
+          <MyTrips />
         </ProtectedRoute>
       }
     />
@@ -175,6 +200,40 @@ const AppRoutes = () => (
       element={
         <ProtectedRoute>
           <BusBooking />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/booking/bus/seats"
+      element={
+        <ProtectedRoute>
+          <BusSeatSelection />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/booking/checkout"
+      element={
+        <ProtectedRoute>
+          <div className="min-h-screen bg-gray-50 pt-16">
+            <BookingPayment />
+          </div>
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/booking/flight"
+      element={
+        <ProtectedRoute>
+          <FlightBooking />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/booking/hotel"
+      element={
+        <ProtectedRoute>
+          <HotelBooking />
         </ProtectedRoute>
       }
     />

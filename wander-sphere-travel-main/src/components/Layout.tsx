@@ -73,6 +73,28 @@ const Layout = ({ children }: LayoutProps) => {
       return () => clearTimeout(timer);
     }
   }, [isLoading]);
+
+  // Handle Android Hardware Back Button
+  React.useEffect(() => {
+    import('@capacitor/app').then(({ App: CapacitorApp }) => {
+      CapacitorApp.addListener('backButton', ({ canGoBack }) => {
+        const isHome = location.pathname === '/' || location.pathname === '/login' || location.pathname === '/register';
+        
+        if (isHome) {
+          CapacitorApp.exitApp();
+        } else {
+          navigate(-1);
+        }
+      });
+    });
+
+    // Cleanup listener on unmount
+    return () => {
+      import('@capacitor/app').then(({ App: CapacitorApp }) => {
+        CapacitorApp.removeAllListeners();
+      });
+    };
+  }, [location.pathname, navigate]);
   
   // Show beautiful LoadingScreen ONLY on the very first app load
   // After initialization, never show it again - even if isLoading becomes true

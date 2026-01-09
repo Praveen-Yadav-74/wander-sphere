@@ -280,6 +280,11 @@ const Profile = () => {
                       Edit Profile
                     </Link>
                   </Button>
+                  <Button asChild variant="ghost" size="sm">
+                    <Link to="/privacy" className="text-muted-foreground">
+                      Privacy
+                    </Link>
+                  </Button>
                 </div>
               </div>
 

@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bunny.net URL Diagnostic Tool</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+        .content {
+            padding: 30px;
+        }
+        .section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95rem;
+        }
+        .result.success {
+            background: #d4edda;
+            border: 2px solid #28a745;
+            color: #155724;
+        }
+        .result.error {
+            background: #f8d7da;
+            border: 2px solid #dc3545;
+            color: #721c24;
+        }
+        .result.warning {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            color: #856404;
+        }
+        .result strong {
+            display: block;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+        .test-image {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .test-image img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .code-block {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+        .step {
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .step-number {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 30px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Bunny.net URL Diagnostic Tool</h1>
+            <p>Identify why your images aren't loading</p>
+        </div>
+        
+        <div class="content">
+            <!-- Step 1: Check Current Image URL -->
+            <div class="section">
+                <h2>Step 1: Inspect Your Broken Image URL</h2>
+                <p style="margin-bottom: 15px;">
+                    Open your app, right-click on a broken image, and select "Inspect" or "Open Image in New Tab". 
+                    Paste that URL below:
+                </p>
+                
+                <div class="input-group">
+                    <label>Current Image URL from Database/Browser:</label>
+                    <input 
+                        type="text" 
+                        id="currentUrl" 
+                        placeholder="e.g., https://sg.storage.bunnycdn.com/nomad-app-media/posts/images/12345.jpg"
+                    />
+                </div>
+                
+                <button class="btn" onclick="analyzeUrl()">🔍 Analyze URL</button>
+                
+                <div id="urlAnalysisResult"></div>
+            </div>
+
+            <!-- Step 2: Test Upload Configuration -->
+            <div class="section">
+                <h2>Step 2: Verify Your Environment Configuration</h2>
+                <p style="margin-bottom: 15px;">
+                    Let's check if your .env variables are correctly configured:
+                </p>
+                
+                <div class="step">
+                    <span class="step-number">1</span>
+                    <strong>Open your browser console</strong> (F12 → Console tab)
+                </div>
+                
+                <div class="step">
+                    <span class="step-number">2</span>
+                    <strong>Run this command</strong> to check your environment:
+                    <div class="code-block">console.log({
+  PULL_ZONE: import.meta.env.VITE_BUNNY_PULL_ZONE_URL,
+  HOSTNAME: import.meta.env.VITE_BUNNY_HOSTNAME,
+  STORAGE: import.meta.env.VITE_BUNNY_STORAGE_NAME
+});</div>
+                </div>
+                
+                <div class="input-group">
+                    <label>VITE_BUNNY_PULL_ZONE_URL (from console):</label>
+                    <input 
+                        type="text" 
+                        id="pullZoneUrl" 
+                        placeholder="Should be: https://nomad-app-media.b-cdn.net"
+                    />
+                </div>
+                
+                <div class="input-group">
+                    <label>VITE_BUNNY_HOSTNAME (from console):</label>
+                    <input 
+                        type="text" 
+                        id="hostname" 
+                        placeholder="Should be: sg.storage.bunnycdn.com"
+                    />
+                </div>
+                
+                <button class="btn" onclick="verifyConfig()">✅ Verify Configuration</button>
+                
+                <div id="configResult"></div>
+            </div>
+
+            <!-- Step 3: Test Image URL -->
+            <div class="section">
+                <h2>Step 3: Test If Pull Zone URL Works</h2>
+                <p style="margin-bottom: 15px;">
+                    Test if a corrected URL loads properly:
+                </p>
+                
+                <div class="input-group">
+                    <label>Storage Path (from database, e.g., "posts/images/12345.jpg"):</label>
+                    <input 
+                        type="text" 
+                        id="storagePath" 
+                        placeholder="posts/images/12345_abc.jpg"
+                    />
+                </div>
+                
+                <button class="btn" onclick="testImage()">🖼️ Test Image</button>
+                
+                <div id="imageTestResult"></div>
+            </div>
+
+            <!-- Step 4: The Fix -->
+            <div class="section">
+                <h2>Step 4: Common Fixes</h2>
+                <div id="fixSuggestions"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const CORRECT_PULL_ZONE = 'https://nomad-app-media.b-cdn.net';
+        const CORRECT_HOSTNAME = 'sg.storage.bunnycdn.com';
+        const CORRECT_STORAGE_NAME = 'nomad-app-media';
+
+        function analyzeUrl() {
+            const url = document.getElementById('currentUrl').value.trim();
+            const resultDiv = document.getElementById('urlAnalysisResult');
+            
+            if (!url) {
+                resultDiv.innerHTML = '<div class="result error"><strong>❌ Error</strong>Please enter a URL</div>';
+                return;
+            }
+
+            let diagnosis = '';
+            let severity = 'error';
+            let fix = '';
+
+            // Check if it's a storage URL (wrong)
+            if (url.includes('sg.storage.bunnycdn.com') || url.includes('storage.bunnycdn.com')) {
+                diagnosis = '❌ PROBLEM FOUND: You are using the STORAGE URL (private)';
+                fix = `
+                    <strong>FIX REQUIRED:</strong>
+                    <p>Your code is returning the Storage URL instead of the Pull Zone URL.</p>
+                    <p><strong>Current (Wrong):</strong> ${url}</p>
+                    <p><strong>Should Be:</strong> ${url.replace(/https:\/\/[^\/]+\/nomad-app-media/, CORRECT_PULL_ZONE)}</p>
+                    <hr style="margin: 15px 0;">
+                    <p><strong>Fix this in your bunnyUpload.ts:</strong></p>
+                    <div class="code-block">// Line 230 should return:
+const publicUrl = \`\${config.pullZoneUrl}/\${storagePath}\`;
+
+// Make sure config.pullZoneUrl is: ${CORRECT_PULL_ZONE}
+// NOT: https://sg.storage.bunnycdn.com/...</div>
+                `;
+            }
+            // Check if it's the correct CDN URL
+            else if (url.includes('nomad-app-media.b-cdn.net')) {
+                diagnosis = '✅ URL FORMAT IS CORRECT!';
+                severity = 'success';
+                fix = `
+                    <p>Your URL structure is correct. If images still don't load:</p>
+                    <ol style="margin-left: 20px; margin-top: 10px;">
+                        <li>Check if the Pull Zone is connected to your Storage Zone in Bunny.net dashboard</li>
+                        <li>Verify the file actually exists in Bunny.net Storage</li>
+                        <li>Check if there's a CORS issue (open browser console for errors)</li>
+                        <li>Wait 1-2 minutes for CDN cache propagation</li>
+                    </ol>
+                `;
+            }
+            // Check if it's undefined/localhost
+            else if (url.includes('undefined') || url.includes('localhost') || url.includes('127.0.0.1')) {
+                diagnosis = '❌ PROBLEM FOUND: Environment variables not loaded';
+                fix = `
+                    <strong>FIX REQUIRED:</strong>
+                    <p>Your VITE_BUNNY_PULL_ZONE_URL is not being read properly.</p>
+                    <ol style="margin-left: 20px; margin-top: 10px;">
+                        <li>Check your <code>.env</code> file has: <code>VITE_BUNNY_PULL_ZONE_URL=${CORRECT_PULL_ZONE}</code></li>
+                        <li>Restart your dev server (<code>npm run dev</code>)</li>
+                        <li>Clear browser cache and reload</li>
+                    </ol>
+                `;
+            }
+            else {
+                diagnosis = '⚠️ UNKNOWN URL FORMAT';
+                severity = 'warning';
+                fix = `
+                    <p>This URL doesn't match expected patterns. It should be:</p>
+                    <div class="code-block">${CORRECT_PULL_ZONE}/posts/images/[filename].jpg</div>
+                `;
+            }
+
+            resultDiv.innerHTML = `
+                <div class="result ${severity}">
+                    <strong>${diagnosis}</strong>
+                    ${fix}
+                </div>
+            `;
+        }
+
+        function verifyConfig() {
+            const pullZone = document.getElementById('pullZoneUrl').value.trim();
+            const hostname = document.getElementById('hostname').value.trim();
+            const resultDiv = document.getElementById('configResult');
+
+            let issues = [];
+            
+            if (!pullZone) {
+                issues.push('❌ VITE_BUNNY_PULL_ZONE_URL is empty or undefined');
+            } else if (pullZone !== CORRECT_PULL_ZONE) {
+                issues.push(`⚠️ VITE_BUNNY_PULL_ZONE_URL is "${pullZone}" but should be "${CORRECT_PULL_ZONE}"`);
+            }
+
+            if (!hostname) {
+                issues.push('❌ VITE_BUNNY_HOSTNAME is empty or undefined');
+            } else if (hostname !== CORRECT_HOSTNAME) {
+                issues.push(`⚠️ VITE_BUNNY_HOSTNAME is "${hostname}" but should be "${CORRECT_HOSTNAME}"`);
+            }
+
+            if (issues.length === 0) {
+                resultDiv.innerHTML = `
+                    <div class="result success">
+                        <strong>✅ Configuration Looks Good!</strong>
+                        <p>Your environment variables are correctly set.</p>
+                    </div>
+                `;
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        <strong>❌ Configuration Issues Found:</strong>
+                        <ul style="margin-left: 20px; margin-top: 10px;">
+                            ${issues.map(issue => `<li>${issue}</li>`).join('')}
+                        </ul>
+                        <hr style="margin: 15px 0;">
+                        <p><strong>FIX:</strong> Update your <code>.env</code> file and restart dev server:</p>
+                        <div class="code-block">VITE_BUNNY_PULL_ZONE_URL=${CORRECT_PULL_ZONE}
+VITE_BUNNY_HOSTNAME=${CORRECT_HOSTNAME}
+VITE_BUNNY_STORAGE_NAME=${CORRECT_STORAGE_NAME}</div>
+                    </div>
+                `;
+            }
+        }
+
+        function testImage() {
+            const storagePath = document.getElementById('storagePath').value.trim();
+            const resultDiv = document.getElementById('imageTestResult');
+
+            if (!storagePath) {
+                resultDiv.innerHTML = '<div class="result error"><strong>❌ Error</strong>Please enter a storage path</div>';
+                return;
+            }
+
+            const testUrl = `${CORRECT_PULL_ZONE}/${storagePath}`;
+            
+            resultDiv.innerHTML = `
+                <div class="result warning">
+                    <strong>🔄 Testing Image...</strong>
+                    <p>Attempting to load: <code>${testUrl}</code></p>
+                </div>
+                <div class="test-image">
+                    <img 
+                        src="${testUrl}" 
+                        alt="Test Image"
+                        onload="handleImageLoad(this, '${testUrl}')"
+                        onerror="handleImageError(this, '${testUrl}')"
+                    />
+                </div>
+            `;
+        }
+
+        function handleImageLoad(img, url) {
+            const resultDiv = document.getElementById('imageTestResult');
+            resultDiv.innerHTML = `
+                <div class="result success">
+                    <strong>✅ IMAGE LOADED SUCCESSFULLY!</strong>
+                    <p>URL: <code>${url}</code></p>
+                    <p>This means your Pull Zone is working correctly!</p>
+                    <p><strong>If images still don't load in your app:</strong></p>
+                    <ol style="margin-left: 20px; margin-top: 10px;">
+                        <li>Check database - make sure URLs are saved with <code>b-cdn.net</code> domain</li>
+                        <li>Clear browser cache and reload your app</li>
+                        <li>Check browser console for CORS errors</li>
+                    </ol>
+                </div>
+                <div class="test-image">
+                    <img src="${url}" alt="Test Image" style="max-width: 100%; height: auto;" />
+                </div>
+            `;
+        }
+
+        function handleImageError(img, url) {
+            const resultDiv = document.getElementById('imageTestResult');
+            resultDiv.innerHTML = `
+                <div class="result error">
+                    <strong>❌ IMAGE FAILED TO LOAD</strong>
+                    <p>URL: <code>${url}</code></p>
+                    <p><strong>Possible causes:</strong></p>
+                    <ol style="margin-left: 20px; margin-top: 10px;">
+                        <li>File doesn't exist in Bunny.net storage</li>
+                        <li>Pull Zone is not connected to Storage Zone</li>
+                        <li>Pull Zone URL is incorrect</li>
+                        <li>CDN cache hasn't propagated yet (wait 1-2 minutes)</li>
+                    </ol>
+                    <hr style="margin: 15px 0;">
+                    <p><strong>NEXT STEPS:</strong></p>
+                    <ol style="margin-left: 20px;">
+                        <li>Log in to <a href="https://panel.bunny.net" target="_blank">Bunny.net Dashboard</a></li>
+                        <li>Go to <strong>Pull Zones</strong> → <strong>nomad-app-media</strong></li>
+                        <li>Check <strong>Origin URL</strong> - it must be set to your Storage Zone</li>
+                        <li>Go to <strong>Storage</strong> → <strong>nomad-app-media</strong> → Browse files</li>
+                        <li>Verify the file exists in the correct folder</li>
+                    </ol>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

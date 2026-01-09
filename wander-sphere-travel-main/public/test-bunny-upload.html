@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media Upload Test - Bunny.net Integration</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+            display: block;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f8f9ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: #f0f0ff;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .preview-container {
+            margin: 20px 0;
+            display: none;
+        }
+
+        .preview-container.active {
+            display: block;
+        }
+
+        .preview-image {
+            max-width: 100%;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+
+        .file-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 15px;
+        }
+
+        .progress-container {
+            margin: 20px 0;
+            display: none;
+        }
+
+        .progress-container.active {
+            display: block;
+        }
+
+        .progress-bar-bg {
+            background: #e0e0e0;
+            height: 30px;
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-bar {
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            flex: 1;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #666;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: #e9ecef;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .result-url {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            word-break: break-all;
+            display: none;
+        }
+
+        .result-url.active {
+            display: block;
+        }
+
+        .result-url a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .result-url a:hover {
+            text-decoration: underline;
+        }
+
+        .config-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .config-info strong {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Media Upload Test</h1>
+        <p class="subtitle">Bunny.net CDN Integration for WanderSphere</p>
+
+        <div class="config-info">
+            <strong>📍 Configuration:</strong><br>
+            Storage: nomad-app-media<br>
+            Region: Singapore (sg)<br>
+            CDN: https://nomad-app-media.b-cdn.net
+        </div>
+
+        <div id="status" class="status"></div>
+
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📸</div>
+            <h3>Click or Drag & Drop Image</h3>
+            <p>JPEG, PNG, WebP, GIF (Max 50MB)</p>
+            <input type="file" id="fileInput" accept="image/*">
+        </div>
+
+        <div class="preview-container" id="previewContainer">
+            <img id="previewImage" class="preview-image" alt="Preview">
+            <div class="file-info" id="fileInfo"></div>
+        </div>
+
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar-bg">
+                <div class="progress-bar" id="progressBar">0%</div>
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button class="btn-primary" id="uploadBtn" disabled>
+                Upload to Bunny.net
+            </button>
+            <button class="btn-secondary" id="clearBtn" disabled>
+                Clear
+            </button>
+        </div>
+
+        <div class="result-url" id="resultUrl"></div>
+    </div>
+
+    <script type="module">
+        // This is a test page - In production, use the TypeScript implementation
+        const BUNNY_CONFIG = {
+            storageName: 'nomad-app-media',
+            apiKey: 'a9ce5ca7-27cd-4358-8b8075ed96eb-a794-4d87',
+            pullZoneUrl: 'https://nomad-app-media.b-cdn.net',
+            region: 'sg'
+        };
+
+        let selectedFile = null;
+
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const previewContainer = document.getElementById('previewContainer');
+        const previewImage = document.getElementById('previewImage');
+        const fileInfo = document.getElementById('fileInfo');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        const status = document.getElementById('status');
+        const resultUrl = document.getElementById('resultUrl');
+
+        // Click to select file
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        // File selection
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) handleFileSelect(file);
+        });
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) handleFileSelect(file);
+        });
+
+        function handleFileSelect(file) {
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
+                showStatus('Only image files are supported', 'error');
+                return;
+            }
+
+            // Validate file size
+            if (file.size > 50 * 1024 * 1024) {
+                showStatus('File size exceeds 50MB limit', 'error');
+                return;
+            }
+
+            selectedFile = file;
+            
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewImage.src = e.target.result;
+                previewContainer.classList.add('active');
+            };
+            reader.readAsDataURL(file);
+
+            // Show file info
+            fileInfo.textContent = `📁 ${file.name} | 📊 ${(file.size / 1024 / 1024).toFixed(2)} MB | 🖼️ ${file.type}`;
+
+            // Enable buttons
+            uploadBtn.disabled = false;
+            clearBtn.disabled = false;
+
+            showStatus('File selected. Ready to upload!', 'info');
+        }
+
+        function showStatus(message, type) {
+            status.textContent = message;
+            status.className = `status ${type}`;
+        }
+
+        function updateProgress(percent) {
+            progressBar.style.width = percent + '%';
+            progressBar.textContent = percent + '%';
+        }
+
+        async function uploadFile() {
+            if (!selectedFile) return;
+
+            uploadBtn.disabled = true;
+            clearBtn.disabled = true;
+            progressContainer.classList.add('active');
+            resultUrl.classList.remove('active');
+
+            try {
+                showStatus('Uploading to Bunny.net...', 'info');
+
+                // Generate unique filename
+                const timestamp = Date.now();
+                const randomString = Math.random().toString(36).substring(2, 15);
+                const extension = selectedFile.name.split('.').pop();
+                const fileName = `${timestamp}_${randomString}.${extension}`;
+
+                // Construct upload URL
+                const uploadUrl = `https://${BUNNY_CONFIG.region}.storage.bunnycdn.com/${BUNNY_CONFIG.storageName}/test-uploads/${fileName}`;
+
+                // Upload using Fetch API with progress tracking
+                const xhr = new XMLHttpRequest();
+                
+                xhr.upload.addEventListener('progress', (e) => {
+                    if (e.lengthComputable) {
+                        const percent = Math.round((e.loaded / e.total) * 100);
+                        updateProgress(percent);
+                    }
+                });
+
+                xhr.addEventListener('load', () => {
+                    if (xhr.status === 201 || xhr.status === 200) {
+                        const publicUrl = `${BUNNY_CONFIG.pullZoneUrl}/test-uploads/${fileName}`;
+                        showStatus('Upload successful! ✅', 'success');
+                        resultUrl.innerHTML = `
+                            <strong>🎉 Public URL:</strong><br>
+                            <a href="${publicUrl}" target="_blank">${publicUrl}</a>
+                        `;
+                        resultUrl.classList.add('active');
+                    } else {
+                        throw new Error(`Upload failed with status: ${xhr.status}`);
+                    }
+                    uploadBtn.disabled = false;
+                    clearBtn.disabled = false;
+                });
+
+                xhr.addEventListener('error', () => {
+                    showStatus('Upload failed. Check console for details.', 'error');
+                    uploadBtn.disabled = false;
+                    clearBtn.disabled = false;
+                });
+
+                xhr.open('PUT', uploadUrl);
+                xhr.setRequestHeader('AccessKey', BUNNY_CONFIG.apiKey);
+                xhr.setRequestHeader('Content-Type', selectedFile.type);
+                xhr.send(selectedFile);
+
+            } catch (error) {
+                console.error('Upload error:', error);
+                showStatus(`Upload failed: ${error.message}`, 'error');
+                uploadBtn.disabled = false;
+                clearBtn.disabled = false;
+            }
+        }
+
+        function clearSelection() {
+            selectedFile = null;
+            fileInput.value = '';
+            previewContainer.classList.remove('active');
+            progressContainer.classList.remove('active');
+            resultUrl.classList.remove('active');
+            uploadBtn.disabled = true;
+            clearBtn.disabled = true;
+            updateProgress(0);
+            showStatus('', '');
+        }
+
+        uploadBtn.addEventListener('click', uploadFile);
+        clearBtn.addEventListener('click', clearSelection);
+
+        // Show ready message
+        setTimeout(() => {
+            showStatus('Ready to test! Select an image to get started.', 'info');
+        }, 500);
+    </script>
+</body>
+</html>

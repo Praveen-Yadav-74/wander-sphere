@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Wallet, Plus, ArrowDown, ArrowUp, Loader2, History } from "lucide-react";
 import { walletService, WalletDetails, WalletTransaction } from "@/services/walletService";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRazorpay } from "@/hooks/useRazorpay";
 import AddMoneyModal from "@/components/wallet/AddMoneyModal";
 import { toast } from "@/components/ui/use-toast";
 import {
@@ -17,6 +18,9 @@ import { Input } from "@/components/ui/input";
 
 const WalletPage: React.FC = () => {
   const { user } = useAuth();
+  const { preloadScript } = useRazorpay();
+
+  useEffect(() => { preloadScript(); }, []);
   const [walletDetails, setWalletDetails] = useState<WalletDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddMoneyOpen, setIsAddMoneyOpen] = useState(false);

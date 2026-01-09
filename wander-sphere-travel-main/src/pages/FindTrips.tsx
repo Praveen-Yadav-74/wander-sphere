@@ -15,7 +15,12 @@ import { apiRequest } from "@/utils/api";
 import { endpoints, apiConfig, buildUrl } from "@/config/api";
 import { handleImageError } from "@/utils/imageUtils";
 import { ApiResponse, Trip, TripsListResponse, CreateTripRequest, CreateTripResponse } from "@/types/api";
+import TripRequestButton from "@/components/TripRequestButton";
 import heroBeach from "@/assets/hero-beach.jpg";
+import MyTrips from "@/pages/MyTrips";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SimpleAutocomplete } from "@/components/ui/search-autocomplete";
+import { popularCities } from "@/data/suggestions";
 
 const FindTrips = () => {
   const [searchDestination, setSearchDestination] = useState("");
@@ -196,15 +201,25 @@ const FindTrips = () => {
     }
   };
 
+
+// ... existing code ...
+
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+    <div className="max-w-7xl mx-auto px-4 py-6">
+      <Tabs defaultValue="find" className="w-full">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Find Your Next Adventure</h1>
-            <p className="text-muted-foreground mt-1">Looking for a travel buddy or planning a new adventure?</p>
+            <h1 className="text-3xl font-bold text-foreground">Trips</h1>
+            <p className="text-muted-foreground mt-1">Discover adventures or manage your own</p>
           </div>
+          <TabsList>
+            <TabsTrigger value="find">Find Trips</TabsTrigger>
+            <TabsTrigger value="my-trips">My Trips</TabsTrigger>
+          </TabsList>
+        </div>
+
+        <TabsContent value="find" className="space-y-6">
+          <div className="flex flex-col sm:flex-row justify-end items-start sm:items-center gap-4 mb-6">
           <Dialog open={isCreateTripOpen} onOpenChange={setIsCreateTripOpen}>
             <DialogTrigger asChild>
               <Button className="bg-gradient-adventure text-white shadow-primary">
@@ -338,12 +353,12 @@ const FindTrips = () => {
               <div>
                 <label className="text-sm font-medium mb-2 block">Destination</label>
                 <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                  <Input
-                    placeholder="e.g., Bali, Indonesia"
+                  <SimpleAutocomplete 
+                    suggestions={popularCities}
                     value={searchDestination}
-                    onChange={(e) => setSearchDestination(e.target.value)}
-                    className="pl-10"
+                    onChange={setSearchDestination}
+                    placeholder="e.g., Bali, Indonesia"
+                    icon={<MapPin className="w-4 h-4" />}
                   />
                 </div>
               </div>
@@ -381,7 +396,7 @@ const FindTrips = () => {
             </div>
           </CardContent>
         </Card>
-      </div>
+
 
       {/* Trip Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -413,13 +428,19 @@ const FindTrips = () => {
             const endDate = new Date(trip.dates?.endDate || '');
             const dateText = startDate.toLocaleDateString() + ' - ' + endDate.toLocaleDateString();
             
-            // Safely extract organizer name with defensive coding
-            const organizerName = (() => {
-              if (!trip.organizer) return 'Nomad Admin';
-              if (typeof trip.organizer === 'string') return trip.organizer;
-              if (typeof trip.organizer === 'object' && (trip.organizer as any)?.name) return (trip.organizer as any).name;
-              return 'Nomad Admin';
+            // Safely extract organizer name and avatar from backend data
+            const organizerData = (() => {
+              if (!trip.organizer) return { name: 'Anonymous', avatar: undefined };
+              if (typeof trip.organizer === 'object') {
+                const fullName = `${trip.organizer.first_name || ''} ${trip.organizer.last_name || ''}`.trim();
+                return {
+                  name: fullName || 'Anonymous',
+                  avatar: trip.organizer.avatar_url
+                };
+              }
+              return { name: String(trip.organizer), avatar: trip.organizerAvatar };
             })();
+            
             const budgetText = trip.budget ? `$${trip.budget.total} ${trip.budget.currency}` : 'Budget TBD';
             
             // Safely get initials from organizer name
@@ -433,7 +454,7 @@ const FindTrips = () => {
             return (
               <Card key={trip.id} className="overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer group">
                 <Link to={`/trips/${trip.id}`}>
-                  <div className="aspect-video overflow-hidden relative">
+                  <div className="aspect-[16/10] overflow-hidden relative">
                     <img 
                       src={trip.images?.[0] || heroBeach} 
                       alt={trip.title}
@@ -453,12 +474,12 @@ const FindTrips = () => {
                     </div>
                     <div className="flex items-center gap-2 mt-2">
                       <Avatar className="w-6 h-6">
-                        <AvatarImage src={trip.organizerAvatar} />
+                        <AvatarImage src={organizerData.avatar} />
                         <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                          {getInitials(organizerName)}
+                          {getInitials(organizerData.name)}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="text-sm text-muted-foreground">by {organizerName}</span>
+                      <span className="text-sm text-muted-foreground">by {organizerData.name}</span>
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -491,16 +512,11 @@ const FindTrips = () => {
 
                     <div className="flex justify-between items-center pt-3 bg-muted/10 rounded-lg px-3 mt-3">
                       <span className="font-semibold text-sm">{budgetText}</span>
-                      <Button 
-                        size="sm" 
+                      <TripRequestButton 
+                        tripId={trip.id}
+                        size="sm"
                         className="bg-gradient-primary text-white"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          console.log('Express interest in trip:', trip.title);
-                        }}
-                      >
-                        I'm Interested
-                      </Button>
+                      />
                     </div>
                   </CardContent>
                 </Link>
@@ -509,6 +525,12 @@ const FindTrips = () => {
           })
         )}
       </div>
+      </TabsContent>
+
+      <TabsContent value="my-trips">
+        <MyTrips />
+      </TabsContent>
+    </Tabs>
     </div>
   );
 };

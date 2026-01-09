@@ -7,6 +7,7 @@ import { apiRequest, cachedApiRequest } from '@/utils/api';
 import { endpoints, buildUrl, getAuthHeaderSync, ApiResponse, PaginatedResponse } from '@/config/api';
 import { CacheKeys, CacheTTL } from '@/services/cacheService';
 import { User } from './authService';
+import { uploadToBunny, validateFile } from '@/services/bunnyUpload';
 
 export interface UserProfile extends User {
   followersCount: number;
@@ -135,27 +136,40 @@ class UserService {
   /**
    * Upload user avatar
    */
+  /**
+   * Upload user avatar using Bunny.net
+   */
   async uploadAvatar(file: File): Promise<{ avatarUrl: string }> {
-    const formData = new FormData();
-    formData.append('avatar', file);
-
-    const response = await apiRequest<ApiResponse<{ avatarUrl: string }>>(
-      buildUrl(endpoints.users.uploadAvatar),
-      {
-        method: 'POST',
-        headers: {
-          ...getAuthHeaderSync(),
-          // Don't set Content-Type for FormData, let browser set it
-        },
-        body: formData,
+    try {
+      // 1. Validate file
+      const validation = validateFile(file, 'avatar');
+      if (!validation.valid) {
+        throw new Error(validation.error || 'Invalid file');
       }
-    );
 
-    if (response.success && response.data) {
-      return response.data;
+      // 2. Upload to Bunny.net
+      console.log('📤 Uploading avatar to Bunny.net...');
+      const uploadResult = await uploadToBunny(file, 'avatar', {
+        compress: true,
+        quality: 0.8,
+        maxWidth: 500, // Avatars don't need to be huge
+      });
+
+      if (!uploadResult.success || !uploadResult.publicUrl) {
+        throw new Error(uploadResult.error || 'Failed to upload avatar');
+      }
+
+      console.log('✅ Avatar uploaded:', uploadResult.publicUrl);
+
+      // 3. Update user profile with new avatar URL
+      // We use the existing updateProfile method
+      await this.updateProfile({ avatar: uploadResult.publicUrl });
+
+      return { avatarUrl: uploadResult.publicUrl };
+    } catch (error: any) {
+      console.error('Avatar upload error:', error);
+      throw new Error(error.message || 'Failed to upload avatar');
     }
-
-    throw new Error(response.message || 'Failed to upload avatar');
   }
 
   /**

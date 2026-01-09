@@ -141,7 +141,7 @@ console.log('[API Config - Module Load] 🔧 Build mode:', import.meta.env.MODE,
 const API_TIMEOUT = parseInt(import.meta.env.VITE_API_TIMEOUT || '60000'); // Increased to 60s for cold starts
 // Enable logging in development by default
 const ENABLE_API_LOGGING = import.meta.env.VITE_ENABLE_API_LOGGING === 'true' || import.meta.env.DEV;
-const MAX_RETRIES = 3;
+const MAX_RETRIES = 1; // REDUCED: Only retry once to prevent aggressive behavior
 const RETRY_DELAY = 1000; // Initial retry delay in ms
 
 // API Configuration
