@@ -9,191 +9,48 @@ export interface CreateOrderRequest {
 }
 
 export interface CreateOrderResponse {
-  orderId: string;
-  amount: number; // Amount in paise
-  currency: string;
-  keyId: string;
-}
-
-export interface VerifyPaymentRequest {
-  razorpay_order_id: string;
-  razorpay_payment_id: string;
-  razorpay_signature: string;
-  amount: number; // Amount in paise
-  purpose: 'wallet' | 'trip';
-  tripId?: string;
+  type: 'razorpay' | 'phonepe';
+  orderId?: string;
+  amount?: number; // Amount in paise
+  currency?: string;
+  keyId?: string;
+  url?: string; // For PhonePe
+  merchantTransactionId?: string;
 }
 
 export interface VerifyPaymentResponse {
-  newBalance?: number;
-  amountAdded?: number;
-  amountPaid?: number;
-  tripId?: string;
-  transactionId: string;
+  success: true;
+  message: string;
+  data: any;
 }
 
-export interface PayFromWalletRequest {
-  tripId: string;
-  amount: number;
-}
-
-export interface PayFromWalletResponse {
-  newBalance: number;
-  amountPaid: number;
-  tripId: string;
-}
-
-/**
- * Payment Service - Handles all payment-related API calls
- */
 class PaymentService {
-  /**
-   * Create a Razorpay order
-   * 
-   * @param data - Order creation data
-   * @returns Order details including orderId and keyId
-   * 
-   * @example
-   * ```typescript
-   * const orderData = await paymentService.createOrder({
-   *   amount: 500, // ₹500
-   *   currency: 'INR'
-   * });
-   * ```
-   */
-  async createOrder(data: CreateOrderRequest) {
-    try {
-      const response = await apiRequest<any>(
-        `${apiConfig.baseURL}/payment/create-order`,
-        {
-          method: 'POST',
-          body: data,
-        }
-      );
+  async createOrder(data: CreateOrderRequest): Promise<CreateOrderResponse> {
+    const response = await apiRequest<any>(`${apiConfig.baseURL}/payment/create-order`, {
+      method: 'POST',
+      body: data,
+    });
+    return response.data || response; // Handle both wrapper styles if necessary, usually response is the data
+  }
 
-      if (!response.success) {
-        throw new Error(response.message || 'Failed to create order');
-      }
-
-      return response.data as CreateOrderResponse;
-    } catch (error) {
-      console.error('Create order error:', error);
-      throw error;
-    }
+  async verifyPayment(data: any): Promise<VerifyPaymentResponse> {
+    const response = await apiRequest<VerifyPaymentResponse>(`${apiConfig.baseURL}/payment/verify`, {
+      method: 'POST',
+      body: data,
+    });
+    return response;
   }
 
   /**
-   * Verify Razorpay payment and update wallet/booking
-   * 
-   * @param data - Payment verification data
-   * @returns Updated balance or booking details
-   * 
-   * @example
-   * ```typescript
-   * // For wallet
-   * await paymentService.verifyPayment({
-   *   razorpay_order_id: '...',
-   *   razorpay_payment_id: '...',
-   *   razorpay_signature: '...',
-   *   amount: 50000, // ₹500 in paise
-   *   purpose: 'wallet'
-   * });
-   * 
-   * // For trip
-   * await paymentService.verifyPayment({
-   *   ...paymentData,
-   *   purpose: 'trip',
-   *   tripId: 'trip_123'
-   * });
-   * ```
-   */
-  async verifyPayment(data: VerifyPaymentRequest) {
-    try {
-      const response = await apiRequest<any>(
-        `${apiConfig.baseURL}/payment/verify`,
-        {
-          method: 'POST',
-          body: data,
-        }
-      );
-
-      if (!response.success) {
-        throw new Error(response.message || 'Payment verification failed');
-      }
-
-      return response.data as VerifyPaymentResponse;
-    } catch (error) {
-      console.error('Verify payment error:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Pay for a trip using wallet balance
-   * 
-   * @param data - Payment data
-   * @returns Updated wallet balance
-   * 
-   * @example
-   * ```typescript
-   * const result = await paymentService.payFromWallet({
-   *   tripId: 'trip_123',
-   *   amount: 1500 // ₹1500
-   * });
-   * 
-   * console.log('New balance:', result.newBalance);
-   * ```
-   */
-  async payFromWallet(data: PayFromWalletRequest) {
-    try {
-      const response = await apiRequest<any>(
-        `${apiConfig.baseURL}/payment/pay-from-wallet`,
-        {
-          method: 'POST',
-          body: data,
-        }
-      );
-
-      if (!response.success) {
-        throw new Error(response.message || 'Wallet payment failed');
-      }
-
-      return response.data as PayFromWalletResponse;
-    } catch (error) {
-      console.error('Pay from wallet error:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Complete payment flow: Create order → Open Razorpay → Verify
+   * Complete payment flow: Create order → Open Razorpay OR Redirect to PhonePe
    * 
    * @param amount - Amount in rupees
    * @param purpose - 'wallet' or 'trip'
    * @param tripId - Required if purpose is 'trip'
    * @param openRazorpay - Function from useRazorpay hook
-   * @param onSuccess - Callback on successful payment
+   * @param onSuccess - Callback on successful payment (Razorpay only)
    * @param onFailure - Callback on payment failure
-   * 
-   * @example
-   * ```typescript
-   * const { openRazorpay, isLoaded } = useRazorpay();
-   * 
-   * if (isLoaded) {
-   *   await paymentService.processPayment(
-   *     500,
-   *     'wallet',
-   *     undefined,
-   *     openRazorpay,
-   *     (result) => {
-   *       toast({ title: 'Success', description: `Added ₹${result.amountAdded}` });
-   *     },
-   *     (error) => {
-   *       toast({ title: 'Error', description: error.message, variant: 'destructive' });
-   *     }
-   *   );
-   * }
-   * ```
+   * @param userDetails - User info for prefill
    */
   async processPayment(
     amount: number,
@@ -215,49 +72,69 @@ class PaymentService {
         },
       });
 
-      // Step 2: Open Razorpay checkout
-      openRazorpay({
-        key: orderData.keyId,
-        amount: orderData.amount,
-        currency: orderData.currency,
-        name: 'WanderSphere',
-        description: purpose === 'wallet' ? 'Add money to wallet' : 'Trip payment',
-        order_id: orderData.orderId,
-        handler: async (response: any) => {
-          try {
-            // Step 3: Verify payment
-            const verifyData = await this.verifyPayment({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-              amount: orderData.amount,
-              purpose,
-              tripId,
-            });
+      // --- PHONEPE LOGIC ---
+      if (orderData.type === 'phonepe' && orderData.url) {
+          console.log('Redirecting to PhonePe:', orderData.url);
+          window.location.href = orderData.url;
+          return;
+      }
 
-            if (onSuccess) {
-              onSuccess(verifyData);
-            }
-          } catch (error) {
-            console.error('Payment verification failed:', error);
-            if (onFailure) {
-              onFailure(error instanceof Error ? error : new Error('Payment verification failed'));
-            }
-          }
-        },
-        prefill: userDetails,
-        theme: {
-          color: '#667eea', // Brand color
-        },
-        modal: {
-          ondismiss: () => {
-            console.log('Payment modal closed');
-            if (onFailure) {
-              onFailure(new Error('Payment cancelled by user'));
-            }
-          },
-        },
-      });
+      // --- RAZORPAY LOGIC ---
+      if (orderData.type === 'razorpay' || !orderData.type) {
+         // Default to Razorpay logic if type is missing or explicit
+          openRazorpay({
+            key: orderData.keyId,
+            amount: orderData.amount,
+            currency: orderData.currency,
+            name: 'WanderSphere',
+            description: purpose === 'wallet' ? 'Add money to wallet' : 'Trip payment',
+            order_id: orderData.orderId,
+            handler: async (response: any) => {
+              try {
+                // Step 3: Verify payment
+                const verifyData = await this.verifyPayment({
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                  amount: orderData.amount!,
+                  purpose,
+                  tripId,
+                });
+
+                if (onSuccess) {
+                  onSuccess(verifyData);
+                }
+              } catch (error) {
+                console.error('Payment verification failed:', error);
+                if (onFailure) {
+                  onFailure(error instanceof Error ? error : new Error('Payment verification failed'));
+                }
+              }
+            },
+            prefill: userDetails,
+            theme: {
+              color: '#667eea', // Brand color
+            },
+            config: {
+              display: {
+                language: 'en',
+                hide: [],
+                preferences: {
+                  show_default_blocks: true
+                }
+              }
+            },
+            modal: {
+              ondismiss: () => {
+                console.log('Payment modal closed');
+                if (onFailure) {
+                  onFailure(new Error('Payment cancelled by user'));
+                }
+              },
+            },
+          });
+      }
+
     } catch (error) {
       console.error('Process payment error:', error);
       if (onFailure) {

@@ -85,9 +85,13 @@ const getApiBaseUrl = async (): Promise<string> => {
   const isProduction = import.meta.env.MODE === 'production' || 
                        import.meta.env.PROD === true;
 
-  // If production build, always use production backend (skip health checks)
-  if (isProduction) {
-    console.log('[API Config] 🌐 Production build detected, using Render backend');
+  // CRITICAL: Detect if running in Capacitor (mobile app)
+  const isCapacitor = !!(window as any).Capacitor;
+  
+  // If in Capacitor app OR production build, always use production backend
+  if (isCapacitor || isProduction) {
+    const reason = isCapacitor ? 'Capacitor app' : 'Production build';
+    console.log(`[API Config] 🌐 ${reason} detected, using production backend: ${PRODUCTION_BACKEND}`);
     cachedBackendUrl = PRODUCTION_BACKEND;
     lastHealthCheck = now;
     return PRODUCTION_BACKEND;
@@ -138,7 +142,7 @@ let API_BASE_URL = isProductionBuild ? PRODUCTION_BACKEND : PRODUCTION_BACKEND; 
 
 console.log('[API Config - Module Load] 🔧 Build mode:', import.meta.env.MODE, 'PROD:', import.meta.env.PROD, 'Using:', API_BASE_URL);
 
-const API_TIMEOUT = parseInt(import.meta.env.VITE_API_TIMEOUT || '60000'); // Increased to 60s for cold starts
+const API_TIMEOUT = parseInt(import.meta.env.VITE_API_TIMEOUT || '15000'); // Reduced to 15s for better UX
 // Enable logging in development by default
 const ENABLE_API_LOGGING = import.meta.env.VITE_ENABLE_API_LOGGING === 'true' || import.meta.env.DEV;
 const MAX_RETRIES = 1; // REDUCED: Only retry once to prevent aggressive behavior
@@ -175,6 +179,7 @@ export const endpoints = {
   users: {
     profile: '/users/profile',
     updateProfile: '/users/profile',
+    stats: '/users/profile/stats',
     uploadAvatar: '/media/avatar',
     followers: '/users/followers',
     following: '/users/following',
@@ -202,6 +207,7 @@ export const endpoints = {
     requestsForTrip: (tripId: string) => `/trips/${tripId}/requests`,
     approveRequest: (requestId: string) => `/trips/requests/${requestId}/approve`,
     rejectRequest: (requestId: string) => `/trips/requests/${requestId}/reject`,
+    featured: '/trips/featured',
   },
 
   // Clubs

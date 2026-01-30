@@ -159,9 +159,13 @@ router.get('/featured', optionalAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Get featured trips error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error while fetching featured trips'
+    // Return empty array instead of 500 error to prevent frontend crashes
+    res.json({
+      success: true,
+      data: {
+        trips: []
+      },
+      message: 'No featured trips available at the moment'
     });
   }
 });
@@ -241,7 +245,7 @@ router.post('/', auth, [
   body('budget.total').isFloat({ min: 0 }).withMessage('Budget must be a positive number'),
   body('budget.currency').trim().isLength({ min: 3, max: 3 }).withMessage('Currency must be 3 characters'),
   body('maxParticipants').isInt({ min: 1, max: 50 }).withMessage('Max participants must be between 1 and 50'),
-  body('category').isIn(['adventure', 'relaxation', 'cultural', 'business', 'family', 'romantic', 'solo', 'group']),
+  body('category').isIn(['adventure', 'relaxation', 'cultural', 'business', 'family', 'romantic', 'solo', 'group', 'beach', 'city', 'food', 'backpacking', 'luxury', 'budget', 'nature', 'roadtrip']),
   body('difficulty').optional().isIn(['easy', 'moderate', 'challenging', 'extreme']),
   body('visibility').optional().isIn(['public', 'friends', 'private'])
 ], async (req, res) => {
@@ -274,39 +278,51 @@ router.post('/', auth, [
     }
 
     // Create trip
-    const { title, description, destination, dates, budget, maxParticipants, itinerary, images, tags, category, difficulty, visibility, requirements } = req.body;
-    
-    const tripData = {
-      title,
-      description,
-      destination,
-      start_date: dates.startDate,
-      end_date: dates.endDate,
-      budget,
-      max_participants: maxParticipants,
-      itinerary: itinerary || [],
-      images: images || [],
-      tags: tags || [],
-      category,
-      difficulty: difficulty || 'moderate',
-      visibility: visibility || 'public',
-      requirements: requirements || [],
-      user_id: req.user.id,
-      organizer_id: req.user.id // Keep for backward compatibility
-    };
+    try {
+      const { title, description, destination, dates, budget, maxParticipants, itinerary, images, tags, category, difficulty, visibility, requirements } = req.body;
+      
+      console.log('Creating trip for user:', req.user.id);
 
-    const trip = await SupabaseTrip.create(tripData);
+      const tripData = {
+        title,
+        description,
+        destination,
+        start_date: dates.startDate,
+        end_date: dates.endDate,
+        budget,
+        max_participants: maxParticipants,
+        itinerary: itinerary || [],
+        images: images || [],
+        tags: tags || [],
+        category,
+        difficulty: difficulty || 'moderate',
+        visibility: visibility || 'public',
+        requirements: requirements || [],
+        user_id: req.user.id,
+        organizer_id: req.user.id // Keep for backward compatibility
+      };
 
-    res.status(201).json({
-      success: true,
-      message: 'Trip created successfully',
-      data: { trip }
-    });
+      const trip = await SupabaseTrip.create(tripData);
+
+      res.status(201).json({
+        success: true,
+        message: 'Trip created successfully',
+        data: { trip }
+      });
+    } catch (createError) {
+      console.error("❌ CREATE TRIP SQL ERROR:", createError);
+      res.status(500).json({ 
+        success: false, 
+        message: createError.message || 'Database error during trip creation',
+        error: process.env.NODE_ENV === 'development' ? createError : undefined
+      });
+    }
   } catch (error) {
-    console.error('Create trip error:', error);
+    console.error('Create trip error (Final):', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while creating trip'
+      message: 'Server error while creating trip',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
