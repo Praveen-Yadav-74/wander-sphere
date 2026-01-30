@@ -489,8 +489,10 @@ class SupabaseTrip {
   }
 
   // Get featured trips
+  // Get featured trips
   static async getFeatured(limit = 5) {
     try {
+      // Try with featured=true first
       const { data, error } = await supabase
         .from('trips')
         .select(`
@@ -500,7 +502,14 @@ class SupabaseTrip {
            first_name,
            last_name,
            avatar_url
-         )
+         ),
+         participants:trip_participants(
+           id,
+           status,
+           user_id
+         ),
+         likes:trip_likes(user_id),
+         comments:trip_comments(id)
         `)
         .eq('is_active', true)
         .eq('featured', true)
@@ -511,7 +520,34 @@ class SupabaseTrip {
       if (error) throw error;
       return data;
     } catch (error) {
-      throw new Error(`Failed to get featured trips: ${error.message}`);
+      console.warn('Failed to get featured trips (likely missing column), falling back to latest:', error.message);
+      
+      // Fallback: Get latest public trips
+      const { data, error: fallbackError } = await supabase
+        .from('trips')
+        .select(`
+          *,
+          organizer:users!trips_user_id_fkey(
+           id,
+           first_name,
+           last_name,
+           avatar_url
+         ),
+         participants:trip_participants(
+           id,
+           status,
+           user_id
+         ),
+         likes:trip_likes(user_id),
+         comments:trip_comments(id)
+        `)
+        .eq('is_active', true)
+        .eq('visibility', 'public')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (fallbackError) throw new Error(`Fallback failed: ${fallbackError.message}`);
+      return data;
     }
   }
 
