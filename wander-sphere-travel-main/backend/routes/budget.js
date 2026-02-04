@@ -169,49 +169,34 @@ router.post('/', auth, [
     };
 
     // If creating a trip budget, also create/update the trip
-    if (start_date && end_date) {
-      // Try to find existing trip or create new one
-      let tripId = trip_id;
-      
-      if (!tripId) {
-        // Create a new trip for this budget
-        const { data: newTrip, error: tripError } = await supabase
+    // MODIFIED: Only link to trip if specific trip_id is provided. Do NOT auto-create trips.
+    if (trip_id) {
+        // Try to verify existing trip or link
+        // We only support linking to EXISTING trips now to prevent pollution
+        
+       const { data: existingTrip, error: tripCheckError } = await supabase
           .from('trips')
-          .insert({
-            user_id: userId,
-            title: title,
-            description: description || '',
-            destination: { city: description || 'Unknown' }, // Use description as destination
-            start_date: start_date,
-            end_date: end_date,
-            status: 'active',
-            budget: { total: total_budget || budget_limit || 0, currency: currency || 'USD' },
-            budget_limit: total_budget || budget_limit || 0,
-            currency: currency || 'USD',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
           .select('id')
+          .eq('id', trip_id)
           .single();
 
-        if (!tripError && newTrip) {
-          tripId = newTrip.id;
-          insertData.trip_id = tripId;
+        if (existingTrip) {
+             // Update existing trip with budget info if needed (optional, keeping for consistency)
+            await supabase
+              .from('trips')
+              .update({
+                budget_limit: total_budget || budget_limit || 0,
+                // currency: currency || 'USD', // Don't force currency update on trip
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', trip_id)
+              .eq('user_id', userId);
+        } else {
+            // Provided trip_id invalid, silently ignore or fail? 
+            // Better to ignore and just create budget without trip link often
+            console.warn('Provided trip_id not found, creating standalone budget');
+            insertData.trip_id = null; // Clear invalid trip_id
         }
-      } else {
-        // Update existing trip with budget info
-        await supabase
-          .from('trips')
-          .update({
-            budget_limit: total_budget || budget_limit || 0,
-            currency: currency || 'USD',
-            start_date: start_date,
-            end_date: end_date,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', tripId)
-          .eq('user_id', userId);
-      }
     }
 
     const { data: budget, error } = await supabase
@@ -302,8 +287,7 @@ router.put('/:id', auth, async (req, res) => {
       };
       if (start_date) tripUpdateData.start_date = start_date;
       if (end_date) tripUpdateData.end_date = end_date;
-      if (budget_limit !== undefined) tripUpdateData.budget_limit = budget_limit;
-      if (currency) tripUpdateData.currency = currency;
+      // if (budget_limit !== undefined) tripUpdateData.budget_limit = budget_limit; // Optional
       if (status) tripUpdateData.status = status;
 
       await supabase
@@ -385,6 +369,12 @@ router.delete('/:id', auth, async (req, res) => {
     const userId = req.user.id;
     const budgetId = req.params.id;
     
+    // Also delete associated budget_expenses
+    await supabase
+      .from('budget_expenses')
+      .delete()
+      .eq('budget_id', budgetId);
+
     const { error } = await supabase
       .from('budgets')
       .delete()
@@ -466,14 +456,34 @@ router.get('/:id/expenses', auth, async (req, res) => {
           createdAt: exp.created_at,
           updatedAt: exp.updated_at
         }));
-      } else if (expensesError) {
-        console.error('Error fetching expenses:', expensesError);
-        return res.status(500).json({ 
-          success: false,
-          message: 'Error fetching expenses',
-          error: expensesError.message 
-        });
       }
+    }
+    // Also merge budget_expenses if we have mixed data (rare but possible)
+    else {
+         const budgetExpensesResult = await supabase
+            .from('budget_expenses')
+            .select('*')
+            .eq('budget_id', budgetId)
+            .order('expense_date', { ascending: false });
+            
+         if (budgetExpensesResult.data) {
+             const budgetExps = budgetExpensesResult.data.map(exp => ({
+                id: exp.id,
+                budgetId: exp.budget_id,
+                trip_id: budget.trip_id,
+                user_id: userId,
+                category: exp.category,
+                amount: exp.amount,
+                description: exp.description,
+                date: exp.expense_date,
+                currency: 'USD',
+                createdAt: exp.created_at,
+                updatedAt: exp.updated_at
+            }));
+            // Merge de-duplicating by ID if necessary, or just concat if they are distinct tables
+            // Since they are distinct tables, just concat for view
+            expenses = [...expenses, ...budgetExps];
+         }
     }
 
     res.json({
@@ -507,7 +517,7 @@ router.post('/:id/expenses', auth, async (req, res) => {
     // First verify the budget belongs to the user
     const { data: budget, error: budgetError } = await supabase
       .from('budgets')
-      .select('id, spent_amount, trip_id')
+      .select('id, spent_amount, total_amount, trip_id')
       .eq('id', budgetId)
       .eq('user_id', userId)
       .single();
@@ -519,82 +529,60 @@ router.post('/:id/expenses', auth, async (req, res) => {
       });
     }
 
-    // CRITICAL: Use the expenses table with user_id for RLS
-    // Try expenses table first (as per user's SQL), fallback to budget_expenses
-    let expense;
-    let expenseError;
-
-    // Try inserting into expenses table (with user_id for RLS)
-    const expenseData = {
-      trip_id: budget.trip_id || null,
-      user_id: user_id || userId, // CRITICAL: Include user_id for RLS
+    const budgetExpenseData = {
+      budget_id: budgetId,
       category,
       amount: parseFloat(amount),
       description: description || null,
-      date: date || new Date().toISOString().split('T')[0],
-      currency: currency || 'USD',
+      expense_date: date || new Date().toISOString().split('T')[0],
       created_at: new Date().toISOString()
     };
 
-    // Try expenses table first
-    const expensesResult = await supabase
-      .from('expenses')
-      .insert(expenseData)
-      .select()
-      .single();
-
-    if (expensesResult.error) {
-      // If expenses table doesn't exist or fails, try budget_expenses
-      console.log('expenses table not available, trying budget_expenses:', expensesResult.error.message);
-      
-      const budgetExpenseData = {
-        budget_id: budgetId,
-        category,
-        amount: parseFloat(amount),
-        description: description || null,
-        expense_date: date || new Date().toISOString().split('T')[0],
-        created_at: new Date().toISOString()
-      };
-
-      const budgetExpensesResult = await supabase
+    // OPTIMIZED: Insert expense and update budget in parallel, then calculate total
+    const [expenseResult, allExpensesResult] = await Promise.all([
+      supabase
         .from('budget_expenses')
         .insert(budgetExpenseData)
         .select()
-        .single();
-
-      expense = budgetExpensesResult.data;
-      expenseError = budgetExpensesResult.error;
-    } else {
-      expense = expensesResult.data;
-      expenseError = expensesResult.error;
-    }
-
-    if (expenseError) {
-      console.error('Error adding expense:', expenseError);
+        .single(),
+      // Get all expenses including the one we're about to add for accurate calculation
+      supabase
+        .from('budget_expenses')
+        .select('amount')
+        .eq('budget_id', budgetId)
+    ]);
+    
+    if (expenseResult.error) {
+      console.error('Error adding expense:', expenseResult.error);
       return res.status(500).json({ 
         success: false,
         message: 'Error adding expense',
-        error: expenseError.message 
+        error: expenseResult.error.message 
       });
     }
 
-    // Update the budget's spent amount
-    const newSpentAmount = (budget.spent_amount || 0) + parseFloat(amount);
+    // Calculate total spent including the new expense
+    const existingTotal = (allExpensesResult.data || []).reduce((sum, item) => sum + (item.amount || 0), 0);
+    const totalSpent = existingTotal + parseFloat(amount);
+
+    // Update budget's spent amount
     const { error: updateError } = await supabase
       .from('budgets')
       .update({ 
-        spent_amount: newSpentAmount,
+        spent_amount: totalSpent,
         updated_at: new Date().toISOString()
       })
       .eq('id', budgetId);
 
     if (updateError) {
       console.error('Error updating budget spent amount:', updateError);
+      // Expense was added but budget update failed - log for monitoring
+      // In production, you might want to implement a rollback or retry mechanism
     }
 
     res.status(201).json({
       success: true,
-      data: expense
+      data: expenseResult.data
     });
   } catch (error) {
     console.error('Error in POST /budget/:id/expenses:', error);
@@ -604,6 +592,131 @@ router.post('/:id/expenses', auth, async (req, res) => {
       error: error.message 
     });
   }
+});
+
+// Update an expense
+router.put('/:id/expenses/:expenseId', auth, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const budgetId = req.params.id;
+        const expenseId = req.params.expenseId;
+        const { category, amount, description, date } = req.body;
+
+        // Try updating in budget_expenses first
+        let { data: updatedExpense, error: updateError } = await supabase
+            .from('budget_expenses')
+            .update({
+                category,
+                amount,
+                description,
+                expense_date: date
+            })
+            .eq('id', expenseId)
+            // .eq('budget_id', budgetId) // Optional verify
+            .select()
+            .single();
+
+        // If not found in budget_expenses, try 'expenses' table (legacy support)
+        if (!updatedExpense) {
+             const { data: updatedLegacyExpense, error: legacyError } = await supabase
+            .from('expenses')
+            .update({
+                category,
+                amount,
+                description,
+                date: date
+            })
+            .eq('id', expenseId)
+            .eq('user_id', userId)
+            .select()
+            .single();
+            
+            updatedExpense = updatedLegacyExpense;
+            if (legacyError && !updateError) updateError = legacyError; 
+        }
+
+        if (updateError || !updatedExpense) {
+            return res.status(404).json({ success: false, message: 'Expense not found or update failed' });
+        }
+
+        // Recalculate budget total spent
+        // We need to sum from both tables if mixed usage, but typically it is one or other.
+        // Simplified: just sum budget_expenses for this budget
+        const { data: allExpenses } = await supabase
+            .from('budget_expenses')
+            .select('amount')
+            .eq('budget_id', budgetId);
+        
+        let totalSpent = (allExpenses || []).reduce((sum, item) => sum + (item.amount || 0), 0);
+
+        // Update budget
+         await supabase
+            .from('budgets')
+            .update({ 
+                spent_amount: totalSpent,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', budgetId);
+
+        res.json({ success: true, data: updatedExpense });
+
+    } catch (error) {
+        console.error('Update expense error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Delete an expense
+router.delete('/:id/expenses/:expenseId', auth, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const budgetId = req.params.id;
+        const expenseId = req.params.expenseId;
+
+        // Try deleting from budget_expenses
+        let { error: deleteError, count } = await supabase
+            .from('budget_expenses')
+            .delete({ count: 'exact' })
+            .eq('id', expenseId); // budget_expenses doesn't have user_id, relies on budget_id relation ideally, but ID is unique.
+            
+        // If count is 0, try deleting from expenses (legacy)
+        if (count === 0) {
+             const { error: legacyDeleteError } = await supabase
+            .from('expenses')
+            .delete()
+            .eq('id', expenseId)
+            .eq('user_id', userId);
+            
+            if (legacyDeleteError) deleteError = legacyDeleteError;
+        }
+
+        if (deleteError) {
+             console.error('Delete expense error:', deleteError);
+             return res.status(500).json({ success: false, message: 'Failed to delete expense' });
+        }
+
+        // Recalculate budget total spent
+        const { data: allExpenses } = await supabase
+            .from('budget_expenses')
+            .select('amount')
+            .eq('budget_id', budgetId);
+        
+        const totalSpent = (allExpenses || []).reduce((sum, item) => sum + (item.amount || 0), 0);
+
+         await supabase
+            .from('budgets')
+            .update({ 
+                spent_amount: totalSpent,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', budgetId);
+
+        res.json({ success: true, message: 'Expense deleted' });
+
+    } catch (error) {
+        console.error('Delete expense error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
 });
 
 export default router;

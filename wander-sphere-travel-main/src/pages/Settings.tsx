@@ -1,667 +1,251 @@
-import React, { useState, useEffect } from "react";
-import { User, Lock, Shield, Bell, LogOut, Camera, Save, Loader2 } from "lucide-react";
+import React, { useState } from "react";
+import { 
+  Bell, 
+  Lock, 
+  LogOut, 
+  Globe, 
+  CreditCard, 
+  MapPin, 
+  Trash2, 
+  ChevronRight,
+  Shield,
+  Moon
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
-import { useToast } from "@/hooks/use-toast";
-import { userService } from "@/services/userService";
-import { authService } from "@/services/authService";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 const Settings = () => {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
   const { toast } = useToast();
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState({
-    profile: false,
-    notifications: false,
-    privacy: false,
-    password: false,
-  });
   
-  const [profile, setProfile] = useState({
-    name: "",
-    username: "",
-    email: "",
-    bio: "",
-    location: "",
-    avatar: "",
-  });
-
+  const [currency, setCurrency] = useState("USD");
+  const [distanceUnit, setDistanceUnit] = useState("km");
+  const [language, setLanguage] = useState("en");
+  
   const [notifications, setNotifications] = useState({
-    likes: true,
-    comments: true,
-    follows: true,
-    trips: true,
-    clubs: false,
-    email: true,
-    push: true,
+    tripAlerts: true,
+    priceDrops: false,
+    marketing: false
   });
-
-  const [privacy, setPrivacy] = useState({
-    privateAccount: false,
-    showLocation: true,
-    showTravelStats: true,
-    allowTagging: true,
-  });
-
-  const [passwordData, setPasswordData] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
-
-  });
-
-
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      setSaving(prev => ({ ...prev, profile: true }));
-      
-      // Use userService to upload
-      const { avatarUrl } = await userService.uploadAvatar(file);
-      
-      setProfile(prev => ({ ...prev, avatar: avatarUrl }));
-      
-      toast({
-        title: "Avatar updated",
-        description: "Your profile picture has been updated successfully.",
-      });
-    } catch (error: any) {
-      console.error('Error uploading avatar:', error);
-      toast({
-        title: "Upload Failed",
-        description: error.message || "Failed to upload profile picture.",
-        variant: "destructive",
-      });
-    } finally {
-      setSaving(prev => ({ ...prev, profile: false }));
-      // Reset input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
-
-  // Load user data on component mount
-  useEffect(() => {
-    const loadUserData = async () => {
-      try {
-        setLoading(true);
-        const [userProfile, notificationSettings] = await Promise.all([
-          userService.getProfile(),
-          userService.getNotificationSettings().catch(() => notifications), // fallback to default
-        ]);
-        
-        setProfile({
-          name: userProfile.name || "",
-          username: userProfile.username || "",
-          email: userProfile.email || "",
-          bio: userProfile.bio || "",
-          location: userProfile.location || "",
-          avatar: userProfile.avatar || "",
-        });
-
-        if (userProfile.privacy_settings || typeof userProfile.is_private !== 'undefined') {
-          setPrivacy({
-            privateAccount: userProfile.is_private || false,
-            showLocation: userProfile.privacy_settings?.show_location ?? true,
-            showTravelStats: userProfile.privacy_settings?.show_travel_stats ?? true,
-            allowTagging: userProfile.privacy_settings?.allow_tagging ?? true,
-          });
-        }
-        
-        if (notificationSettings && typeof notificationSettings === 'object') {
-          setNotifications(prev => ({ ...prev, ...notificationSettings }));
-        }
-
-
-      } catch (error) {
-        console.error('Error loading user data:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load user settings. Please refresh the page.",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadUserData();
-  }, [toast]);
-
-  const handleSaveProfile = async () => {
-    try {
-      setSaving(prev => ({ ...prev, profile: true }));
-      await userService.updateProfile(profile);
-      toast({
-        title: "Profile updated",
-        description: "Your profile has been successfully updated.",
-      });
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update profile. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setSaving(prev => ({ ...prev, profile: false }));
-    }
-  };
-
-  const handleSaveNotifications = async () => {
-    try {
-      setSaving(prev => ({ ...prev, notifications: true }));
-      await userService.updateNotificationSettings(notifications);
-      toast({
-        title: "Notifications updated",
-        description: "Your notification preferences have been saved.",
-      });
-    } catch (error) {
-      console.error('Error updating notifications:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update notification settings. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setSaving(prev => ({ ...prev, notifications: false }));
-    }
-  };
-
-  const handleSavePrivacy = async () => {
-    try {
-      setSaving(prev => ({ ...prev, privacy: true }));
-      const privacySettings = {
-        ...privacy,
-        isPrivate: privacy.privateAccount
-      };
-      await userService.updatePrivacySettings(privacySettings);
-      toast({
-        title: "Privacy settings updated",
-        description: "Your privacy preferences have been saved.",
-      });
-    } catch (error) {
-      console.error('Error updating privacy settings:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update privacy settings. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setSaving(prev => ({ ...prev, privacy: false }));
-    }
-  };
-
-  const handleChangePassword = async () => {
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      toast({
-        title: "Error",
-        description: "New passwords do not match.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (passwordData.newPassword.length < 6) {
-      toast({
-        title: "Error",
-        description: "Password must be at least 6 characters long.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      setSaving(prev => ({ ...prev, password: true }));
-      await userService.changePassword(passwordData.currentPassword, passwordData.newPassword);
-      setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
-      toast({
-        title: "Password updated",
-        description: "Your password has been successfully changed.",
-      });
-    } catch (error) {
-      console.error('Error changing password:', error);
-      toast({
-        title: "Error",
-        description: "Failed to change password. Please check your current password and try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setSaving(prev => ({ ...prev, password: false }));
-    }
-  };
 
   const handleLogout = async () => {
     try {
-      await authService.logout();
+      await logout();
+      navigate("/");
       toast({
         title: "Logged out",
-        description: "You have been successfully logged out.",
+        description: "See you on your next adventure!",
       });
-      // Redirect will be handled by auth context
     } catch (error) {
-      console.error('Error logging out:', error);
-      toast({
-        title: "Error",
-        description: "Failed to log out. Please try again.",
-        variant: "destructive",
-      });
+      console.error("Logout error:", error);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="max-w-4xl mx-auto px-4 py-6">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <Loader2 className="w-8 h-8 animate-spin" />
+  const SectionHeader = ({ title }: { title: string }) => (
+    <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 px-1">{title}</h3>
+  );
+
+  const SettingRow = ({ icon: Icon, title, description, action }: any) => (
+    <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-gray-100 mb-3 shadow-sm">
+      <div className="flex items-center gap-4">
+        <div className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-gray-600">
+          <Icon className="w-5 h-5" />
+        </div>
+        <div>
+          <h4 className="font-medium text-gray-900">{title}</h4>
+          {description && <p className="text-sm text-gray-500">{description}</p>}
         </div>
       </div>
-    );
-  }
+      <div>{action}</div>
+    </div>
+  );
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground">Settings</h1>
-        <p className="text-muted-foreground mt-1">Manage your account settings and preferences.</p>
+    <div className="min-h-screen bg-gray-50 pb-24 pt-20 px-4">
+       <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+        <p className="text-gray-500">Manage your travel preferences</p>
       </div>
 
-      <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="profile" className="flex items-center gap-2">
-            <User className="w-4 h-4" />
-            Profile
-          </TabsTrigger>
-          <TabsTrigger value="account" className="flex items-center gap-2">
-            <Lock className="w-4 h-4" />
-            Account
-          </TabsTrigger>
-          <TabsTrigger value="privacy" className="flex items-center gap-2">
-            <Shield className="w-4 h-4" />
-            Privacy
-          </TabsTrigger>
-          <TabsTrigger value="notifications" className="flex items-center gap-2">
-            <Bell className="w-4 h-4" />
-            Notifications
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="profile" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Edit Profile</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Avatar Section */}
-              <div className="flex items-center gap-6">
-                <Avatar className="w-24 h-24">
-                  <AvatarImage src={profile.avatar} />
-                  <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
-                    {profile.name.split(' ').map(n => n[0]).join('')}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    className="hidden"
-                    accept="image/*"
-                    onChange={handleFileChange}
-                  />
-                  <Button 
-                    variant="outline" 
-                    className="flex items-center gap-2"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={saving.profile}
+      <div className="max-w-2xl mx-auto space-y-8">
+        {/* App Preferences */}
+        <section>
+          <SectionHeader title="App Preferences" />
+          
+          <SettingRow 
+            icon={CreditCard} 
+            title="Currency" 
+            description="Preferred currency for pricing"
+            action={
+              <Select value={currency} onValueChange={setCurrency}>
+                <SelectTrigger className="w-[100px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="USD">USD ($)</SelectItem>
+                  <SelectItem value="EUR">EUR (€)</SelectItem>
+                  <SelectItem value="INR">INR (₹)</SelectItem>
+                  <SelectItem value="GBP">GBP (£)</SelectItem>
+                </SelectContent>
+              </Select>
+            } 
+          />
+          
+          <SettingRow 
+            icon={MapPin} 
+            title="Distance Units" 
+            description="Kilometers or Miles"
+            action={
+               <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-lg">
+                  <button 
+                    onClick={() => setDistanceUnit('km')}
+                    className={`px-3 py-1 rounded-md text-sm font-medium transition-all ${distanceUnit === 'km' ? 'bg-white shadow-sm text-primary' : 'text-gray-500'}`}
                   >
-                    {saving.profile ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
-                    Change Photo
-                  </Button>
-                </div>
+                    KM
+                  </button>
+                  <button 
+                    onClick={() => setDistanceUnit('mi')}
+                    className={`px-3 py-1 rounded-md text-sm font-medium transition-all ${distanceUnit === 'mi' ? 'bg-white shadow-sm text-primary' : 'text-gray-500'}`}
+                  >
+                    Miles
+                  </button>
+               </div>
+            } 
+          />
+
+          <SettingRow 
+             icon={Globe} 
+             title="Language" 
+             description="App language"
+             action={
+               <Select value={language} onValueChange={setLanguage}>
+                 <SelectTrigger className="w-[110px]">
+                   <SelectValue />
+                 </SelectTrigger>
+                 <SelectContent>
+                   <SelectItem value="en">English</SelectItem>
+                   <SelectItem value="es">Español</SelectItem>
+                   <SelectItem value="hi">Hindi</SelectItem>
+                   <SelectItem value="fr">Français</SelectItem>
+                 </SelectContent>
+               </Select>
+             } 
+           />
+        </section>
+
+        {/* Notifications */}
+        <section>
+          <SectionHeader title="Notifications" />
+          
+          <SettingRow 
+            icon={Bell} 
+            title="Trip Alerts" 
+            description="Gate changes, delays, reminders"
+            action={
+              <Switch 
+                checked={notifications.tripAlerts} 
+                onCheckedChange={(c) => setNotifications(prev => ({ ...prev, tripAlerts: c }))} 
+              />
+            } 
+          />
+          
+          <SettingRow 
+            icon={CreditCard} 
+            title="Price Drops" 
+            description="Alerts for saved trip discounts"
+            action={
+              <Switch 
+                checked={notifications.priceDrops} 
+                onCheckedChange={(c) => setNotifications(prev => ({ ...prev, priceDrops: c }))} 
+              />
+            } 
+          />
+        </section>
+
+        {/* Account */}
+        <section>
+          <SectionHeader title="Account" />
+
+          <div
+            onClick={() => navigate('/settings/change-password')}
+            className="flex items-center justify-between p-4 bg-white rounded-xl border border-gray-100 mb-3 shadow-sm cursor-pointer hover:bg-gray-50"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-gray-600">
+                <Lock className="w-5 h-5" />
               </div>
-
-              <Separator />
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input
-                    id="name"
-                    value={profile.name}
-                    onChange={(e) => setProfile({ ...profile, name: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="username">Username</Label>
-                  <Input
-                    id="username"
-                    value={profile.username}
-                    onChange={(e) => setProfile({ ...profile, username: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={profile.email}
-                    onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="bio">Bio</Label>
-                  <Textarea
-                    id="bio"
-                    value={profile.bio}
-                    onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
-                    className="min-h-24"
-                  />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="location">Location</Label>
-                  <Input
-                    id="location"
-                    value={profile.location}
-                    onChange={(e) => setProfile({ ...profile, location: e.target.value })}
-                  />
-                </div>
+              <h4 className="font-medium text-gray-900">Change Password</h4>
+            </div>
+            <ChevronRight className="w-5 h-5 text-gray-300" />
+          </div>
+          
+          <div
+            onClick={() => navigate('/privacy')}
+            className="flex items-center justify-between p-4 bg-white rounded-xl border border-gray-100 mb-3 shadow-sm cursor-pointer hover:bg-gray-50"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-gray-600">
+                <Shield className="w-5 h-5" />
               </div>
+              <h4 className="font-medium text-gray-900">Privacy Policy</h4>
+            </div>
+            <ChevronRight className="w-5 h-5 text-gray-300" />
+          </div>
 
-              <Button 
-                onClick={handleSaveProfile} 
-                disabled={saving.profile}
-                className="bg-gradient-primary text-white"
-              >
-                {saving.profile ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    Save Changes
-                  </>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="account" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Account Security</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="current-password">Current Password</Label>
-                  <Input 
-                    id="current-password" 
-                    type="password" 
-                    value={passwordData.currentPassword}
-                    onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="new-password">New Password</Label>
-                  <Input 
-                    id="new-password" 
-                    type="password" 
-                    value={passwordData.newPassword}
-                    onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="confirm-password">Confirm New Password</Label>
-                  <Input 
-                    id="confirm-password" 
-                    type="password" 
-                    value={passwordData.confirmPassword}
-                    onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                  />
-                </div>
+          <div
+            onClick={() => navigate('/data-policy')}
+            className="flex items-center justify-between p-4 bg-white rounded-xl border border-gray-100 mb-3 shadow-sm cursor-pointer hover:bg-gray-50"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-gray-600">
+                <Shield className="w-5 h-5" />
               </div>
-              <Button 
-                onClick={handleChangePassword} 
-                disabled={saving.password}
-                className="bg-gradient-primary text-white"
-              >
-                {saving.password ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Updating...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    Update Password
-                  </>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
+              <h4 className="font-medium text-gray-900">Data Policy</h4>
+            </div>
+            <ChevronRight className="w-5 h-5 text-gray-300" />
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Account Actions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Button 
-                variant="destructive" 
-                onClick={handleLogout}
-                className="flex items-center gap-2"
-              >
-                <LogOut className="w-4 h-4" />
-                Log Out
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="privacy" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Privacy Settings</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label>Private Account</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Only approved followers can see your posts
-                    </p>
-                  </div>
-                  <Switch
-                    checked={privacy.privateAccount}
-                    onCheckedChange={(checked) => 
-                      setPrivacy({ ...privacy, privateAccount: checked })
-                    }
-                  />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label>Show Location</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Display your location on your profile
-                    </p>
-                  </div>
-                  <Switch
-                    checked={privacy.showLocation}
-                    onCheckedChange={(checked) => 
-                      setPrivacy({ ...privacy, showLocation: checked })
-                    }
-                  />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label>Show Travel Stats</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Display your travel achievements publicly
-                    </p>
-                  </div>
-                  <Switch
-                    checked={privacy.showTravelStats}
-                    onCheckedChange={(checked) => 
-                      setPrivacy({ ...privacy, showTravelStats: checked })
-                    }
-                  />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label>Allow Tagging</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Let others tag you in their posts
-                    </p>
-                  </div>
-                  <Switch
-                    checked={privacy.allowTagging}
-                    onCheckedChange={(checked) => 
-                      setPrivacy({ ...privacy, allowTagging: checked })
-                    }
-                  />
-                </div>
+          <div
+            onClick={() => navigate('/account-deletion')}
+            className="flex items-center justify-between p-4 bg-white rounded-xl border border-gray-100 mb-3 shadow-sm cursor-pointer hover:bg-gray-50"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-gray-600">
+                <Trash2 className="w-5 h-5" />
               </div>
-              <Button 
-                onClick={handleSavePrivacy} 
-                disabled={saving.privacy}
-                className="bg-gradient-primary text-white"
-              >
-                {saving.privacy ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    Save Privacy Settings
-                  </>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="notifications" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Notification Preferences</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label>Likes</Label>
-                    <p className="text-sm text-muted-foreground">
-                      When someone likes your posts
-                    </p>
-                  </div>
-                  <Switch
-                    checked={notifications.likes}
-                    onCheckedChange={(checked) => 
-                      setNotifications({ ...notifications, likes: checked })
-                    }
-                  />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label>Comments</Label>
-                    <p className="text-sm text-muted-foreground">
-                      When someone comments on your posts
-                    </p>
-                  </div>
-                  <Switch
-                    checked={notifications.comments}
-                    onCheckedChange={(checked) => 
-                      setNotifications({ ...notifications, comments: checked })
-                    }
-                  />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label>New Followers</Label>
-                    <p className="text-sm text-muted-foreground">
-                      When someone starts following you
-                    </p>
-                  </div>
-                  <Switch
-                    checked={notifications.follows}
-                    onCheckedChange={(checked) => 
-                      setNotifications({ ...notifications, follows: checked })
-                    }
-                  />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label>Trip Updates</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Updates about trips you're interested in
-                    </p>
-                  </div>
-                  <Switch
-                    checked={notifications.trips}
-                    onCheckedChange={(checked) => 
-                      setNotifications({ ...notifications, trips: checked })
-                    }
-                  />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label>Club Activity</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Activity in travel clubs you've joined
-                    </p>
-                  </div>
-                  <Switch
-                    checked={notifications.clubs}
-                    onCheckedChange={(checked) => 
-                      setNotifications({ ...notifications, clubs: checked })
-                    }
-                  />
-                </div>
+              <h4 className="font-medium text-gray-900">Account Deletion Policy</h4>
+            </div>
+            <ChevronRight className="w-5 h-5 text-gray-300" />
+          </div>
+          
+          <div 
+            onClick={handleLogout}
+            className="flex items-center justify-between p-4 bg-white rounded-xl border border-gray-100 mb-3 shadow-sm cursor-pointer hover:bg-gray-50"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-red-50 rounded-full flex items-center justify-center text-red-500">
+                <LogOut className="w-5 h-5" />
               </div>
-              <Button 
-                onClick={handleSaveNotifications} 
-                disabled={saving.notifications}
-                className="bg-gradient-primary text-white"
-              >
-                {saving.notifications ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    Save Notification Settings
-                  </>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+              <h4 className="font-medium text-red-600">Log Out</h4>
+            </div>
+          </div>
+        </section>
+
+        <div className="text-center text-gray-400 text-sm pb-8">
+          WanderSphere v2.0.0 (Travel Core)
+        </div>
+      </div>
     </div>
   );
 };

@@ -1,6 +1,9 @@
+
 import { useState, useEffect, useRef } from "react";
+import { getAvatarUrl } from "@/utils/imageHandling";
+import { getRandomAvatar } from "@/utils/avatars";
 import { Link, useNavigate } from "react-router-dom";
-import { Bell, Globe, Heart, Luggage, MessageCircle, User, UserPlus, LogOut, Settings, UserCircle, Briefcase } from "lucide-react";
+import { Bell, Globe, User, LogOut, Settings, UserCircle, Briefcase } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -37,6 +40,9 @@ const Header = () => {
   ];
   const [phraseIndex, setPhraseIndex] = useState(0);
 
+  // Avatar Logic
+  const displayAvatar = user?.avatar ? getAvatarUrl(user.avatar) : getRandomAvatar(user?.id || 'default');
+
   useEffect(() => {
     // Cycle through phrases every 2 seconds
     const timer = setInterval(() => {
@@ -52,12 +58,10 @@ const Header = () => {
       const shouldFetch = now - lastFetchTime.current > CACHE_DURATION;
       
       if (shouldFetch) {
-        console.log('[Header] Cache stale, fetching notifications');
+        // console.log('[Header] Cache stale, fetching notifications');
         fetchNotifications();
         fetchUnreadCount();
         lastFetchTime.current = now;
-      } else {
-        console.log('[Header] Using cached notifications, skipping fetch');
       }
 
       // Subscribe to realtime notifications
@@ -72,7 +76,6 @@ const Header = () => {
             filter: `user_id=eq.${user.id}`,
           },
           (payload) => {
-            // Refresh notifications and count when a new notification is received
             fetchNotifications();
             fetchUnreadCount();
           }
@@ -86,23 +89,20 @@ const Header = () => {
   }, [user]);
 
   const fetchNotifications = async () => {
-    if (!user) return; // Don't fetch if user is not authenticated
-    
+    if (!user) return; 
     try {
-      const response = await notificationService.getNotifications(1, 5); // Get first 5 for dropdown
+      const response = await notificationService.getNotifications(1, 5); 
       if (response.success) {
         setNotifications(response.data.notifications);
       }
     } catch (error) {
       console.error('Error fetching notifications:', error);
-      // Fallback to empty array if API fails
       setNotifications([]);
     }
   };
 
   const fetchUnreadCount = async () => {
-    if (!user) return; // Don't fetch if user is not authenticated
-    
+    if (!user) return;
     try {
       const response = await notificationService.getUnreadCount();
       if (response.success) {
@@ -123,7 +123,9 @@ const Header = () => {
       content: notification.message,
       time: timeAgo,
       comment: notification.data?.comment,
-      image: notification.data?.image
+      image: notification.data?.image,
+       // Use random avatar for notification users if no image available? 
+       // For now stick to default placeholder or initials
     };
   };
 
@@ -144,271 +146,77 @@ const Header = () => {
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md shadow-sm pt-[env(safe-area-inset-top)]">
       <div className="container flex items-center justify-between h-16 px-4">
         <div className="flex items-center gap-2">
-          <Link to="/" className="flex items-center gap-2">
-            <Globe className="h-6 w-6 text-primary" />
-            <span className="font-bold text-lg">WanderSphere</span>
+          <Link to="/" className="flex items-center gap-2 group">
+            <div className="bg-primary/10 p-2 rounded-xl group-hover:bg-primary/20 transition-colors">
+               <Globe className="h-5 w-5 text-primary" />
+            </div>
+            <span className="font-bold text-lg tracking-tight">WanderSphere</span>
           </Link>
         </div>
 
         {/* Right Side Actions */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-1 sm:gap-2">
           
-          {/* Bookings Button - Desktop: Full text, Mobile: Animated text + icon */}
-          <Link to="/booking">
-            <Button 
-              size="sm"
-              className="bg-gradient-to-r from-primary to-primary/80 text-white shadow-sm hover:shadow-md transition-all duration-300 rounded-lg px-2 sm:px-4"
-            >
-              {/* Mobile: Text FIRST, then emoji icon */}
-              <div className="flex items-center gap-1.5 md:hidden">
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={phraseIndex}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.3 }}
-                    className="flex items-center gap-1.5"
-                  >
-                    <span className="text-xs font-semibold">
-                      {bookingPhrases[phraseIndex].text}
-                    </span>
-                    <span className="text-sm">
-                      {bookingPhrases[phraseIndex].icon}
-                    </span>
-                  </motion.div>
-                </AnimatePresence>
-              </div>
-              
-              {/* Desktop: Full text button */}
-              <div className="hidden md:flex items-center gap-2">
-                <Luggage className="w-4 h-4" />
-                <span className="text-sm">Bookings</span>
-              </div>
-            </Button>
-          </Link>
-
-          {/* Notifications */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="w-5 h-5" />
-                {unreadCount > 0 && (
-                  <Badge className="absolute -top-1 -right-1 w-5 h-5 p-0 flex items-center justify-center bg-destructive text-destructive-foreground text-xs rounded-full">
-                    {unreadCount}
-                  </Badge>
-                )}
+          {/* Notifications Utility (New) */}
+           <Link to="/notifications">
+              <Button variant="ghost" size="icon" className="relative text-gray-500 hover:text-gray-900 hover:bg-gray-100/50">
+                 <Bell className="w-5 h-5" />
+                 {/* Logic for meaningful utility notifications count needed here later */}
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-96 p-0">
-              <div className="p-3 bg-muted/30 rounded-t-lg">
-                <h3 className="font-semibold text-lg">Notifications</h3>
-              </div>
-              
-              <Tabs defaultValue="all" className="w-full" onValueChange={setActiveNotificationTab}>
-                <div className="px-2 pt-2">
-                  <TabsList className="w-full grid grid-cols-4">
-                    <TabsTrigger value="all" className="text-xs">
-                      All
-                    </TabsTrigger>
-                    <TabsTrigger value="likes" className="text-xs">
-                      <Heart className="h-3 w-3 mr-1" /> Likes
-                    </TabsTrigger>
-                    <TabsTrigger value="comments" className="text-xs">
-                      <MessageCircle className="h-3 w-3 mr-1" /> Comments
-                    </TabsTrigger>
-                    <TabsTrigger value="follows" className="text-xs">
-                      <UserPlus className="h-3 w-3 mr-1" /> Follows
-                    </TabsTrigger>
-                  </TabsList>
-                </div>
-                
-                <TabsContent value="all" className="mt-0 max-h-[400px] overflow-y-auto">
-                  <div className="py-2">
-                    {/* Today Section */}
-                    <div className="px-3 py-1">
-                      <h4 className="text-xs font-medium text-muted-foreground">Today</h4>
-                    </div>
-                    
-                    {displayNotifications.map((notification) => (
-                      <div key={notification.id} className="hover:bg-muted/50 transition-colors cursor-pointer">
-                        <div className="flex items-start gap-3 p-3">
-                          <Avatar className="h-10 w-10">
-                            <AvatarImage src="/avatars/user.png" alt="Avatar" />
-                            <AvatarFallback>{notification.user.charAt(0)}</AvatarFallback>
-                          </Avatar>
-                          <div className="grid gap-1 flex-1">
-                            <div className="flex items-center justify-between">
-                              <p className="text-sm">
-                                <span className="font-medium">{notification.user}</span> {notification.content}
-                              </p>
-                              <span className="text-xs text-muted-foreground whitespace-nowrap">{notification.time}</span>
-                            </div>
-                            {notification.comment && (
-                              <p className="text-xs text-muted-foreground">
-                                "{notification.comment}"
-                              </p>
-                            )}
-                          </div>
-                          {notification.image && (
-                            <div className="h-10 w-10 rounded overflow-hidden flex-shrink-0">
-                              <img src={notification.image} alt="Post" className="h-full w-full object-cover" />
-                            </div>
-                          )}
-                          {notification.type === "follow" && (
-                            <Button size="sm" variant="outline" className="h-8 flex-shrink-0">
-                              Follow
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="likes" className="mt-0 max-h-[400px] overflow-y-auto">
-                  <div className="py-2">
-                    {displayNotifications.filter(n => n.type === "like").map((notification) => (
-                      <div key={notification.id} className="hover:bg-muted/50 transition-colors cursor-pointer">
-                        <div className="flex items-start gap-3 p-3">
-                          <Avatar className="h-10 w-10">
-                            <AvatarImage src="/avatars/user.png" alt="Avatar" />
-                            <AvatarFallback>{notification.user.charAt(0)}</AvatarFallback>
-                          </Avatar>
-                          <div className="grid gap-1 flex-1">
-                            <div className="flex items-center justify-between">
-                              <p className="text-sm">
-                                <span className="font-medium">{notification.user}</span> {notification.content}
-                              </p>
-                              <span className="text-xs text-muted-foreground whitespace-nowrap">{notification.time}</span>
-                            </div>
-                          </div>
-                          {notification.image && (
-                            <div className="h-10 w-10 rounded overflow-hidden flex-shrink-0">
-                              <img src={notification.image} alt="Post" className="h-full w-full object-cover" />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="comments" className="mt-0 max-h-[400px] overflow-y-auto">
-                  <div className="py-2">
-                    {displayNotifications.filter(n => n.type === "comment").map((notification) => (
-                      <div key={notification.id} className="hover:bg-muted/50 transition-colors cursor-pointer">
-                        <div className="flex items-start gap-3 p-3">
-                          <Avatar className="h-10 w-10">
-                            <AvatarImage src="/avatars/user.png" alt="Avatar" />
-                            <AvatarFallback>{notification.user.charAt(0)}</AvatarFallback>
-                          </Avatar>
-                          <div className="grid gap-1 flex-1">
-                            <div className="flex items-center justify-between">
-                              <p className="text-sm">
-                                <span className="font-medium">{notification.user}</span> {notification.content}
-                              </p>
-                              <span className="text-xs text-muted-foreground whitespace-nowrap">{notification.time}</span>
-                            </div>
-                            {notification.comment && (
-                              <p className="text-xs">
-                                "{notification.comment}"
-                              </p>
-                            )}
-                          </div>
-                          {notification.image && (
-                            <div className="h-10 w-10 rounded overflow-hidden flex-shrink-0">
-                              <img src={notification.image} alt="Post" className="h-full w-full object-cover" />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="follows" className="mt-0 max-h-[400px] overflow-y-auto">
-                  <div className="py-2">
-                    {displayNotifications.filter(n => n.type === "follow").map((notification) => (
-                      <div key={notification.id} className="hover:bg-muted/50 transition-colors cursor-pointer">
-                        <div className="flex items-start gap-3 p-3">
-                          <Avatar className="h-10 w-10">
-                            <AvatarImage src="/avatars/user.png" alt="Avatar" />
-                            <AvatarFallback>{notification.user.charAt(0)}</AvatarFallback>
-                          </Avatar>
-                          <div className="grid gap-1 flex-1">
-                            <div className="flex items-center justify-between">
-                              <p className="text-sm">
-                                <span className="font-medium">{notification.user}</span> {notification.content}
-                              </p>
-                              <span className="text-xs text-muted-foreground whitespace-nowrap">{notification.time}</span>
-                            </div>
-                          </div>
-                          <Button size="sm" variant="outline" className="h-8 flex-shrink-0">
-                            Follow
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </TabsContent>
-              </Tabs>
-              
-              <div className="p-2 bg-muted/20 rounded-b-lg">
-                <Button 
-                  variant="ghost" 
-                  className="w-full text-primary text-sm"
-                  onClick={() => navigate('/notifications')}
-                >
-                  View all notifications
-                </Button>
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
+           </Link>
+
+
+
 
           {/* Profile */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative">
-                <Avatar className="w-8 h-8">
-                  <AvatarImage src={user?.avatar} alt={user?.firstName} />
-                  <AvatarFallback className="bg-primary text-primary-foreground">
+              <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 ml-1 border border-gray-100 shadow-sm p-0 overflow-hidden hover:ring-2 hover:ring-primary/20 transition-all">
+                <Avatar className="h-full w-full">
+                  <AvatarImage src={displayAvatar} alt={user?.firstName} className="object-cover" />
+                  <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white font-bold">
                     {user?.firstName?.[0]}{user?.lastName?.[0]}
                   </AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel className="font-normal">
+            <DropdownMenuContent align="end" className="w-56 rounded-xl shadow-xl border-gray-100 p-1">
+              <DropdownMenuLabel className="font-normal p-3 bg-gray-50/50 rounded-lg mb-1">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">
+                  <p className="text-sm font-bold leading-none text-gray-900">
                     {user?.firstName} {user?.lastName}
                   </p>
-                  <p className="text-xs leading-none text-muted-foreground">
+                  <p className="text-xs leading-none text-gray-500 truncate">
                     {user?.email}
                   </p>
                 </div>
               </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link to="/profile" className="flex items-center">
-                  <UserCircle className="mr-2 h-4 w-4" />
-                  <span>Profile</span>
+              
+              <DropdownMenuItem asChild className="rounded-lg cursor-pointer my-0.5">
+                <Link to="/profile" className="flex items-center py-2 px-3">
+                  <UserCircle className="mr-2 h-4 w-4 text-gray-500" />
+                  <span className="font-medium">Profile</span>
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to="/settings" className="flex items-center">
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>Settings</span>
+              <DropdownMenuItem asChild className="rounded-lg cursor-pointer my-0.5">
+                <Link to="/booking" className="flex items-center py-2 px-3">
+                  <Briefcase className="mr-2 h-4 w-4 text-gray-500" />
+                  <span className="font-medium">My Bookings</span>
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild className="rounded-lg cursor-pointer my-0.5">
+                <Link to="/settings" className="flex items-center py-2 px-3">
+                  <Settings className="mr-2 h-4 w-4 text-gray-500" />
+                  <span className="font-medium">Settings</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="bg-gray-100 my-1" />
               <DropdownMenuItem 
                 onClick={() => logout()}
-                className="flex items-center text-red-600 focus:text-red-600"
+                className="flex items-center text-red-600 focus:text-red-700 rounded-lg cursor-pointer py-2 px-3 focus:bg-red-50"
               >
                 <LogOut className="mr-2 h-4 w-4" />
-                <span>Log out</span>
+                <span className="font-medium">Log out</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

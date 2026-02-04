@@ -1,552 +1,288 @@
-import React, { useState, useEffect, useRef } from "react";
-import { handleImageError } from "@/utils/imageHandling";
-import { Link } from "react-router-dom";
-import { Settings, MapPin, Calendar, Users, Heart, MessageCircle, Grid3X3, Bookmark, UserCheck, Loader2, Lock, Camera, Wallet } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { 
+  User, 
+  MapPin, 
+  Settings, 
+  CreditCard, 
+  Heart, 
+  LifeBuoy, 
+  LogOut, 
+  ChevronRight,
+  Ticket,
+  Briefcase,
+  Camera
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { toast } from "@/components/ui/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
-import { userService, UserProfile, FollowUser } from "@/services/userService";
-import { journeyService, Journey } from "@/services/journeyService";
-import WalletPage from "@/pages/WalletPage";
-import heroBeach from "@/assets/hero-beach.jpg";
-import mountainAdventure from "@/assets/mountain-adventure.jpg";
-import streetFood from "@/assets/street-food.jpg";
-import castleEurope from "@/assets/castle-europe.jpg";
-import travelCommunity from "@/assets/travel-community.jpg";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { supabase } from "@/config/supabase";
+import { useToast } from "@/components/ui/use-toast";
+import { useApi } from "@/hooks/useApi";
+import { endpoints } from "@/config/api";
 
 const Profile = () => {
-  const { user } = useAuth();
-  const [isFollowersOpen, setIsFollowersOpen] = useState(false);
-  const [isFollowingOpen, setIsFollowingOpen] = useState(false);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [followers, setFollowers] = useState<FollowUser[]>([]);
-  const [following, setFollowing] = useState<FollowUser[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [followersLoading, setFollowersLoading] = useState(false);
-  const [followingLoading, setFollowingLoading] = useState(false);
-  const [userJourneys, setUserJourneys] = useState<Journey[]>([]);
-  const [journeysLoading, setJourneysLoading] = useState(false);
-  const [avatarUploading, setAvatarUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<any>(null);
+  
+  // Fetch user stats with caching (5 minutes TTL)
+  const { data: statsData } = useApi<any>(endpoints.users.stats, {
+    cache: { ttl: 5 * 60 * 1000, key: 'user_profile_stats' }
+  });
+  const stats = statsData?.data;
 
-  // userService is already imported as an instance
-
-  // Fetch user journeys/posts
-  const fetchUserJourneys = async () => {
-    if (journeysLoading) return;
-    
-    try {
-      setJourneysLoading(true);
-      const response = await journeyService.getMyJourneys('published');
-      setUserJourneys(response.data?.journeys || []);
-    } catch (error) {
-      console.error('Failed to fetch user journeys:', error);
-      setUserJourneys([]);
-    } finally {
-      setJourneysLoading(false);
-    }
-  };
-
-  // Handle avatar upload
-  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      toast({
-        title: "Invalid file type",
-        description: "Please select an image file.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Validate file size (5MB limit)
-    if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: "File too large",
-        description: "Please select an image smaller than 5MB.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      setAvatarUploading(true);
-      const response = await userService.uploadAvatar(file);
-      
-      // Update user profile with new avatar
-      if (userProfile) {
-        setUserProfile({
-          ...userProfile,
-          avatar: response.avatarUrl
-        });
-      }
-
-      toast({
-        title: "Success",
-        description: "Profile photo updated successfully!"
-      });
-    } catch (error) {
-      console.error('Failed to upload avatar:', error);
-      toast({
-        title: "Upload failed",
-        description: "Failed to update profile photo. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setAvatarUploading(false);
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
-
-  // Trigger file input click
-  const handleAvatarClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const savedPosts = [
-    { id: 1, image: mountainAdventure, user: "sarah_travels" },
-    { id: 2, image: streetFood, user: "foodie_explorer" },
-    { id: 3, image: castleEurope, user: "historic_wanderer" },
-  ];
-
-  const taggedPosts = [
-    { id: 1, image: travelCommunity, user: "travel_squad", location: "Bali, Indonesia" },
-    { id: 2, image: heroBeach, user: "sunset_chasers", location: "Maldives" },
-  ];
-
-  // Fetch user profile data
   useEffect(() => {
-    const fetchUserProfile = async () => {
+    getProfile();
+  }, []);
+
+  const getProfile = async () => {
+    try {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        navigate("/login");
+        return;
+      }
+
+      // Changed 'profiles' to 'users'
+      const { data, error } = await supabase
+        .from('users') 
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      setProfile(data);
+    } catch (error: any) {
+      console.error("Error loading profile:", error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      
-      try {
-        setIsLoading(true);
-        const profile = await userService.getProfile();
-        setUserProfile(profile);
-      } catch (error) {
-        console.error('Failed to fetch user profile:', error);
-        // Fallback to auth context user data
-        if (user) {
-          setUserProfile({
-            ...user,
-            name: `${user.firstName} ${user.lastName}`.trim(),
-            verified: user.isVerified || false,
-            followersCount: user.stats?.followersCount || 0,
-            followingCount: user.stats?.followingCount || 0,
-            tripsCount: user.stats?.tripsCompleted || 0,
-            journeysCount: 0,
-            stats: {
-              countriesVisited: user.stats?.countriesVisited || 0,
-              citiesVisited: user.stats?.citiesVisited || 0,
-              totalDistance: user.stats?.totalDistance || 0,
-              totalTrips: user.stats?.tripsCompleted || 0,
-            },
-            preferences: {
-              travelStyle: user.preferences?.travelPreferences?.travelStyle ? [user.preferences.travelPreferences.travelStyle] : [],
-              budget: 'mid-range',
-              interests: user.preferences?.travelPreferences?.interests || [],
-              languages: ['English'],
-            },
-            socialLinks: {},
-          } as UserProfile);
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    };
 
-    fetchUserProfile();
-    fetchUserJourneys();
-  }, [user]);
+      // 1. Upload to Supabase Storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}-${Math.random()}.${fileExt}`;
+      const filePath = `${fileName}`;
 
-  // Fetch followers when dialog opens
-  const fetchFollowers = async () => {
-    if (followersLoading || followers.length > 0) return;
-    
-    try {
-      setFollowersLoading(true);
-      const response = await userService.getFollowers();
-      setFollowers(response.data || []);
-    } catch (error) {
-      console.error('Failed to fetch followers:', error);
-    } finally {
-      setFollowersLoading(false);
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // 2. Get Public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      // 3. Update User Profile
+      await handleUpdateAvatar(publicUrl);
+
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast({
+        title: "Upload Failed",
+        description: error.message || "Could not upload image",
+        variant: "destructive"
+      });
     }
   };
 
-  // Fetch following when dialog opens
-  const fetchFollowing = async () => {
-    if (followingLoading || following.length > 0) return;
-    
+  const handleUpdateAvatar = async (avatarUrl: string) => {
     try {
-      setFollowingLoading(true);
-      const response = await userService.getFollowing();
-      setFollowing(response.data || []);
-    } catch (error) {
-      console.error('Failed to fetch following:', error);
-    } finally {
-      setFollowingLoading(false);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Changed 'profiles' to 'users'
+      const { error } = await supabase
+        .from('users')
+        .update({ avatar_url: avatarUrl })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      setProfile({ ...profile, avatar_url: avatarUrl });
+      toast({
+        title: "Avatar Updated",
+        description: "Your new look is awesome!",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to update avatar.",
+        variant: "destructive"
+      });
     }
   };
 
-  // Handle follow/unfollow actions
-  const handleFollowToggle = async (userId: string, isCurrentlyFollowing: boolean) => {
+  const handleLogout = async () => {
     try {
-      if (isCurrentlyFollowing) {
-        await userService.unfollowUser(userId);
-      } else {
-        await userService.followUser(userId);
-      }
-      
-      // Update local state
-      setFollowers(prev => prev.map(user => 
-        user.id === userId ? { ...user, isFollowing: !isCurrentlyFollowing } : user
-      ));
-      setFollowing(prev => prev.map(user => 
-        user.id === userId ? { ...user, isFollowing: !isCurrentlyFollowing } : user
-      ));
-    } catch (error) {
-      console.error('Failed to toggle follow:', error);
+      await supabase.auth.signOut();
+      navigate("/");
+      toast({
+        title: "Logged out successfully",
+        description: "Come back soon!",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error logging out",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
-  // Format join date
-  const formatJoinDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return `Joined ${date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
-  };
-
-  if (isLoading || !userProfile) {
-    return (
-      <div className="max-w-4xl mx-auto px-4 py-6 flex items-center justify-center min-h-[400px]">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Loader2 className="w-6 h-6 animate-spin" />
-          <span>Loading profile...</span>
+  const MenuOption = ({ icon: Icon, label, onClick, color = "text-gray-700", bg = "bg-gray-50" }: any) => (
+    <div 
+        onClick={onClick}
+        className="flex items-center justify-between p-4 rounded-xl cursor-pointer hover:bg-gray-50 active:scale-[0.99] transition-all border border-transparent hover:border-gray-100"
+    >
+        <div className="flex items-center gap-4">
+            <div className={`w-10 h-10 ${bg} rounded-full flex items-center justify-center`}>
+                <Icon className={`w-5 h-5 ${color}`} />
+            </div>
+            <span className={`font-medium ${color === "text-red-500" ? "text-red-600" : "text-gray-900"}`}>
+                {label}
+            </span>
         </div>
+        <ChevronRight className="w-5 h-5 text-gray-300" />
+    </div>
+  );
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
-      {/* Profile Header */}
-      <Card className="bg-surface-elevated mb-8">
-        <CardContent className="p-6">
-          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+    <div className="min-h-screen bg-gray-50 pb-24">
+      {/* Header / Identity Card */}
+      <div className="bg-white pb-6 pt-12 px-6 rounded-b-[2.5rem] shadow-sm border-b border-gray-100 relative overflow-hidden">
+        {/* Decorative background elements */}
+        <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-blue-50 to-white z-0"></div>
+        
+        <div className="relative z-10 flex flex-col items-center">
             <div className="relative group">
-              <Avatar className="w-32 h-32 cursor-pointer" onClick={handleAvatarClick}>
-                <AvatarImage src={userProfile.avatar || ''} />
-                <AvatarFallback className="bg-primary text-primary-foreground text-4xl">
-                  {userProfile.name ? userProfile.name.split(' ').map(n => n[0]).join('') : 'U'}
-                </AvatarFallback>
-              </Avatar>
-              {avatarUploading && (
-                <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center">
-                  <Loader2 className="w-6 h-6 text-white animate-spin" />
-                </div>
-              )}
-              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 rounded-full transition-all duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
-                <Camera className="w-6 h-6 text-white" />
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleAvatarUpload}
-                className="hidden"
-              />
-            </div>
-
-            <div className="flex-1 text-center sm:text-left">
-              <div className="flex flex-col sm:flex-row items-center gap-4 mb-4">
-                <div>
-                  <h1 className="text-2xl font-bold text-foreground">{userProfile.name || `${user?.firstName} ${user?.lastName}`.trim()}</h1>
-                  <p className="text-muted-foreground">@{userProfile.username || user?.username}</p>
-                </div>
-                <div className="flex gap-2">
-                  <Button asChild variant="secondary">
-                    <Link to="/settings">
-                      <Settings className="w-4 h-4 mr-2" />
-                      Edit Profile
-                    </Link>
-                  </Button>
-                  <Button asChild variant="ghost" size="sm">
-                    <Link to="/privacy" className="text-muted-foreground">
-                      Privacy
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-
-              <p className="text-foreground mb-4 max-w-md">{userProfile.bio || 'No bio available'}</p>
-
-              <div className="flex flex-col sm:flex-row items-center gap-4 text-sm text-muted-foreground mb-4">
-                {userProfile.location && (
-                  <div className="flex items-center gap-1">
-                    <MapPin className="w-4 h-4" />
-                    {userProfile.location}
-                  </div>
-                )}
-                <div className="flex items-center gap-1">
-                  <Calendar className="w-4 h-4" />
-                  {formatJoinDate(userProfile.createdAt || user?.createdAt || new Date().toISOString())}
-                </div>
-              </div>
-
-              <div className="flex justify-center sm:justify-start gap-8">
-                <div className="text-center">
-                  <p className="text-xl font-bold text-foreground">{userJourneys.length}</p>
-                  <p className="text-sm text-muted-foreground">Posts</p>
-                </div>
-                
-                <Dialog open={isFollowersOpen} onOpenChange={(open) => {
-                  setIsFollowersOpen(open);
-                  if (open) fetchFollowers();
-                }}>
-                  <DialogTrigger asChild>
-                    <button className="text-center hover:opacity-70 transition-opacity">
-                      <p className="text-xl font-bold text-foreground">{userProfile.followersCount?.toLocaleString() || '0'}</p>
-                      <p className="text-sm text-muted-foreground">Followers</p>
-                    </button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Followers</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 max-h-96 overflow-y-auto">
-                      {followersLoading ? (
-                        <div className="flex items-center justify-center py-8">
-                          <Loader2 className="w-6 h-6 animate-spin" />
-                        </div>
-                      ) : followers.length > 0 ? (
-                        (followers || []).map((follower) => (
-                          <div key={follower.id} className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <Avatar className="w-10 h-10">
-                                <AvatarImage src={follower.avatar || ''} />
-                                <AvatarFallback className="bg-primary text-primary-foreground">
-                                  {follower.name ? follower.name.split(' ').map(n => n[0]).join('') : 'U'}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="font-medium">{follower.name}</p>
-                                <p className="text-sm text-muted-foreground">@{follower.username}</p>
-                              </div>
-                            </div>
-                            <Button 
-                              size="sm" 
-                              variant={follower.isFollowing ? "secondary" : "default"}
-                              onClick={() => handleFollowToggle(follower.id, follower.isFollowing)}
-                            >
-                              {follower.isFollowing ? "Following" : "Follow"}
-                            </Button>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-8 text-muted-foreground">
-                          No followers yet
-                        </div>
-                      )}
-                    </div>
-                  </DialogContent>
-                </Dialog>
-
-                <Dialog open={isFollowingOpen} onOpenChange={(open) => {
-                  setIsFollowingOpen(open);
-                  if (open) fetchFollowing();
-                }}>
-                  <DialogTrigger asChild>
-                    <button className="text-center hover:opacity-70 transition-opacity">
-                      <p className="text-xl font-bold text-foreground">{userProfile.followingCount?.toLocaleString() || '0'}</p>
-                      <p className="text-sm text-muted-foreground">Following</p>
-                    </button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Following</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 max-h-96 overflow-y-auto">
-                      {followingLoading ? (
-                        <div className="flex items-center justify-center py-8">
-                          <Loader2 className="w-6 h-6 animate-spin" />
-                        </div>
-                      ) : following.length > 0 ? (
-                        (following || []).map((followedUser) => (
-                          <div key={followedUser.id} className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <Avatar className="w-10 h-10">
-                                <AvatarImage src={followedUser.avatar || ''} />
-                                <AvatarFallback className="bg-primary text-primary-foreground">
-                                  {followedUser.name ? followedUser.name.split(' ').map(n => n[0]).join('') : 'U'}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="font-medium">{followedUser.name}</p>
-                                <p className="text-sm text-muted-foreground">@{followedUser.username}</p>
-                              </div>
-                            </div>
-                            <Button 
-                              size="sm" 
-                              variant="secondary"
-                              onClick={() => handleFollowToggle(followedUser.id, true)}
-                            >
-                              Following
-                            </Button>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-8 text-muted-foreground">
-                          Not following anyone yet
-                        </div>
-                      )}
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Posts Tabs */}
-      <Tabs defaultValue="posts" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="posts" className="flex items-center gap-2">
-            <Grid3X3 className="w-4 h-4" />
-            Posts
-          </TabsTrigger>
-          <TabsTrigger value="wallet" className="flex items-center gap-2">
-            <Wallet className="w-4 h-4" />
-            Wallet
-          </TabsTrigger>
-          <TabsTrigger value="saved" className="flex items-center gap-2">
-            <Bookmark className="w-4 h-4" />
-            Saved
-          </TabsTrigger>
-          <TabsTrigger value="tagged" className="flex items-center gap-2">
-            <UserCheck className="w-4 h-4" />
-            Tagged
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="wallet">
-          <WalletPage />
-        </TabsContent>
-
-        <TabsContent value="posts">
-          <div className="grid grid-cols-3 gap-1">
-            {journeysLoading ? (
-              // Loading skeleton
-              Array.from({ length: 6 }).map((_, index) => (
-                <div key={index} className="aspect-square bg-gray-200 animate-pulse" />
-              ))
-            ) : userJourneys.length > 0 ? (
-              (userJourneys || []).map((journey) => (
-                <div key={journey.id} className="aspect-square relative group cursor-pointer overflow-hidden">
-                  <img 
-                    src={journey.images?.[0] || heroBeach} 
-                    alt={journey.title} 
-                    className="w-full h-full object-cover" 
-                    onError={(e) => handleImageError(e, "/images/hero-beach.jpg", `Failed to load journey image for ${journey.title}`)}
-                  />
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                     <div className="flex items-center gap-4 text-white">
-                       <div className="flex items-center gap-1">
-                         <Heart className={`w-5 h-5 fill-current ${journey.isLiked ? 'text-red-500' : ''}`} />
-                         <span className="font-medium">{journey.likeCount || 0}</span>
-                       </div>
-                       <div className="flex items-center gap-1">
-                         <MessageCircle className="w-5 h-5 fill-current" />
-                         <span className="font-medium">{journey.commentCount || 0}</span>
-                       </div>
-                     </div>
+                <div 
+                   onClick={() => document.getElementById('avatar-upload')?.click()}
+                   className="relative cursor-pointer transition-transform active:scale-95"
+                >
+                   <Avatar className="w-28 h-28 border-4 border-white shadow-lg mb-4 group-hover:brightness-90 transition-all">
+                      <AvatarImage src={profile?.avatar_url} />
+                      <AvatarFallback className="text-2xl bg-gray-100 text-gray-400">
+                          <User />
+                      </AvatarFallback>
+                   </Avatar>
+                   <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded-full mb-4">
+                      <Camera className="w-8 h-8 text-white drop-shadow-md" />
                    </div>
-                   {!journey.isPublic && (
-                     <div className="absolute top-2 right-2">
-                       <Lock className="w-4 h-4 text-white drop-shadow-lg" />
-                     </div>
-                   )}
+                   <div className="absolute bottom-4 right-0 bg-green-500 w-5 h-5 rounded-full border-[3px] border-white"></div>
                 </div>
-              ))
-            ) : (
-              <div className="col-span-3 text-center py-12">
-                <div className="text-muted-foreground">
-                  <Grid3X3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p className="text-lg font-medium mb-2">No posts yet</p>
-                  <p className="text-sm">Start sharing your travel journeys!</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="saved">
-          {savedPosts.length > 0 ? (
-            <div className="grid grid-cols-3 gap-1">
-              {savedPosts.map((post) => (
-                <div key={post.id} className="aspect-square relative group cursor-pointer overflow-hidden">
-                  <img 
-                  src={post.image} 
-                  alt="Saved post" 
-                  className="w-full h-full object-cover" 
-                  onError={(e) => handleImageError(e, "/images/hero-beach.jpg", `Failed to load saved post image`)}
+                <input 
+                   type="file" 
+                   id="avatar-upload" 
+                   className="hidden" 
+                   accept="image/*"
+                   onChange={handleFileUpload}
                 />
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <div className="text-white text-center">
-                      <p className="font-medium">@{post.user}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
             </div>
-          ) : (
-            <div className="text-center py-12">
-              <Bookmark className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No saved posts yet</h3>
-              <p className="text-muted-foreground">Save posts you want to revisit later</p>
+            
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">
+                {profile?.full_name || "Traveler"}
+            </h1>
+            <div className="flex items-center gap-1.5 text-gray-500 text-sm mb-6">
+                <MapPin className="w-4 h-4" />
+                <span>{profile?.location || "Global Citizen"}</span>
             </div>
-          )}
-        </TabsContent>
 
-        <TabsContent value="tagged">
-          {taggedPosts.length > 0 ? (
-            <div className="grid grid-cols-3 gap-1">
-              {taggedPosts.map((post) => (
-                <div key={post.id} className="aspect-square relative group cursor-pointer overflow-hidden">
-                  <img 
-                  src={post.image} 
-                  alt="Tagged post" 
-                  className="w-full h-full object-cover" 
-                  onError={(e) => handleImageError(e, "/images/hero-beach.jpg", `Failed to load tagged post image`)}
-                />
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <div className="text-white text-center">
-                      <p className="font-medium">@{post.user}</p>
-                      <p className="text-sm opacity-80">{post.location}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <Button 
+                variant="outline" 
+                className="rounded-full px-6 border-gray-200 hover:bg-gray-50 hover:text-primary transition-colors h-9 text-sm font-medium"
+                onClick={() => document.getElementById('avatar-upload')?.click()}
+            >
+                Upload Photo
+            </Button>
+        </div>
+      </div>
+
+      <div className="px-4 mt-6">
+        {/* Section B: Travel Stats */}
+        <div className="grid grid-cols-3 gap-3 mb-8">
+            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-1">
+                <span className="text-2xl font-bold text-primary">{stats?.trips_count || 0}</span>
+                <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">Trips</span>
             </div>
-          ) : (
-            <div className="text-center py-12">
-              <UserCheck className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No tagged posts yet</h3>
-              <p className="text-muted-foreground">Posts you're tagged in will appear here</p>
+            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-1">
+                <span className="text-2xl font-bold text-purple-600">{stats?.clubs_count || 0}</span>
+                <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">Clubs</span>
             </div>
-          )}
-        </TabsContent>
-      </Tabs>
+            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-1">
+                <span className="text-2xl font-bold text-orange-500">{stats?.saved_count || 0}</span>
+                <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">Saved</span>
+            </div>
+        </div>
+
+        {/* Section C: Utility Menu */}
+        <div className="bg-white rounded-3xl p-2 shadow-sm border border-gray-100 space-y-1">
+            <MenuOption 
+                icon={Ticket} 
+                label="My Bookings" 
+                onClick={() => navigate('/bookings')}
+                color="text-blue-600"
+                bg="bg-blue-50"
+            />
+            <MenuOption 
+                icon={CreditCard} 
+                label="My Wallet" 
+                onClick={() => navigate('/wallet')}
+                color="text-emerald-600"
+                bg="bg-emerald-50"
+            />
+            <MenuOption 
+                icon={Heart} 
+                label="Saved Trips" 
+                onClick={() => navigate('/saved')}
+                color="text-pink-600"
+                bg="bg-pink-50"
+            />
+            <div className="h-px bg-gray-100 mx-4 my-2"></div>
+            <MenuOption 
+                icon={Settings} 
+                label="Preferences" 
+                onClick={() => navigate('/settings')} 
+            />
+            <MenuOption 
+                icon={LifeBuoy} 
+                label="Help & Support" 
+                onClick={() => {}} 
+            />
+             <div className="h-px bg-gray-100 mx-4 my-2"></div>
+            <MenuOption 
+                icon={LogOut} 
+                label="Logout" 
+                onClick={handleLogout} 
+                color="text-red-500"
+                bg="bg-red-50"
+            />
+        </div>
+      </div>
     </div>
   );
 };

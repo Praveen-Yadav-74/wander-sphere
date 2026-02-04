@@ -59,6 +59,18 @@ const AddMoneyModal: React.FC<AddMoneyModalProps> = ({ open, onOpenChange, onSuc
     try {
       setIsProcessing(true);
 
+      // Safety timeout to prevent infinite processing state
+      const safetyTimeout = setTimeout(() => {
+        if (isProcessing) {
+          setIsProcessing(false);
+          toast({
+             title: "Request Timeout",
+             description: "The payment server is taking too long. Please try again.",
+             variant: "destructive"
+          });
+        }
+      }, 20000); // 20 seconds failsafe
+
       // Use the payment service to handle the complete flow
       await paymentService.processPayment(
         numAmount,
@@ -66,10 +78,11 @@ const AddMoneyModal: React.FC<AddMoneyModalProps> = ({ open, onOpenChange, onSuc
         undefined,
         openRazorpay,
         (result) => {
+          clearTimeout(safetyTimeout);
           // Success callback
           toast({
             title: "Success",
-            description: `₹${result.amountAdded?.toFixed(2)} added to your wallet!`,
+            description: `₹${result.data?.amountAdded?.toFixed(2) || '0.00'} added to your wallet!`,
           });
 
           onOpenChange(false);
@@ -81,6 +94,7 @@ const AddMoneyModal: React.FC<AddMoneyModalProps> = ({ open, onOpenChange, onSuc
           }
         },
         (error) => {
+          clearTimeout(safetyTimeout);
           // Failure callback
           console.error('Payment error:', error);
           toast({

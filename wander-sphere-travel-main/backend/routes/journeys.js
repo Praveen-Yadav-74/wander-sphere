@@ -3,6 +3,7 @@ import { body, query, validationResult } from 'express-validator';
 import { auth, optionalAuth } from '../middleware/supabaseAuth.js';
 import SupabaseUser from '../models/SupabaseUser.js';
 import SupabaseTrip from '../models/SupabaseTrip.js';
+import crypto from 'crypto';
 
 const router = express.Router();
 
@@ -12,7 +13,7 @@ const journeys = new Map();
 // Helper function to create journey
 const createJourney = (title, description, authorId, isPublic = true) => {
   const journey = {
-    id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+    id: crypto.randomUUID(),
     title,
     description,
     author: authorId,
@@ -605,7 +606,7 @@ router.post('/:id/comments', auth, [
     }
     
     const comment = {
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      id: crypto.randomUUID(),
       user: req.user.id,
       content: req.body.content,
       createdAt: new Date(),

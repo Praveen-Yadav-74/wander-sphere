@@ -1,21 +1,37 @@
 import { useLocation, Link } from "react-router-dom";
-import { Home, Users, MapPin, Map, Wallet } from "lucide-react";
+import { Home, Compass, Ticket, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
 
 const BottomNav = () => {
   const location = useLocation();
 
   const navItems = [
-    { href: "/", icon: Home, label: "Home" },
-    { href: "/clubs", icon: Users, label: "Clubs" },
-    { href: "/find-trips", icon: MapPin, label: "Find Trips" },
-    { href: "/map", icon: Map, label: "Map" },
-    { href: "/budget", icon: Wallet, label: "Budget" },
+    { 
+      href: "/", 
+      icon: Home, 
+      label: "Home"
+    },
+    { 
+      href: "/find-trips", 
+      icon: Compass, 
+      label: "Trips"
+    },
+    { 
+      href: "/booking", 
+      icon: Ticket, 
+      label: "Bookings"
+    },
+    { 
+      href: "/wallet", 
+      icon: Wallet, 
+      label: "Wallet"
+    },
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md shadow-lg">
-      <div className="flex items-center justify-around py-2 px-2">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-xl border-t border-gray-100 pb-[env(safe-area-inset-bottom)]">
+      <div className="flex items-center justify-around">
         {navItems.map(({ href, icon: Icon, label }) => {
           const isActive = location.pathname === href;
           
@@ -24,14 +40,36 @@ const BottomNav = () => {
               key={href}
               to={href}
               className={cn(
-                "flex flex-col items-center gap-1 px-2 sm:px-3 py-2 rounded-xl transition-all duration-300 min-w-0 flex-1 max-w-20",
-                isActive 
-                  ? "text-primary bg-primary/15 shadow-sm" 
-                  : "text-muted-foreground hover:text-foreground hover:bg-background/60"
+                "relative flex flex-col items-center justify-center py-3 px-4 min-w-[4rem] transition-colors",
+                isActive ? "text-primary" : "text-gray-400 hover:text-gray-600"
               )}
             >
-              <Icon className={cn("w-4 h-4 sm:w-5 sm:h-5", isActive && "scale-110")} />
-              <span className="text-xs font-medium truncate">{label}</span>
+              {/* Active Indicator Line */}
+              {isActive && (
+                <motion.div
+                  layoutId="active-tab-indicator"
+                  className="absolute top-0 w-8 h-0.5 bg-primary rounded-full"
+                  initial={false}
+                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                />
+              )}
+
+              <div className="relative">
+                <Icon 
+                    className={cn(
+                        "w-6 h-6 mb-1 transition-transform duration-300", 
+                        isActive && "scale-110" 
+                    )} 
+                    strokeWidth={isActive ? 2.5 : 2}
+                />
+              </div>
+              
+              <span className={cn(
+                  "text-[10px] font-medium tracking-wide transition-all",
+                  isActive ? "text-primary" : "text-gray-400"
+              )}>
+                  {label}
+              </span>
             </Link>
           );
         })}

@@ -149,7 +149,7 @@ router.post('/', [
   try {
     const userId = req.user.id;
     const file = req.file;
-    const { caption, mediaUrl: providedMediaUrl } = req.body;
+    const { caption } = req.body; // Removed mediaUrl from destructuring as we access req.body.mediaUrl directly below
     
     let mediaUrl = '';
     let mediaType = 'image';
@@ -163,8 +163,8 @@ router.post('/', [
       if (file.mimetype.startsWith('video/')) {
         mediaType = 'video';
       }
-    } else if (providedMediaUrl) {
-      mediaUrl = providedMediaUrl;
+    } else if (req.body.mediaUrl) { // CORRECTED: Get mediaUrl from req.body directly
+      mediaUrl = req.body.mediaUrl;
       // Simple check for video extension
       if (mediaUrl.match(/\.(mp4|webm|ogg)$/i)) {
         mediaType = 'video';

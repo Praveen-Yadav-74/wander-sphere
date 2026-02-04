@@ -112,7 +112,7 @@ const Budget = () => {
       case "BRL":
         return "R$";
       default:
-        return "$";
+        return "₹";
     }
   };
 
@@ -167,7 +167,7 @@ const Budget = () => {
         startDate: '',
         endDate: '',
         status: 'active',
-        currency: 'USD',
+        currency: 'INR',
         noMaxBudget: false,
       });
       
@@ -626,7 +626,7 @@ const BudgetGrid = ({ budgets, currency }: { budgets: BudgetItem[], currency: st
       case "AUD": return "A$";
       case "RUB": return "₽";
       case "BRL": return "R$";
-      default: return "$";
+      default: return "₹";
     }
   };
 

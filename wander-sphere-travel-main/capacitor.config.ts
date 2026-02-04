@@ -1,7 +1,7 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.nomad.app',
+  appId: 'com.onenomadsolutions.app',
   appName: 'WanderSphere',
   webDir: 'dist',
   server: {

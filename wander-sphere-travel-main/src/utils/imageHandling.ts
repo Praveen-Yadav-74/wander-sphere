@@ -58,3 +58,14 @@ export function createImageErrorHandler(
 ): (event: React.SyntheticEvent<HTMLImageElement, Event>) => void {
   return (event) => handleImageError(event, fallbackSrc, customErrorMessage, showToast);
 }
+
+/**
+ * Get the full avatar URL from a user's avatar path
+ * @param avatarPath The avatar path or URL
+ * @returns The full avatar URL or a placeholder
+ */
+export const getAvatarUrl = (avatarPath: string | undefined | null) => {
+  if (!avatarPath) return 'https://nomad-app.b-cdn.net/defaults/avatar_placeholder.png';
+  if (avatarPath.startsWith('http') || avatarPath.startsWith('blob:')) return avatarPath;
+  return `https://nomad-app.b-cdn.net/${avatarPath}`;
+};

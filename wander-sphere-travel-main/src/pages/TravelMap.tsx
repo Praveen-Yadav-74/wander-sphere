@@ -329,10 +329,11 @@ const TravelMap = () => {
               ) : (
                 <>
                   <MapContainer
+                    key={`${mapCenter[0]}-${mapCenter[1]}`} // FORCE RE-RENDER on center change
                     center={mapCenter}
                     zoom={userLocation ? 12 : currentZoom}
-                    className="h-full w-full"
-                    zoomControl={true}
+                    className="h-full w-full z-0" // Ensure z-index is correct
+                    zoomControl={false} // We rely on touch/scroll, can add custom control if needed
                     scrollWheelZoom={true}
                   >
                     <TileLayer
@@ -352,8 +353,10 @@ const TravelMap = () => {
                       </Marker>
                     )}
 
-                    {/* Travel markers */}
-                    {clusters.map((cluster) => {
+                    {/* Travel markers - SAFE RENDERING */}
+                    {clusters && clusters.map((cluster) => {
+                      if (!cluster || typeof cluster.lat !== 'number' || typeof cluster.lng !== 'number') return null;
+                      
                       const isSpiderified = spiderifiedCluster === cluster.id;
                       
                       if (mapMode === 'memories') {
@@ -397,7 +400,7 @@ const TravelMap = () => {
                           key={cluster.id}
                           position={[cluster.lat, cluster.lng]}
                           icon={cluster.count > 1 ? createClusterIcon(cluster.count) : DefaultIcon}
-                          eventHandlers={{ click: () => cluster.count > 1 && handleClusterClick(cluster.id) }}
+                          eventHandlers={{ click: () => cluster.count > 1 ? handleClusterClick(cluster.id) : null }}
                         >
                           {cluster.count === 1 && (
                             <Popup>

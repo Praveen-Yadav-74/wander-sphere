@@ -75,6 +75,7 @@ class AuthService {
           last_name: lastName,
           username: username,
           email: email.toLowerCase(),
+          avatar_url: null, // EXPLICIT: No default avatar image
           role: 'user',
           is_verified: true
         })
@@ -197,6 +198,7 @@ class AuthService {
               last_name: authUser.user.user_metadata?.last_name || '',
               username: authUser.user.user_metadata?.username || authUser.user.email?.split('@')[0] || '',
               email: authUser.user.email?.toLowerCase() || '',
+              avatar_url: null, // EXPLICIT: No default avatar image
               role: 'user',
               is_verified: authUser.user.email_confirmed_at ? true : false,
               is_active: true,

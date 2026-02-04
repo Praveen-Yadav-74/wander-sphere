@@ -4,9 +4,10 @@
 
 All Capacitor files have been configured for **Android production** with:
 
-- **App ID**: `com.nomad.app`
+- **App ID**: `com.onenomadsolutions.app`
 - **App Name**: `WanderSphere`
-- **Smart Backend**: Automatic localhost/production detection (already configured)
+- **Smart Backend**: Automatic localhost/production detection (already
+  configured)
 
 ---
 
@@ -43,6 +44,7 @@ npm run build
 ```
 
 **What this does:**
+
 - Compiles React/TypeScript to optimized JavaScript
 - Creates `dist/` folder with all assets
 - Uses relative paths (`base: './'`) for Android compatibility
@@ -54,6 +56,7 @@ npx cap sync
 ```
 
 **What this does:**
+
 - Copies `dist/` folder to Android project
 - Updates native configuration
 - Installs Capacitor plugins
@@ -65,6 +68,7 @@ npx cap open android
 ```
 
 **What this does:**
+
 - Launches Android Studio
 - Opens the native Android project
 - Ready for device deployment
@@ -76,11 +80,13 @@ npx cap open android
 ### **1. Connect Device/Emulator**
 
 **Physical Device:**
+
 - Enable Developer Options
 - Enable USB Debugging
 - Connect via USB
 
 **Emulator:**
+
 - Open AVD Manager
 - Launch any Android Virtual Device
 
@@ -96,9 +102,10 @@ npx cap open android
 ## 🔍 What's Configured
 
 ### **1. Capacitor Config** (`capacitor.config.ts`)
+
 ```typescript
 {
-  appId: 'com.nomad.app',
+  appId: 'com.onenomadsolutions.app',
   appName: 'WanderSphere',
   webDir: 'dist',
   server: { androidScheme: 'https' }
@@ -106,6 +113,7 @@ npx cap open android
 ```
 
 ### **2. Vite Config** (`vite.config.ts`)
+
 ```typescript
 {
   base: './',  // ✅ Relative paths for Android
@@ -118,11 +126,12 @@ npx cap open android
 ```
 
 ### **3. Android Permissions** (`AndroidManifest.xml`)
-✅ Internet access  
-✅ Camera (for stories/profile)  
-✅ Storage (for media uploads)  
-✅ Location (for travel map)  
-✅ Network state detection  
+
+✅ Internet access\
+✅ Camera (for stories/profile)\
+✅ Storage (for media uploads)\
+✅ Location (for travel map)\
+✅ Network state detection
 
 ---
 
@@ -148,6 +157,7 @@ npx cap open android
 ## 🎨 App Icon & Splash Screen
 
 ### **Current Configuration:**
+
 - **Splash Screen**: Blue background (#3b82f6)
 - **Duration**: 2 seconds
 - **Spinner**: White loading indicator
@@ -186,6 +196,7 @@ android/
 ### **Issue 1: "Module not found: @capacitor/..."**
 
 **Fix:**
+
 ```bash
 npm install @capacitor/core @capacitor/cli @capacitor/android
 ```
@@ -197,6 +208,7 @@ npm install @capacitor/core @capacitor/cli @capacitor/android
 ### **Issue 3: Backend not connecting**
 
 **Check:**
+
 1. Device has internet connection
 2. Render backend is online: https://wander-sphere-ue7e.onrender.com/health
 3. CORS allows requests from Android
@@ -224,12 +236,12 @@ Before release:
 
 ## 🔐 Security Notes
 
-**Already Configured:**
-✅ HTTPS scheme for secure loading  
-✅ Backend auto-detection (no hardcoded URLs)  
-✅ Supabase secure keys in `.env`  
+**Already Configured:** ✅ HTTPS scheme for secure loading\
+✅ Backend auto-detection (no hardcoded URLs)\
+✅ Supabase secure keys in `.env`
 
 **Production Recommendations:**
+
 - Never commit `.env` to git
 - Rotate Supabase keys regularly
 - Enable Google Play App Signing
@@ -239,13 +251,13 @@ Before release:
 
 ## 📈 Performance Tips
 
-**Current Optimizations:**
-✅ Code splitting (React, UI, Map vendors)  
-✅ Minified builds  
-✅ Tree-shaking enabled  
-✅ Sourcemaps disabled  
+**Current Optimizations:** ✅ Code splitting (React, UI, Map vendors)\
+✅ Minified builds\
+✅ Tree-shaking enabled\
+✅ Sourcemaps disabled
 
 **Runtime Performance:**
+
 - First load: ~3-5 seconds
 - Subsequent loads: Instant (cached)
 - Map rendering: Optimized with clustering

@@ -8,9 +8,17 @@ import supabase from '../config/supabase.js';
  * @desc    Create a Razorpay order for payment
  * @access  Private
  */
+import axios from 'axios';
+import { PAYMENT_CONFIG } from '../config/paymentConfig.js';
+
+/**
+ * @route   POST /api/payment/create-order
+ * @desc    Create a payment order (Razorpay or PhonePe based on config)
+ * @access  Private
+ */
 export const createOrder = async (req, res) => {
   try {
-    const { amount, currency = 'INR', receipt, notes } = req.body;
+    const { amount, currency = 'INR', receipt, notes, redirectUrl } = req.body;
 
     // Validate amount
     if (!amount || amount <= 0) {
@@ -20,35 +28,101 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    // Amount should be in paise (smallest currency unit)
-    // If amount is in rupees, convert to paise
-    const amountInPaise = Math.round(amount * 100);
+    // CHECK ACTIVE GATEWAY
+    const gateway = PAYMENT_CONFIG.ACTIVE_GATEWAY;
+    console.log(`Creating order using gateway: ${gateway}`);
 
-    // Create order options
-    const options = {
-      amount: amountInPaise,
-      currency,
-      receipt: receipt || `receipt_${Date.now()}`,
-      notes: notes || {},
-    };
+    // --- RAZORPAY FLOW ---
+    if (gateway === 'RAZORPAY') {
+        const amountInPaise = Math.round(amount * 100);
+        const options = {
+            amount: amountInPaise,
+            currency,
+            receipt: receipt || `receipt_${Date.now()}`,
+            notes: notes || {},
+        };
 
-    console.log('Creating Razorpay order:', options);
+        const order = await razorpayInstance.orders.create(options);
+        console.log('Razorpay order created:', order.id);
 
-    // Create order using Razorpay
-    const order = await razorpayInstance.orders.create(options);
+        return res.status(201).json({
+            success: true,
+            type: 'razorpay',
+            data: {
+                orderId: order.id,
+                amount: order.amount,
+                currency: order.currency,
+                keyId: process.env.RAZORPAY_KEY_ID,
+            },
+        });
+    }
 
-    console.log('Razorpay order created:', order.id);
+    // --- PHONEPE FLOW ---
+    if (gateway === 'PHONEPE') {
+        const merchantTransactionId = `MT${Date.now()}`;
+        const userId = req.user ? req.user.id : 'MUID123';
+        
+        // Construct Payload
+        const payloadData = {
+            merchantId: PAYMENT_CONFIG.PHONEPE.MERCHANT_ID,
+            merchantTransactionId: merchantTransactionId,
+            merchantUserId: userId,
+            amount: Math.round(amount * 100), // In Paise
+            redirectUrl: redirectUrl || 'http://localhost:5173/payment/success', // Verify this URL
+            redirectMode: "POST",
+            callbackUrl: 'https://webhook.site/your-webhook-url', // Need a valid webhook or server S2S
+            paymentInstrument: {
+                type: "PAY_PAGE"
+            }
+        };
 
-    res.status(201).json({
-      success: true,
-      message: 'Order created successfully',
-      data: {
-        orderId: order.id,
-        amount: order.amount,
-        currency: order.currency,
-        keyId: process.env.RAZORPAY_KEY_ID, // Send key ID to frontend
-      },
-    });
+        // Base64 Encode
+        const bufferObj = Buffer.from(JSON.stringify(payloadData), "utf8");
+        const base64EncodedPayload = bufferObj.toString("base64");
+
+        // Calculate X-VERIFY Checksum
+        // SHA256(Base64Payload + "/pg/v1/pay" + SALT_KEY) + "###" + SALT_INDEX
+        const stringToHash = base64EncodedPayload + "/pg/v1/pay" + PAYMENT_CONFIG.PHONEPE.SALT_KEY;
+        const sha256 = crypto.createHash('sha256').update(stringToHash).digest('hex');
+        const xVerify = sha256 + "###" + PAYMENT_CONFIG.PHONEPE.SALT_INDEX;
+
+        const options = {
+            method: 'post',
+            url: `${PAYMENT_CONFIG.PHONEPE.HOST_URL}/pg/v1/pay`,
+            headers: {
+                'Content-Type': 'application/json',
+                'X-VERIFY': xVerify,
+            },
+            data: {
+                request: base64EncodedPayload
+            }
+        };
+
+        try {
+            const response = await axios.request(options);
+            console.log('PhonePe Order Initiated:', response.data);
+            
+            if(response.data.success){
+                 return res.json({
+                    success: true,
+                    type: 'phonepe',
+                    url: response.data.data.instrumentResponse.redirectInfo.url,
+                    merchantTransactionId
+                 });
+            } else {
+                 throw new Error(response.data.message || 'PhonePe initiation failed');
+            }
+
+        } catch (error) {
+            console.error('PhonePe API Error:', error.response ? error.response.data : error.message);
+            return res.status(500).json({
+                success: false,
+                message: 'PhonePe Gateway Error',
+                error: error.message
+            });
+        }
+    }
+
   } catch (error) {
     console.error('Create order error:', error);
     res.status(500).json({
@@ -367,4 +441,16 @@ export const payFromWallet = async (req, res) => {
       error: error.message,
     });
   }
+};
+
+export const switchGateway = (req, res) => {
+    const { gateway } = req.body;
+    if (gateway !== 'RAZORPAY' && gateway !== 'PHONEPE') {
+        return res.status(400).json({ success: false, message: 'Invalid gateway' });
+    }
+    
+    import('../config/paymentConfig.js').then(({ setGateway }) => {
+        setGateway(gateway);
+        res.json({ success: true, message: `Gateway switched to ${gateway}`, activeGateway: gateway });
+    });
 };

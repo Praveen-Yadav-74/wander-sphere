@@ -15,18 +15,35 @@ router.get('/profile/stats', auth, async (req, res) => {
     const userId = req.user.id;
 
     // Get user stats from various tables
-    const [tripsResult, journeysResult, followersResult, followingResult] = await Promise.all([
-      supabase.from('trips').select('id').eq('user_id', userId),
-      supabase.from('journeys').select('id').eq('user_id', userId),
-      supabase.from('user_follows').select('id').eq('following_id', userId),
-      supabase.from('user_follows').select('id').eq('follower_id', userId)
+    const [tripsResult, clubsResult, savedResult] = await Promise.all([
+      // Trips Taken (Accepted Participant)
+      supabase
+        .from('trip_participants')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('status', 'accepted'),
+      
+      // Clubs Joined
+      supabase
+        .from('club_members')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId),
+        
+      // Bucket List (Saved/Liked Trips)
+      supabase
+        .from('trip_likes')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
     ]);
 
     const stats = {
-      trips_count: tripsResult.data?.length || 0,
-      journeys_count: journeysResult.data?.length || 0,
-      followers_count: followersResult.data?.length || 0,
-      following_count: followingResult.data?.length || 0
+      trips_count: tripsResult.count || 0,
+      clubs_count: clubsResult.count || 0,
+      saved_count: savedResult.count || 0,
+      // Keep legacy for safety if needed, or remove
+      journeys_count: 0,
+      followers_count: 0,
+      following_count: 0
     };
 
     res.json({

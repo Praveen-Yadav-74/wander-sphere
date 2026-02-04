@@ -10,6 +10,12 @@ interface UseApiOptions {
   timeout?: number;
   enabled?: boolean;
   skipAuth?: boolean;
+  cache?: {
+        key?: string;
+        ttl?: number;
+        version?: string;
+        forceRefresh?: boolean;
+  };
   onSuccess?: (data: any) => void;
   onError?: (error: Error) => void;
 }
@@ -59,7 +65,8 @@ export function useApi<T>(endpoint: string, options: UseApiOptions = {}) {
         headers,
         body,
         timeout,
-        skipAuth
+        skipAuth,
+        cache: options.cache
       });
 
       setState({

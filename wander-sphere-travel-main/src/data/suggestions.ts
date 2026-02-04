@@ -38,6 +38,27 @@ export const popularCities = [
   "Kathmandu, Nepal", "Dhaka, Bangladesh", "Male, Maldives", "Kuala Lumpur, Malaysia"
 ];
 
+export const popularAirports = [
+  "Delhi (DEL) - Indira Gandhi International Airport",
+  "Mumbai (BOM) - Chhatrapati Shivaji Maharaj International Airport",
+  "Bangalore (BLR) - Kempegowda International Airport",
+  "Hyderabad (HYD) - Rajiv Gandhi International Airport",
+  "Chennai (MAA) - Chennai International Airport",
+  "Kolkata (CCU) - Netaji Subhash Chandra Bose International Airport",
+  "Pune (PNQ) - Pune Airport",
+  "Ahmedabad (AMD) - Sardar Vallabhbhai Patel International Airport",
+  "Jaipur (JAI) - Jaipur International Airport",
+  "Goa (GOI) - Dabolim Airport",
+  "Kochi (COK) - Cochin International Airport",
+  "Lucknow (LKO) - Chaudhary Charan Singh International Airport",
+  "Guwahati (GAU) - Lokpriya Gopinath Bordoloi International Airport",
+  "Thiruvananthapuram (TRV) - Trivandrum International Airport",
+  "Dubai (DXB) - Dubai International Airport",
+  "Singapore (SIN) - Changi Airport",
+  "London (LHR) - Heathrow Airport",
+  "Bangkok (BKK) - Suvarnabhumi Airport"
+];
+
 export const countries = [
   "India", "United States", "United Kingdom", "Canada", "Australia", "Germany", "France", "Italy", "Spain", "Japan", "China", "Brazil", 
   "Mexico", "Indonesia", "Thailand", "Russia", "Netherlands", "Switzerland", "UAE", "Singapore"

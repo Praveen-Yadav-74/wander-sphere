@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plane, Hotel, MapPin, ArrowRightLeft, Search, Bus, X, Calendar } from 'lucide-react';
+import { Plane, Hotel, MapPin, ArrowRightLeft, Search, Bus, X, Calendar, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import { popularCities } from '@/data/suggestions';
+import { popularCities, popularAirports } from '@/data/suggestions';
 import { useNavigate } from 'react-router-dom';
 
 type TripType = 'oneWay' | 'roundTrip';
@@ -15,34 +15,42 @@ type TripType = 'oneWay' | 'roundTrip';
 interface CityDropdownProps {
     filterValue: string;
     onSelect: (city: string) => void;
+    data?: string[];
+    emptyMessage?: string;
 }
 
-const CityDropdown = ({ filterValue, onSelect }: CityDropdownProps) => {
+const CityDropdown = ({ filterValue, onSelect, data = popularCities, emptyMessage = "No results found" }: CityDropdownProps) => {
     if (!filterValue) return null;
 
-    const filtered = popularCities.filter(city => 
-        city.toLowerCase().includes(filterValue.toLowerCase())
+    const filtered = data.filter(item => 
+        item.toLowerCase().includes(filterValue.toLowerCase())
     ).slice(0, 8); // Show more results
-
-    if (filtered.length === 0) return null;
 
     return (
         <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-xl border border-gray-100 max-h-60 overflow-y-auto w-full">
-            {filtered.map((city) => (
-                <div
-                    key={city}
-                    onMouseDown={(e) => {
-                        e.preventDefault();
-                        onSelect(city);
-                    }}
-                    className="w-full text-left px-3 py-2.5 hover:bg-indigo-50 flex items-center gap-3 text-sm text-gray-700 transition-colors border-b border-gray-50 last:border-0 cursor-pointer"
-                >
-                    <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-                        <MapPin className="w-3 h-3 text-gray-500" />
+            {filtered.length > 0 ? (
+                filtered.map((item) => (
+                    <div
+                        key={item}
+                        onMouseDown={(e) => {
+                            e.preventDefault();
+                            onSelect(item);
+                        }}
+                        className="w-full text-left px-3 py-2.5 hover:bg-indigo-50 flex items-center gap-3 text-sm text-gray-700 transition-colors border-b border-gray-50 last:border-0 cursor-pointer"
+                    >
+                        <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                            <MapPin className="w-3 h-3 text-gray-500" />
+                        </div>
+                        <span className="font-medium truncate">{item}</span>
                     </div>
-                    <span className="font-medium truncate">{city}</span>
+                ))
+            ) : (
+                <div className="p-3 text-center text-sm text-gray-500 flex flex-col items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-orange-400" />
+                    <span>{emptyMessage}</span>
+                    <span className="text-xs text-indigo-600 font-medium">Coming soon to your area!</span>
                 </div>
-            ))}
+            )}
         </div>
     );
 };
@@ -58,6 +66,7 @@ interface InputFieldProps {
     onClear?: () => void;
     showDropdown?: boolean;
     onSelectCity?: (city: string) => void;
+    dropdownData?: string[];
 }
 
 const InputField = ({ 
@@ -70,7 +79,8 @@ const InputField = ({
     placeholder, 
     onClear,
     showDropdown,
-    onSelectCity
+    onSelectCity,
+    dropdownData
 }: InputFieldProps) => (
     <div className="relative space-y-1 group w-full h-full">
         <Label className="text-gray-500 text-[10px] md:text-xs font-bold uppercase tracking-wider pl-1">{label}</Label>
@@ -96,7 +106,12 @@ const InputField = ({
             )}
             
             {showDropdown && onSelectCity && (
-                <CityDropdown filterValue={value} onSelect={onSelectCity} />
+                <CityDropdown 
+                    filterValue={value} 
+                    onSelect={onSelectCity} 
+                    data={dropdownData}
+                    emptyMessage="We are expanding soon!"
+                />
             )}
         </div>
     </div>
@@ -141,6 +156,14 @@ const BookingSearch = () => {
 
     const handleBusSearch = () => {
         navigate('/booking/bus', { state: { from: busFrom, to: busTo, date: busDate } });
+    };
+
+    const handleFlightSearch = () => {
+        navigate('/booking/flight', { state: { from: flightFrom, to: flightTo, departureDate, returnDate, tripType } });
+    };
+
+    const handleHotelSearch = () => {
+        navigate('/booking/hotel', { state: { destination, checkIn, checkOut } });
     };
 
     // Styling helpers
@@ -194,6 +217,7 @@ const BookingSearch = () => {
                                         onFocus={() => setFocusedInput('flightFrom')} onBlur={() => setFocusedInput(null)} 
                                         placeholder="City / Airport" onClear={() => setFlightFrom('')}
                                         showDropdown={focusedInput === 'flightFrom'} onSelectCity={(city) => { setFlightFrom(city); setFocusedInput(null); }}
+                                        dropdownData={popularAirports}
                                     />
                                 </div>
 
@@ -214,6 +238,7 @@ const BookingSearch = () => {
                                         onFocus={() => setFocusedInput('flightTo')} onBlur={() => setFocusedInput(null)} 
                                         placeholder="City / Airport" onClear={() => setFlightTo('')}
                                         showDropdown={focusedInput === 'flightTo'} onSelectCity={(city) => { setFlightTo(city); setFocusedInput(null); }}
+                                        dropdownData={popularAirports}
                                     />
                                 </div>
                             </div>
@@ -234,7 +259,11 @@ const BookingSearch = () => {
 
                             {/* Search Button */}
                             <div className="lg:col-span-2">
-                                <Button disabled={!flightFrom || !flightTo || !departureDate} className="w-full h-11 md:h-14 rounded-xl md:rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/20 transition-all font-bold text-sm md:text-base flex items-center justify-center gap-2">
+                                <Button 
+                                    disabled={!flightFrom || !flightTo || !departureDate} 
+                                    onClick={handleFlightSearch}
+                                    className="w-full h-11 md:h-14 rounded-xl md:rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/20 transition-all font-bold text-sm md:text-base flex items-center justify-center gap-2"
+                                >
                                     <Search className="w-4 h-4" /> Search
                                 </Button>
                             </div>
@@ -245,7 +274,13 @@ const BookingSearch = () => {
                     <TabsContent value="hotel" className="p-4 md:p-8 space-y-3 md:space-y-6 focus-visible:outline-none">
                          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 md:gap-4 items-end">
                             <div className="lg:col-span-5 relative z-40">
-                                <InputField label="Destination" icon={Hotel} value={destination} onChange={(e) => setDestination(e.target.value)} onFocus={() => setFocusedInput('destination')} onBlur={() => setFocusedInput(null)} placeholder="City, Hotel, or Area" onClear={() => setDestination('')} showDropdown={focusedInput === 'destination'} onSelectCity={(city) => { setDestination(city); setFocusedInput(null); }} />
+                                <InputField 
+                                    label="Destination" icon={Hotel} value={destination} onChange={(e) => setDestination(e.target.value)} 
+                                    onFocus={() => setFocusedInput('destination')} onBlur={() => setFocusedInput(null)} 
+                                    placeholder="City, Hotel, or Area" onClear={() => setDestination('')} 
+                                    showDropdown={focusedInput === 'destination'} onSelectCity={(city) => { setDestination(city); setFocusedInput(null); }}
+                                    dropdownData={popularCities}
+                                />
                             </div>
                             <div className="lg:col-span-4 grid grid-cols-2 gap-2 z-30">
                                 <div className="space-y-1">
@@ -258,7 +293,11 @@ const BookingSearch = () => {
                                 </div>
                             </div>
                             <div className="lg:col-span-3">
-                                <Button disabled={!destination || !checkIn || !checkOut} className="w-full h-11 md:h-14 rounded-xl md:rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/20 transition-all font-bold text-sm md:text-base flex items-center justify-center gap-2">
+                                <Button 
+                                    disabled={!destination || !checkIn || !checkOut} 
+                                    onClick={handleHotelSearch}
+                                    className="w-full h-11 md:h-14 rounded-xl md:rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/20 transition-all font-bold text-sm md:text-base flex items-center justify-center gap-2"
+                                >
                                     <Search className="w-4 h-4" /> Search Hotels
                                 </Button>
                             </div>
@@ -277,6 +316,7 @@ const BookingSearch = () => {
                                         onFocus={() => setFocusedInput('busFrom')} onBlur={() => setFocusedInput(null)} 
                                         placeholder="City" onClear={() => setBusFrom('')}
                                         showDropdown={focusedInput === 'busFrom'} onSelectCity={(city) => { setBusFrom(city); setFocusedInput(null); }}
+                                        dropdownData={popularCities}
                                     />
                                 </div>
 
@@ -297,6 +337,7 @@ const BookingSearch = () => {
                                         onFocus={() => setFocusedInput('busTo')} onBlur={() => setFocusedInput(null)} 
                                         placeholder="City" onClear={() => setBusTo('')}
                                         showDropdown={focusedInput === 'busTo'} onSelectCity={(city) => { setBusTo(city); setFocusedInput(null); }}
+                                        dropdownData={popularCities}
                                     />
                                 </div>
                             </div>

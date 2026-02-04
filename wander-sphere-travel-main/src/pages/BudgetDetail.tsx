@@ -33,6 +33,8 @@ const BudgetDetail = () => {
     startDate: '',
     endDate: '',
   });
+  const [isEditExpenseOpen, setIsEditExpenseOpen] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<BudgetExpense | null>(null);
   const { toast } = useToast();
 
   // CRITICAL: Use efficient join query to fetch everything at once
@@ -395,6 +397,77 @@ const BudgetDetail = () => {
     }
   };
 
+  // Handle expense delete
+  const handleDeleteExpense = async (expenseId: string) => {
+    if (!id || !budget) return;
+
+    if (!confirm('Are you sure you want to delete this expense?')) {
+      return;
+    }
+
+    try {
+      setIsLoadingExpenses(true);
+      console.log('🗑️ Deleting expense:', expenseId);
+      
+      await budgetService.deleteBudgetExpense(id, expenseId);
+      
+      console.log('✅ Expense deleted, refetching...');
+      await fetchBudgetData();
+      
+      toast({
+        title: "Success",
+        description: "Expense deleted successfully!",
+      });
+    } catch (err: any) {
+      console.error('Delete expense error:', err);
+      toast({
+        title: "Error",
+        description: err.message || "Failed to delete expense. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingExpenses(false);
+    }
+  };
+
+  // Handle expense edit
+  const handleEditExpense = async () => {
+    if (!id || !editingExpense) return;
+
+    try {
+      setIsLoadingExpenses(true);
+      console.log('✏️ Updating expense:', editingExpense);
+      
+      await budgetService.updateBudgetExpense(id, {
+        id: editingExpense.id,
+        category: editingExpense.category,
+        amount: editingExpense.amount,
+        description: editingExpense.description,
+        date: editingExpense.date,
+      });
+      
+      console.log('✅ Expense updated, refetching...');
+      await fetchBudgetData();
+      
+      setIsEditExpenseOpen(false);
+      setEditingExpense(null);
+      
+      toast({
+        title: "Success",
+        description: "Expense updated successfully!",
+      });
+    } catch (err: any) {
+      console.error('Update expense error:', err);
+      toast({
+        title: "Error",
+        description: err.message || "Failed to update expense. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingExpenses(false);
+    }
+  };
+
   // Handle date update
   const handleUpdateDates = async () => {
     if (!budget || !id) return;
@@ -531,10 +604,10 @@ const BudgetDetail = () => {
       {/* Budget Header */}
       <Card className="bg-surface-elevated mb-8">
         <CardContent className="p-8">
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
             <div>
-        <h1 className="text-3xl font-bold mb-2">{budget.title}</h1>
-        <div className="flex flex-col sm:flex-row gap-4 text-muted-foreground">
+        <h1 className="text-2xl md:text-3xl font-bold mb-2">{budget.title}</h1>
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 text-muted-foreground text-sm">
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4" />
             {budget.destination}
@@ -569,19 +642,21 @@ const BudgetDetail = () => {
               <Edit className="w-3 h-3" />
             </Button>
           </div>
-          <Badge variant={budget.status === "active" ? "default" : "secondary"}>
-            {budget.status.charAt(0).toUpperCase() + budget.status.slice(1)}
-          </Badge>
-          {budget.noMaxBudget && (
-            <Badge variant="outline" className="bg-warning/10 text-warning">
-              No Max Budget
-            </Badge>
-          )}
+          <div className="flex flex-wrap gap-2 items-center">
+             <Badge variant={budget.status === "active" ? "default" : "secondary"}>
+                {budget.status.charAt(0).toUpperCase() + budget.status.slice(1)}
+              </Badge>
+              {budget.noMaxBudget && (
+                <Badge variant="outline" className="bg-warning/10 text-warning">
+                  No Max Budget
+                </Badge>
+              )}
+          </div>
         </div>
       </div>
-            <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
                 <Select value={currency} onValueChange={handleCurrencyChange}>
-                  <SelectTrigger className="w-[120px]">
+                  <SelectTrigger className="w-full sm:w-[120px]">
                     <SelectValue placeholder="Currency" />
                   </SelectTrigger>
                   <SelectContent>
@@ -599,7 +674,7 @@ const BudgetDetail = () => {
                 </Select>
                 {budget.status === 'completed' ? (
                   <Button 
-                    className="bg-gradient-primary text-white" 
+                    className="w-full sm:w-auto bg-gradient-primary text-white" 
                     onClick={() => handleStatusChange('active')}
                     disabled={isUpdatingStatus}
                   >
@@ -607,24 +682,24 @@ const BudgetDetail = () => {
                     {isUpdatingStatus ? 'Reopening...' : 'Reopen Budget'}
                   </Button>
                 ) : (
-                  <>
+                  <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                     <Button 
-                      className="bg-gradient-primary text-white" 
+                      className="w-full sm:w-auto bg-gradient-primary text-white" 
                       onClick={() => setIsAddExpenseOpen(true)}
-                      disabled={budget.status === 'completed'}
                     >
                       <Plus className="w-4 h-4 mr-2" />
                       Add Expense
                     </Button>
                     <Button 
                       variant="outline" 
+                      className="w-full sm:w-auto"
                       onClick={() => handleStatusChange('completed')}
                       disabled={isUpdatingStatus}
                     >
                       <CheckCircle2 className="w-4 h-4 mr-2" />
                       {isUpdatingStatus ? 'Completing...' : 'Mark Complete'}
                     </Button>
-                  </>
+                  </div>
                 )}
               </div>
               
@@ -692,6 +767,86 @@ const BudgetDetail = () => {
                     {isLoadingExpenses ? 'Adding...' : 'Add Expense'}
                   </Button>
                 </div>
+              </DialogContent>
+            </Dialog>
+
+            {/* Edit Expense Dialog */}
+            <Dialog open={isEditExpenseOpen} onOpenChange={setIsEditExpenseOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Edit Expense</DialogTitle>
+                </DialogHeader>
+                {editingExpense && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="editCategory">Category</Label>
+                        <Select 
+                          value={editingExpense.category} 
+                          onValueChange={(value) => setEditingExpense({...editingExpense, category: value})}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categories.map((category) => (
+                              <SelectItem key={category.name} value={category.name}>
+                                {category.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="editAmount">Amount ({currency})</Label>
+                        <Input
+                          id="editAmount"
+                          type="number"
+                          placeholder="0.00"
+                          value={editingExpense.amount || ''}
+                          onChange={(e) => setEditingExpense({...editingExpense, amount: Number(e.target.value)})}
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="editDate">Date</Label>
+                      <Input
+                        id="editDate"
+                        type="date"
+                        value={editingExpense.date}
+                        onChange={(e) => setEditingExpense({...editingExpense, date: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="editDescription">Description</Label>
+                      <Textarea
+                        id="editDescription"
+                        placeholder="What did you spend money on?"
+                        value={editingExpense.description}
+                        onChange={(e) => setEditingExpense({...editingExpense, description: e.target.value})}
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2 pt-4">
+                      <Button variant="outline" onClick={() => setIsEditExpenseOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button 
+                        onClick={handleEditExpense}
+                        disabled={isLoadingExpenses || !editingExpense.category || !editingExpense.amount || !editingExpense.description}
+                        className="bg-gradient-primary text-white"
+                      >
+                        {isLoadingExpenses ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Updating...
+                          </>
+                        ) : (
+                          'Save Changes'
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </DialogContent>
             </Dialog>
 
@@ -877,10 +1032,25 @@ const BudgetDetail = () => {
                     <div className="flex items-center gap-2">
                       <span className="font-semibold">{getCurrencySymbol(budget?.currency || 'USD')}{convertCurrency(expense.amount, budget?.currency || 'USD', currency).toFixed(2)}</span>
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" className="h-6 w-6">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-6 w-6"
+                          onClick={() => {
+                            setEditingExpense(expense);
+                            setIsEditExpenseOpen(true);
+                          }}
+                          disabled={budget.status === 'completed'}
+                        >
                           <Edit className="w-3 h-3" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-6 w-6 text-destructive"
+                          onClick={() => handleDeleteExpense(expense.id)}
+                          disabled={budget.status === 'completed' || isLoadingExpenses}
+                        >
                           <Trash2 className="w-3 h-3" />
                         </Button>
                       </div>
@@ -934,10 +1104,25 @@ const BudgetDetail = () => {
                       <td className="p-2 text-right font-medium">{getCurrencySymbol(budget?.currency || 'USD')}{convertCurrency(expense.amount, budget?.currency || 'USD', currency).toFixed(2)}</td>
                       <td className="p-2 text-center">
                         <div className="flex justify-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-7 w-7">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-7 w-7"
+                            onClick={() => {
+                              setEditingExpense(expense);
+                              setIsEditExpenseOpen(true);
+                            }}
+                            disabled={budget.status === 'completed'}
+                          >
                             <Edit className="w-3 h-3" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-7 w-7 text-destructive"
+                            onClick={() => handleDeleteExpense(expense.id)}
+                            disabled={budget.status === 'completed' || isLoadingExpenses}
+                          >
                             <Trash2 className="w-3 h-3" />
                           </Button>
                         </div>

@@ -21,8 +21,8 @@ export const config = {
   EMAIL_PASS: process.env.EMAIL_PASS,
   EMAIL_FROM: process.env.EMAIL_FROM,
   GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY,
-  RATE_LIMIT_WINDOW_MS: process.env.RATE_LIMIT_WINDOW_MS || 900000,
-  RATE_LIMIT_MAX_REQUESTS: process.env.RATE_LIMIT_MAX_REQUESTS || (process.env.NODE_ENV === 'development' ? 1000 : 100),
+  RATE_LIMIT_WINDOW_MS: process.env.RATE_LIMIT_WINDOW_MS || 60000, // Reduced to 1 minute for faster reset
+  RATE_LIMIT_MAX_REQUESTS: process.env.RATE_LIMIT_MAX_REQUESTS || (process.env.NODE_ENV === 'development' ? 5000 : 1000), // Increased significantly
   MAX_FILE_SIZE: process.env.MAX_FILE_SIZE || 10485760,
   MAX_FILES_PER_REQUEST: process.env.MAX_FILES_PER_REQUEST || 5,
   // Etrav API Configuration

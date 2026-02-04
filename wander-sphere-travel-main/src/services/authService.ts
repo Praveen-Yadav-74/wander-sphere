@@ -309,6 +309,46 @@ class AuthService {
   }
 
   /**
+   * Send OTP to phone number
+   */
+  async signInWithPhone(phone: string): Promise<{ data: any; error: any }> {
+    const { data, error } = await supabase.auth.signInWithOtp({
+      phone
+    });
+
+    return { data, error };
+  }
+
+  /**
+   * Verify phone OTP and complete login
+   */
+  async verifyPhoneOtp(phone: string, token: string): Promise<AuthResponse> {
+    const { data, error } = await supabase.auth.verifyOtp({
+      phone,
+      token,
+      type: 'sms'
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    if (!data.user || !data.session) {
+      throw new Error('OTP verification failed - no user or session returned');
+    }
+
+    const user = await this.convertSupabaseUser(data.user);
+    this.setUser(user);
+
+    return {
+      user,
+      token: data.session.access_token,
+      refreshToken: data.session.refresh_token,
+      expiresIn: data.session.expires_in || 3600
+    };
+  }
+
+  /**
    * Check if user is authenticated
    */
   isAuthenticated(): boolean {

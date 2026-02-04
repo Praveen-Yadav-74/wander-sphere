@@ -252,6 +252,18 @@ const Layout = ({ children }: LayoutProps) => {
             <span className="flex justify-center items-center w-6 h-6">🏨</span>
             {!navCollapsed && <span className="ml-2">Bookings</span>}
           </NavLink>
+          <NavLink 
+            to="/wallet" 
+            className={({ isActive }) => cn(
+              "flex items-center p-2 rounded-lg transition-all duration-200",
+              isActive 
+                ? "text-primary bg-primary/15 shadow-sm" 
+                : "text-muted-foreground hover:text-foreground hover:bg-accent"
+            )}
+          >
+            <span className="flex justify-center items-center w-6 h-6">💳</span>
+            {!navCollapsed && <span className="ml-2">Wallet</span>}
+          </NavLink>
         </div>
         <button 
           onClick={() => setNavCollapsed(!navCollapsed)} 
@@ -263,7 +275,7 @@ const Layout = ({ children }: LayoutProps) => {
       )}
       
       {/* Main content - with padding for side nav on desktop */}
-      <main className={`min-h-screen bg-background pt-16 pb-20 md:pb-0 ${!hideNavigation ? (navCollapsed ? 'md:ml-16' : 'md:ml-64') : ''} transition-all duration-300`}>
+      <main className={`min-h-screen bg-background pt-[calc(4rem+env(safe-area-inset-top))] pb-20 md:pb-0 ${!hideNavigation ? (navCollapsed ? 'md:ml-16' : 'md:ml-64') : ''} transition-all duration-300`}>
         {children}
       </main>
       

@@ -25,36 +25,36 @@ import BudgetDetail from "./pages/BudgetDetail";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Notifications from "./pages/Notifications";
+import NotificationsSocial from "./pages/NotificationsSocial";
 import NotFound from "./pages/NotFound";
+import HotelBooking from "./pages/HotelBooking";
+import PaymentSettings from "./pages/admin/PaymentSettings";
 import BusBooking from "./pages/BusBooking";
 import BusSeatSelection from "./pages/BusSeatSelection";
 import BookingPayment from "./components/booking/BookingPayment";
 import FlightBooking from "./pages/FlightBooking";
-import HotelBooking from "./pages/HotelBooking";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import DataPolicy from "./pages/DataPolicy";
+import AccountDeletion from "./pages/AccountDeletion";
+import WalletPage from "./pages/WalletPage";
+import ManageClubs from "./pages/ManageClubs";
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // CRITICAL: Prevent tab switch reloads (like Instagram/Facebook)
-      refetchOnWindowFocus: false, // Never refetch when tab regains focus
-      refetchOnMount: false, // Don't refetch on component mount if data exists
-      refetchOnReconnect: false, // Don't refetch when internet reconnects
-      
-      // Cache configuration for social media experience
-      staleTime: 5 * 60 * 1000, // Data stays fresh for 5 minutes (no refetch during this time)
-      gcTime: 30 * 60 * 1000, // Keep data in memory for 30 minutes even if unused
-      
-      // Network optimization
-      retry: 1, // Only retry failed requests once
-      retryDelay: 1000, // Wait 1 second before retry
-      
-      // Enable structural sharing to preserve object references
-      structuralSharing: true, // Prevents unnecessary re-renders
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
+      refetchOnReconnect: false,
+      staleTime: 5 * 60 * 1000,
+      gcTime: 30 * 60 * 1000,
+      retry: 1,
+      retryDelay: 1000,
+      structuralSharing: true,
     },
   },
 });
 
-// Protected Route Component - Redirects to login if not authenticated
+// Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, isLoading } = useAuth();
 
@@ -73,14 +73,14 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-import PrivacyPolicy from "./pages/PrivacyPolicy";
-
 const AppRoutes = () => (
   <Routes>
     {/* Authentication routes - Public */}
     <Route path="/login" element={<Login />} />
     <Route path="/register" element={<Register />} />
     <Route path="/privacy" element={<PrivacyPolicy />} />
+    <Route path="/data-policy" element={<DataPolicy />} />
+    <Route path="/account-deletion" element={<AccountDeletion />} />
     
     {/* All other routes requires authentication */}
     <Route
@@ -242,6 +242,59 @@ const AppRoutes = () => (
       element={
         <ProtectedRoute>
           <Notifications />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/wallet"
+      element={
+        <ProtectedRoute>
+          <WalletPage />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/bookings"
+      element={
+        <ProtectedRoute>
+          <MyTrips />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/saved"
+      element={
+        <ProtectedRoute>
+          <MyTrips />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/support"
+      element={
+        <ProtectedRoute>
+          <div className="min-h-screen pt-20 px-4 text-center">
+             <h1 className="text-2xl font-bold">Help & Support</h1>
+             <p className="text-muted-foreground mt-2">Coming Soon.</p>
+          </div>
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/manage-clubs"
+      element={
+        <ProtectedRoute>
+          <ManageClubs />
+        </ProtectedRoute>
+      }
+    />
+    
+    {/* Admin Routes */}
+    <Route
+      path="/admin/payments"
+      element={
+        <ProtectedRoute>
+          <PaymentSettings />
         </ProtectedRoute>
       }
     />

@@ -1,9 +1,14 @@
-import React, { useState } from 'react';
-import { CreditCard, Wallet, ShieldCheck, ChevronRight, Check } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { CreditCard, Wallet, ShieldCheck, ChevronRight, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
+import { useRazorpay } from 'react-razorpay';
+import { paymentService } from '@/services/paymentService';
+import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
+import { walletService } from '@/services/walletService';
 
 interface BookingPaymentProps {
     type?: 'flight' | 'hotel' | 'bus';
@@ -13,12 +18,63 @@ interface BookingPaymentProps {
 
 const BookingPayment = ({ type = 'flight', amount = 4500, details }: BookingPaymentProps) => {
     const navigate = useNavigate();
+    const { user } = useAuth();
+    const { Razorpay } = useRazorpay();
     const [useWallet, setUseWallet] = useState(false);
-    const walletBalance = 12500;
-    
-    // Calculate final
-    const discount = useWallet ? Math.min(walletBalance, amount * 0.2) : 0; // Max 20% from wallet for example
+    const [loading, setLoading] = useState(false);
+    const [walletBalance, setWalletBalance] = useState(0);
+
+    useEffect(() => {
+        const fetchBalance = async () => {
+            if (user?.id) {
+                try {
+                    const data = await walletService.getWalletDetails(user.id);
+                    if (data) setWalletBalance(data.wallet.balance);
+                } catch (error) {
+                    console.error("Failed to fetch wallet balance", error);
+                }
+            }
+        };
+        fetchBalance();
+    }, [user?.id]);
+
+    const discount = useWallet ? Math.min(walletBalance, amount * 0.2) : 0;
     const finalAmount = amount - discount;
+
+    const balanceStr = walletBalance.toLocaleString();
+    const balanceFontSize = balanceStr.length > 10 ? "text-[10px]" : balanceStr.length > 7 ? "text-[11px]" : "text-xs";
+
+    const handlePayment = async () => {
+        setLoading(true);
+        try {
+            await paymentService.processPayment(
+                finalAmount,
+                'trip',
+                'TRIP_' + Date.now(),
+                (options: any) => {
+                     const rz = new Razorpay(options); 
+                     rz.open();
+                },
+                (successData) => {
+                    toast.success('Payment Successful!');
+                    console.log(successData);
+                    navigate('/');
+                },
+                (error) => {
+                    toast.error(error.message || 'Payment Failed');
+                },
+                {
+                    name: user?.firstName ? `${user.firstName} ${user.lastName}` : "User",
+                    email: user?.email || "user@example.com",
+                    contact: "9999999999"
+                }
+            );
+        } catch (err: any) {
+             toast.error(err.message || 'Something went wrong');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <div className="w-full max-w-4xl mx-auto p-4 md:p-8">
@@ -44,7 +100,7 @@ const BookingPayment = ({ type = 'flight', amount = 4500, details }: BookingPaym
                             </div>
                             <div>
                                 <p className="text-sm text-gray-500">Traveller</p>
-                                <p className="font-semibold text-gray-900">John Doe (+1 Adult)</p>
+                                <p className="font-semibold text-gray-900">{user?.firstName || 'John'} {user?.lastName || 'Doe'} (+1 Adult)</p>
                             </div>
                         </div>
                     </div>
@@ -55,29 +111,34 @@ const BookingPayment = ({ type = 'flight', amount = 4500, details }: BookingPaym
                         
                         {/* Wallet Option */}
                         <div className="flex items-center justify-between p-4 mb-4 bg-indigo-50 rounded-xl border border-indigo-100">
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/wallet')}>
                                 <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
                                     <Wallet className="w-5 h-5 text-indigo-600" />
                                 </div>
                                 <div>
                                     <p className="font-bold text-indigo-900">Wander Wallet</p>
-                                    <p className="text-xs text-indigo-600">Balance: ₹{walletBalance.toLocaleString()}</p>
+                                    <p className={`text-indigo-600 ${balanceFontSize} font-medium truncate max-w-[150px]`} title={`₹${balanceStr}`}>
+                                        Balance: ₹{balanceStr}
+                                    </p>
                                 </div>
                             </div>
                             <Switch checked={useWallet} onCheckedChange={setUseWallet} />
                         </div>
 
                          <div className="space-y-3">
-                            <div className="flex items-center gap-3 p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-indigo-500 transition-colors bg-white">
+                            <div onClick={handlePayment} className="flex items-center gap-3 p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-indigo-500 transition-colors bg-white hover:bg-gray-50">
                                 <div className="w-5 h-5 rounded-full border border-gray-300 flex items-center justify-center">
                                     <div className="w-2.5 h-2.5 rounded-full bg-indigo-600" />
                                 </div>
-                                <span className="font-medium text-gray-700">UPI / QR Code</span>
-                                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/UPI-Logo-vector.svg/1200px-UPI-Logo-vector.svg.png" alt="UPI" className="h-4 ml-auto" />
+                                <span className="font-medium text-gray-700">Online Payment (UPI/Card/NetBanking)</span>
+                                <div className="ml-auto flex gap-2">
+                                     <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/UPI-Logo-vector.svg/1200px-UPI-Logo-vector.svg.png" alt="UPI" className="h-4" />
+                                     <span className="text-xs text-gray-400 self-center">Secure</span>
+                                </div>
                             </div>
                             <div className="flex items-center gap-3 p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-indigo-500 transition-colors bg-white opacity-60">
                                 <div className="w-5 h-5 rounded-full border border-gray-300" />
-                                <span className="font-medium text-gray-700">Credit / Debit Card</span>
+                                <span className="font-medium text-gray-700">Credit / Debit Card (Direct)</span>
                             </div>
                          </div>
                     </div>
@@ -108,8 +169,19 @@ const BookingPayment = ({ type = 'flight', amount = 4500, details }: BookingPaym
                             </div>
                         </div>
 
-                        <Button className="w-full h-12 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg shadow-lg shadow-indigo-600/20">
-                            Pay ₹{finalAmount.toLocaleString()}
+                        <Button 
+                            onClick={handlePayment} 
+                            disabled={loading}
+                            className="w-full h-12 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg shadow-lg shadow-indigo-600/20 disabled:opacity-70 disabled:cursor-not-allowed"
+                        >
+                            {loading ? (
+                                <>
+                                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                                    Processing...
+                                </>
+                            ) : (
+                                `Pay ₹${finalAmount.toLocaleString()}`
+                            )}
                         </Button>
                         
                         <div className="mt-4 flex items-center justify-center gap-2 text-xs text-gray-400">

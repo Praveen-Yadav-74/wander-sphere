@@ -130,10 +130,10 @@ export const userService = {
       if (user?.preferences?.currency) {
         return user.preferences.currency;
       }
-      return 'USD'; // Default
+      return 'INR'; // Default
     } catch (error) {
       console.error('Error getting user currency:', error);
-      return 'USD'; // Default on error
+      return 'INR'; // Default on error
     }
   },
   /**

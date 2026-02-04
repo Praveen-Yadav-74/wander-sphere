@@ -49,11 +49,16 @@ export interface CreateBudgetData {
   noMaxBudget?: boolean;
 }
 
-export interface UpdateBudgetData extends Partial<CreateBudgetData> {
+export interface UpdateBudgetData {
   id: string;
-  status?: 'active' | 'completed';
+  title?: string;
+  destination?: string;
+  totalBudget?: number;
   startDate?: string;
   endDate?: string;
+  status?: 'active' | 'completed' | 'upcoming';
+  currency?: string;
+  noMaxBudget?: boolean;
 }
 
 export interface CreateExpenseData {
@@ -204,22 +209,32 @@ export const getTripBudgetDetails = async (budgetId: string): Promise<{ budget: 
     .order('expense_date', { ascending: false });
 
   if (!budgetExpensesError && budgetExpenses && budgetExpenses.length > 0) {
-    // Merge with existing expenses (avoid duplicates)
+    // Transform and merge with existing expenses
+    const budgetExpensesTransformed = budgetExpenses.map((exp: any) => ({
+      id: exp.id,
+      budgetId: budgetId,
+      category: exp.category || 'Miscellaneous',
+      amount: parseFloat(exp.amount?.toString() || '0'),
+      description: exp.description || '',
+      date: exp.expense_date || exp.date,
+      currency: budgetData.currency || 'USD',
+      createdAt: exp.created_at,
+      updatedAt: exp.updated_at,
+    }));
+    
+    // CRITICAL FIX: Only add budget_expenses that are NOT already in the expenses array
+    // This prevents duplicates when an expense exists in both tables
     const existingIds = new Set(expenses.map(e => e.id));
-    const newExpenses = budgetExpenses
-      .filter((exp: any) => !existingIds.has(exp.id))
-      .map((exp: any) => ({
-        id: exp.id,
-        budgetId: budgetId,
-        category: exp.category || 'Miscellaneous',
-        amount: parseFloat(exp.amount?.toString() || '0'),
-        description: exp.description || '',
-        date: exp.expense_date || exp.date,
-        currency: budgetData.currency || 'USD',
-        createdAt: exp.created_at,
-        updatedAt: exp.updated_at,
-      }));
-    expenses = [...expenses, ...newExpenses];
+    const uniqueBudgetExpenses = budgetExpensesTransformed.filter((exp: any) => !existingIds.has(exp.id));
+    
+    // If we have expenses from the expenses table, ONLY use those (they are primary for trip-linked budgets)
+    // Otherwise use budget_expenses
+    if (expenses.length === 0) {
+      expenses = budgetExpensesTransformed;
+    } else {
+      // Merge only unique ones
+      expenses = [...expenses, ...uniqueBudgetExpenses];
+    }
   }
 
   // Transform budget data

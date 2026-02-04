@@ -29,7 +29,7 @@ export interface Story {
 }
 
 export interface CreateStoryData {
-  media: File;
+  media?: File;
   mediaType: 'image' | 'video';
   duration?: number;
 }

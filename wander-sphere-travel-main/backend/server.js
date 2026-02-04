@@ -23,6 +23,7 @@ import walletRoutes from './routes/wallet.js';
 import etravRoutes from './routes/etrav.js';
 import followRoutes from './routes/follows.js';
 import paymentRoutes from './routes/paymentRoutes.js';
+import socialRoutes from './routes/social.js'; // Import Social Routes
 
 const app = express();
 const PORT = config.PORT;
@@ -30,14 +31,6 @@ const PORT = config.PORT;
 // Security middleware
 app.use(helmet());
 app.use(compression());
-
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: config.RATE_LIMIT_WINDOW_MS, // 15 minutes
-  max: config.RATE_LIMIT_MAX_REQUESTS, // limit each IP to requests per windowMs
-  message: 'Too many requests from this IP, please try again later.'
-});
-app.use('/api/', limiter);
 
 // CORS configuration - Production and Development
 const allowedOrigins = [
@@ -94,6 +87,14 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Connection', 'Accept'],
   exposedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: config.RATE_LIMIT_WINDOW_MS, // 15 minutes
+  max: config.RATE_LIMIT_MAX_REQUESTS, // limit each IP to requests per windowMs
+  message: 'Too many requests from this IP, please try again later.'
+});
+app.use('/api/', limiter);
 
 // Connection keep-alive middleware
 app.use((req, res, next) => {
@@ -202,6 +203,7 @@ app.use('/api/wallet', walletRoutes);
 app.use('/api/etrav', etravRoutes);
 app.use('/api/follows', followRoutes);
 app.use('/api/payment', paymentRoutes);
+app.use('/api/social', socialRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

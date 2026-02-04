@@ -72,6 +72,8 @@ export interface CreateClubBackendData {
   isPrivate?: boolean;
   tags?: string[];
   rules?: string[];
+  category?: string;
+  image?: string;
 }
 
 export interface UpdateClubData extends Partial<CreateClubData> {
@@ -152,6 +154,19 @@ class ClubService {
     }
 
     throw new Error(response.message || 'Failed to create club');
+  }
+
+  /**
+   * Get clubs created by the current user
+   */
+  async getMyCreatedClubs(): Promise<PaginatedResponse<Club>> {
+    return await apiRequest<PaginatedResponse<Club>>(
+      `${buildUrl(endpoints.clubs.list)}/my-created`,
+      {
+        method: 'GET',
+        headers: getAuthHeaderSync(),
+      }
+    );
   }
 
   /**

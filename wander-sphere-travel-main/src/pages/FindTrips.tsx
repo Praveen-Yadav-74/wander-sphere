@@ -20,6 +20,7 @@ import heroBeach from "@/assets/hero-beach.jpg";
 import MyTrips from "@/pages/MyTrips";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SimpleAutocomplete } from "@/components/ui/search-autocomplete";
+import { DatePicker } from "@/components/ui/date-picker";
 import { popularCities } from "@/data/suggestions";
 
 const FindTrips = () => {
@@ -205,76 +206,102 @@ const FindTrips = () => {
 // ... existing code ...
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
-      <Tabs defaultValue="find" className="w-full">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+    <div className="min-h-screen bg-gray-50/50 pb-20">
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        
+        {/* Hero Header */}
+        <div className="flex flex-col md:flex-row justify-between items-end gap-6 mb-10">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Trips</h1>
-            <p className="text-muted-foreground mt-1">Discover adventures or manage your own</p>
+            <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 mb-2">
+              Find Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">Next Adventure</span>
+            </h1>
+            <p className="text-lg text-gray-500 max-w-2xl">
+              Discover curated trips, join like-minded travelers, and create unforgettable memories.
+            </p>
           </div>
-          <TabsList>
-            <TabsTrigger value="find">Find Trips</TabsTrigger>
-            <TabsTrigger value="my-trips">My Trips</TabsTrigger>
-          </TabsList>
+          
+          <div className="flex gap-3">
+             <Button 
+                onClick={() => setIsCreateTripOpen(true)}
+                className="bg-gray-900 text-white hover:bg-gray-800 rounded-xl px-6 h-12 shadow-lg shadow-gray-200 transition-all hover:scale-105 active:scale-95"
+              >
+                <Plus className="w-5 h-5 mr-2" />
+                Post a Trip
+              </Button>
+          </div>
         </div>
 
-        <TabsContent value="find" className="space-y-6">
-          <div className="flex flex-col sm:flex-row justify-end items-start sm:items-center gap-4 mb-6">
-          <Dialog open={isCreateTripOpen} onOpenChange={setIsCreateTripOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-gradient-adventure text-white shadow-primary">
-                <Plus className="w-4 h-4 mr-2" />
-                Post Your Trip
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <Tabs defaultValue="find" className="w-full space-y-8">
+          <TabsList className="bg-white/50 backdrop-blur-sm p-1 rounded-2xl border border-gray-200/50 w-full md:w-auto inline-flex">
+            <TabsTrigger 
+              value="find" 
+              className="rounded-xl px-6 py-2.5 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all"
+            >
+              Explore Trips
+            </TabsTrigger>
+            <TabsTrigger 
+              value="my-trips"
+              className="rounded-xl px-6 py-2.5 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all"
+            >
+              My Trips
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="find" className="space-y-8 animate-in fade-in-50 duration-500 glide-in-5">
+            {/* Create Trip Dialog (Hidden) */}
+            <Dialog open={isCreateTripOpen} onOpenChange={setIsCreateTripOpen}>
+               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl">
               <DialogHeader>
-                <DialogTitle>Create New Trip</DialogTitle>
+                <DialogTitle className="text-2xl font-bold">Create New Trip</DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleCreateTrip} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="title">Trip Title</Label>
+              <form onSubmit={handleCreateTrip} className="space-y-6 pt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="title" className="text-sm font-semibold text-gray-700">Trip Title</Label>
                     <Input
                       id="title"
                       value={newTrip.title}
                       onChange={(e) => setNewTrip({...newTrip, title: e.target.value})}
-                      placeholder="e.g., Bali Adventure"
+                      placeholder="e.g., Bali Paradise Escape"
                       required
+                      className="rounded-xl border-gray-200 focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="destination">Destination</Label>
+                  <div className="space-y-2">
+                    <Label htmlFor="destination" className="text-sm font-semibold text-gray-700">Destination</Label>
                     <Input
                       id="destination"
                       value={newTrip.destination}
                       onChange={(e) => setNewTrip({...newTrip, destination: e.target.value})}
                       placeholder="e.g., Bali, Indonesia"
                       required
+                      className="rounded-xl border-gray-200 focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="startDate">Start Date</Label>
+                  <div className="space-y-2">
+                    <Label htmlFor="startDate" className="text-sm font-semibold text-gray-700">Start Date</Label>
                     <Input
                       id="startDate"
                       type="date"
                       value={newTrip.startDate}
                       onChange={(e) => setNewTrip({...newTrip, startDate: e.target.value})}
                       required
+                      className="rounded-xl border-gray-200"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="endDate">End Date</Label>
+                  <div className="space-y-2">
+                    <Label htmlFor="endDate" className="text-sm font-semibold text-gray-700">End Date</Label>
                     <Input
                       id="endDate"
                       type="date"
                       value={newTrip.endDate}
                       onChange={(e) => setNewTrip({...newTrip, endDate: e.target.value})}
                       required
+                      className="rounded-xl border-gray-200"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="maxParticipants">Max Participants</Label>
+                  <div className="space-y-2">
+                    <Label htmlFor="maxParticipants" className="text-sm font-semibold text-gray-700">Group Size</Label>
                     <Input
                       id="maxParticipants"
                       type="number"
@@ -282,255 +309,251 @@ const FindTrips = () => {
                       onChange={(e) => setNewTrip({...newTrip, maxParticipants: e.target.value})}
                       placeholder="e.g., 8"
                       required
+                      className="rounded-xl border-gray-200"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="budget">Budget Range</Label>
+                  <div className="space-y-2">
+                    <Label htmlFor="budget" className="text-sm font-semibold text-gray-700">Budget (Approx)</Label>
                     <Input
                       id="budget"
                       value={newTrip.budget}
                       onChange={(e) => setNewTrip({...newTrip, budget: e.target.value})}
-                      placeholder="e.g., $1000 - $1500"
+                      placeholder="e.g., 1500"
                       required
+                      className="rounded-xl border-gray-200"
                     />
                   </div>
                 </div>
-                <div>
-                  <Label htmlFor="type">Trip Type</Label>
-                  <Select value={newTrip.type} onValueChange={(value) => setNewTrip({...newTrip, type: value})}>
-                    <SelectTrigger>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="type" className="text-sm font-semibold text-gray-700">Trip Style</Label>
+                   <Select value={newTrip.type} onValueChange={(value) => setNewTrip({...newTrip, type: value})}>
+                    <SelectTrigger className="rounded-xl border-gray-200">
                       <SelectValue placeholder="Select trip type" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="adventure">Adventure</SelectItem>
-                      <SelectItem value="beach">Beach</SelectItem>
+                      <SelectItem value="beach">Beach & Coastal</SelectItem>
                       <SelectItem value="city">City Break</SelectItem>
-                      <SelectItem value="culture">Cultural</SelectItem>
+                      <SelectItem value="cultural">Cultural</SelectItem>
                       <SelectItem value="food">Food & Drink</SelectItem>
                       <SelectItem value="backpacking">Backpacking</SelectItem>
                       <SelectItem value="luxury">Luxury</SelectItem>
-                      <SelectItem value="budget">Budget</SelectItem>
+                      <SelectItem value="budget">Budget Friendly</SelectItem>
+                      <SelectItem value="relaxation">Relaxation</SelectItem>
+                      <SelectItem value="family">Family</SelectItem>
+                      <SelectItem value="romantic">Romantic</SelectItem>
+                      <SelectItem value="solo">Solo Travel</SelectItem>
+                      <SelectItem value="group">Group Tour</SelectItem>
+                      <SelectItem value="nature">Nature & Wildlife</SelectItem>
+                      <SelectItem value="roadtrip">Road Trip</SelectItem>
+                      <SelectItem value="business">Business</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label htmlFor="description">Description</Label>
+
+                <div className="space-y-2">
+                  <Label htmlFor="description" className="text-sm font-semibold text-gray-700">Description</Label>
                   <Textarea
                     id="description"
                     value={newTrip.description}
                     onChange={(e) => setNewTrip({...newTrip, description: e.target.value})}
-                    placeholder="Describe your trip..."
-                    rows={3}
+                    placeholder="Tell everyone what this trip is about..."
+                    rows={4}
                     required
+                    className="rounded-xl border-gray-200 resize-none"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="tags">Tags (comma separated)</Label>
+                
+                 <div className="space-y-2">
+                  <Label htmlFor="tags" className="text-sm font-semibold text-gray-700">Tags</Label>
                   <Input
                     id="tags"
                     value={newTrip.tags}
                     onChange={(e) => setNewTrip({...newTrip, tags: e.target.value})}
-                    placeholder="e.g., Adventure, Beach, Culture"
+                    placeholder="hiking, photography, food (comma separated)"
+                    className="rounded-xl border-gray-200"
                   />
                 </div>
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button type="button" variant="outline" onClick={() => setIsCreateTripOpen(false)}>
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button type="button" variant="ghost" onClick={() => setIsCreateTripOpen(false)} className="rounded-xl hover:bg-gray-100">
                     Cancel
                   </Button>
-                  <Button type="submit" className="bg-gradient-primary text-white">
+                  <Button type="submit" className="bg-gray-900 text-white hover:bg-gray-800 rounded-xl px-8">
                     Create Trip
                   </Button>
                 </div>
               </form>
-            </DialogContent>
-          </Dialog>
-        </div>
+               </DialogContent>
+            </Dialog>
 
-        {/* Search Filters */}
-        <Card className="bg-surface-elevated">
-          <CardContent className="p-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div>
-                <label className="text-sm font-medium mb-2 block">Destination</label>
-                <div className="relative">
-                  <SimpleAutocomplete 
-                    suggestions={popularCities}
-                    value={searchDestination}
-                    onChange={setSearchDestination}
-                    placeholder="e.g., Bali, Indonesia"
-                    icon={<MapPin className="w-4 h-4" />}
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Dates</label>
-                <Input
-                  placeholder="Select dates"
-                  value={selectedDates}
-                  onChange={(e) => setSelectedDates(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Trip Type</label>
-                <Select value={tripType} onValueChange={setTripType}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Any" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="any">Any</SelectItem>
-                    <SelectItem value="adventure">Adventure</SelectItem>
-                    <SelectItem value="beach">Beach</SelectItem>
-                    <SelectItem value="city">City Break</SelectItem>
-                    <SelectItem value="culture">Cultural</SelectItem>
-                    <SelectItem value="food">Food & Drink</SelectItem>
-                    <SelectItem value="backpacking">Backpacking</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-end">
-                <Button className="w-full bg-gradient-primary text-white">
-                  <Search className="w-4 h-4 mr-2" />
-                  Search Trips
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-
-      {/* Trip Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {loading ? (
-          <div className="col-span-full text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-            <p className="mt-4 text-muted-foreground">Loading trips...</p>
-          </div>
-        ) : !trips || trips.length === 0 ? (
-          <div className="col-span-full text-center py-12">
-            <Camera className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No trips found</h3>
-            <p className="text-muted-foreground mb-4">Be the first to create a trip!</p>
-            <Button 
-              onClick={() => setIsCreateTripOpen(true)}
-              className="bg-gradient-primary text-white"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Create Your First Trip
-            </Button>
-          </div>
-        ) : (
-          (trips || []).map((trip) => {
-            const destinationText = typeof trip.destination === 'string' 
-              ? trip.destination 
-              : `${trip.destination.city}, ${trip.destination.country}`;
-            
-            const startDate = new Date(trip.dates?.startDate || '');
-            const endDate = new Date(trip.dates?.endDate || '');
-            const dateText = startDate.toLocaleDateString() + ' - ' + endDate.toLocaleDateString();
-            
-            // Safely extract organizer name and avatar from backend data
-            const organizerData = (() => {
-              if (!trip.organizer) return { name: 'Anonymous', avatar: undefined };
-              if (typeof trip.organizer === 'object') {
-                const fullName = `${trip.organizer.first_name || ''} ${trip.organizer.last_name || ''}`.trim();
-                return {
-                  name: fullName || 'Anonymous',
-                  avatar: trip.organizer.avatar_url
-                };
-              }
-              return { name: String(trip.organizer), avatar: trip.organizerAvatar };
-            })();
-            
-            const budgetText = trip.budget ? `$${trip.budget.total} ${trip.budget.currency}` : 'Budget TBD';
-            
-            // Safely get initials from organizer name
-            const getInitials = (name: string): string => {
-              if (!name || typeof name !== 'string') return 'NA';
-              const parts = name.trim().split(' ').filter(Boolean);
-              if (parts.length === 0) return 'NA';
-              return parts.map(n => n[0]?.toUpperCase() || '').join('').slice(0, 2);
-            };
-            
-            return (
-              <Card key={trip.id} className="overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer group">
-                <Link to={`/trips/${trip.id}`}>
-                  <div className="aspect-[16/10] overflow-hidden relative">
-                    <img 
-                      src={trip.images?.[0] || heroBeach} 
-                      alt={trip.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      onError={handleImageError}
-                    />
-                    <Badge className={`absolute top-3 right-3 ${getStatusColor(trip.status || 'planning')}`}>
-                      {trip.status || 'Planning'}
-                    </Badge>
-                  </div>
-                  <CardHeader className="pb-3">
-                    <div className="flex justify-between items-start">
-                      <CardTitle className="text-xl line-clamp-1">{trip.title}</CardTitle>
-                      <Badge variant="outline" className="text-xs">
-                        {trip.category}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Avatar className="w-6 h-6">
-                        <AvatarImage src={organizerData.avatar} />
-                        <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                          {getInitials(organizerData.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-sm text-muted-foreground">by {organizerData.name}</span>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground text-sm mb-4 line-clamp-2">
-                      {trip.description}
-                    </p>
-                    
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-sm">
-                        <MapPin className="w-4 h-4 text-primary" />
-                        <span>{destinationText}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Calendar className="w-4 h-4 text-primary" />
-                        <span>{dateText}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Users className="w-4 h-4 text-primary" />
-                        <span>{trip.participantCount || 0}/{trip.maxParticipants} travelers</span>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-1 mt-4 mb-4">
-                      {(trip.tags || []).map((tag, index) => (
-                        <Badge key={index} variant="secondary" className="text-xs">
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
-
-                    <div className="flex justify-between items-center pt-3 bg-muted/10 rounded-lg px-3 mt-3">
-                      <span className="font-semibold text-sm">{budgetText}</span>
-                      <TripRequestButton 
-                        tripId={trip.id}
-                        size="sm"
-                        className="bg-gradient-primary text-white"
+            <div className="bg-white rounded-3xl p-1 shadow-sm border border-gray-100 flex flex-col md:flex-row shadow-lg shadow-gray-200/50 relative z-10">
+               <div className="flex-1 px-5 py-3 md:border-r border-gray-100 relative group transition-colors hover:bg-gray-50/50 rounded-2xl">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1 block group-hover:text-blue-600 transition-colors">Where</label>
+                   <div className="relative flex items-center">
+                     <MapPin className="w-4 h-4 text-gray-400 mr-2 group-hover:text-blue-500 transition-colors" />
+                     <SimpleAutocomplete 
+                        suggestions={popularCities}
+                        value={searchDestination}
+                        onChange={setSearchDestination}
+                        placeholder="Search destinations"
+                        className="border-none shadow-none focus-visible:ring-0 p-0 h-auto font-medium text-gray-900 placeholder:text-gray-400 w-full bg-transparent"
+                        icon={<></>} 
                       />
-                    </div>
-                  </CardContent>
-                </Link>
-              </Card>
-            );
-          })
-        )}
-      </div>
-      </TabsContent>
+                   </div>
+               </div>
+               
+               <div className="flex-1 px-5 py-3 md:border-r border-gray-100 relative group transition-colors hover:bg-gray-50/50 rounded-2xl">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1 block group-hover:text-blue-600 transition-colors">When</label>
+                   <div className="relative flex items-center">
+                      <Calendar className="w-4 h-4 text-gray-400 mr-2 group-hover:text-blue-500 transition-colors" />
+                      <DatePicker 
+                        date={selectedDates ? new Date(selectedDates) : undefined}
+                        setDate={(date) => setSelectedDates(date ? date.toISOString() : "")}
+                        placeholder="Add dates"
+                        className="p-0 h-auto font-medium text-gray-900"
+                      />
+                   </div>
+               </div>
 
-      <TabsContent value="my-trips">
-        <MyTrips />
-      </TabsContent>
-    </Tabs>
+                <div className="flex-1 px-5 py-3 relative group transition-colors hover:bg-gray-50/50 rounded-2xl">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1 block group-hover:text-blue-600 transition-colors">Type</label>
+                   <div className="relative flex items-center">
+                      <Filter className="w-4 h-4 text-gray-400 mr-2 group-hover:text-blue-500 transition-colors" />
+                      <Select value={tripType} onValueChange={setTripType}>
+                        <SelectTrigger className="border-none shadow-none focus:ring-0 p-0 h-auto font-medium text-gray-900 w-full bg-transparent gap-1 hover:bg-transparent">
+                          <SelectValue placeholder="Any Type" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl border-gray-100 shadow-xl">
+                          <SelectItem value="any">Any Type</SelectItem>
+                          <SelectItem value="adventure">Adventure</SelectItem>
+                          <SelectItem value="beach">Beach</SelectItem>
+                          <SelectItem value="city">City Break</SelectItem>
+                          <SelectItem value="culture">Cultural</SelectItem>
+                          <SelectItem value="backpacking">Backpacking</SelectItem>
+                        </SelectContent>
+                      </Select>
+                   </div>
+               </div>
+               
+               <div className="p-1.5">
+                 <Button className="w-full md:w-auto h-full rounded-2xl bg-gray-900 hover:bg-black text-white px-8 shadow-md shadow-gray-200 transition-all hover:scale-[1.02] active:scale-95 text-base font-medium">
+                    Search
+                 </Button>
+               </div>
+            </div>
+
+            {/* Trips Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {loading ? (
+                Array(6).fill(0).map((_, i) => (
+                  <div key={i} className="bg-white rounded-3xl h-[400px] animate-pulse border border-gray-100" />
+                ))
+              ) : !trips || trips.length === 0 ? (
+                 <div className="col-span-full py-20 text-center">
+                    <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                       <MapPin className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">No trips found</h3>
+                    <p className="text-gray-500 max-w-sm mx-auto mb-6">We couldn't find any trips matching your search. Try adjusting your filters or be the first to create one!</p>
+                    <Button onClick={() => setIsCreateTripOpen(true)} className="bg-gray-900 text-white rounded-xl">
+                      Create a Trip
+                    </Button>
+                 </div>
+              ) : (
+                trips.map((trip) => {
+                  const startDate = new Date(trip.dates?.startDate || '');
+                  const endDate = new Date(trip.dates?.endDate || '');
+                  const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+                  
+                  // Safely extract organizer
+                  const organizerName = typeof trip.organizer === 'object' ? `${trip.organizer?.first_name || 'Traveler'} ${trip.organizer?.last_name || ''}` : 'Traveler';
+                  const organizerAvatar = typeof trip.organizer === 'object' ? trip.organizer?.avatar_url : undefined;
+                  const initials = organizerName.slice(0, 2).toUpperCase();
+
+                  return (
+                    <Link to={`/trips/${trip.id}`} key={trip.id} className="group">
+                      <Card className="rounded-3xl border-none shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden h-[420px] flex flex-col bg-white ring-1 ring-gray-100 group-hover:ring-blue-100">
+                        {/* Image Section */}
+                        <div className="h-[240px] relative overflow-hidden">
+                           <img 
+                              src={trip.images?.[0] || heroBeach} 
+                              alt={trip.title} 
+                              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                              onError={handleImageError}
+                           />
+                           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60"></div>
+                           
+                           {/* Badges on Image */}
+                           <div className="absolute top-4 left-4 right-4 flex justify-between items-start">
+                              <Badge className="bg-white/90 text-gray-900 hover:bg-white border-none shadow-sm backdrop-blur-sm px-3 py-1 text-xs font-semibold rounded-full uppercase tracking-wide">
+                                 {trip.category || 'Adventure'}
+                              </Badge>
+                              <div className="bg-gray-900/40 backdrop-blur-md text-white px-3 py-1 rounded-full text-xs font-medium border border-white/20">
+                                 {days} Days
+                              </div>
+                           </div>
+
+                           <div className="absolute bottom-4 left-4 text-white">
+                              <h3 className="font-bold text-xl leading-tight mb-1 drop-shadow-md">{trip.title}</h3>
+                              <div className="flex items-center gap-1.5 text-sm font-medium text-gray-100">
+                                 <MapPin className="w-3.5 h-3.5" />
+                                 {typeof trip.destination === 'string' ? trip.destination : trip.destination?.city}
+                              </div>
+                           </div>
+                        </div>
+
+                        {/* Content Section */}
+                        <CardContent className="flex-1 p-5 flex flex-col justify-between bg-white relative">
+                             {/* Organizer overlap */}
+                             <div className="absolute -top-6 right-5 border-4 border-white rounded-full shadow-sm">
+                                <Avatar className="w-10 h-10">
+                                   <AvatarImage src={organizerAvatar} />
+                                   <AvatarFallback className="bg-blue-100 text-blue-600 font-bold">{initials}</AvatarFallback>
+                                </Avatar>
+                             </div>
+
+                             <p className="text-gray-500 text-sm line-clamp-2 leading-relaxed mb-4">
+                                {trip.description}
+                             </p>
+
+                             <div className="space-y-3 mt-auto">
+                                <div className="flex items-center justify-between text-sm">
+                                   <div className="flex items-center gap-2 text-gray-600">
+                                      <Calendar className="w-4 h-4 text-blue-500" />
+                                      {startDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                   </div>
+                                    <div className="flex items-center gap-2 text-gray-600">
+                                      <Users className="w-4 h-4 text-purple-500" />
+                                      {trip.participantCount || 0}/{trip.maxParticipants}
+                                   </div>
+                                </div>
+                                
+                                <div className="pt-3 border-t border-gray-50 flex items-center justify-between">
+                                   <div>
+                                      <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">Estimated Cost</p>
+                                      <p className="text-lg font-bold text-gray-900">{trip.budget?.currency || '$'}{trip.budget?.total}</p>
+                                   </div>
+                                   <Button size="sm" className="rounded-xl px-5 bg-gray-50 text-gray-900 hover:bg-gray-900 hover:text-white transition-colors border-none shadow-none font-semibold">
+                                      View Details
+                                   </Button>
+                                </div>
+                             </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  );
+                })
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="my-trips">
+            <MyTrips />
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 };

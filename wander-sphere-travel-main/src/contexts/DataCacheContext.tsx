@@ -25,7 +25,7 @@ interface Story {
 }
 
 interface Post {
-  id: number;
+  id: string;
   user: string;
   avatar: string;
   location: string;
