@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
-import { useRazorpay } from 'react-razorpay';
+import { useRazorpay } from '../../hooks/payment/useRazorpay';
 import { paymentService } from '@/services/paymentService';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,7 +19,7 @@ interface BookingPaymentProps {
 const BookingPayment = ({ type = 'flight', amount = 4500, details }: BookingPaymentProps) => {
     const navigate = useNavigate();
     const { user } = useAuth();
-    const { Razorpay } = useRazorpay();
+    const { openRazorpay } = useRazorpay();
     const [useWallet, setUseWallet] = useState(false);
     const [loading, setLoading] = useState(false);
     const [walletBalance, setWalletBalance] = useState(0);
@@ -51,10 +51,7 @@ const BookingPayment = ({ type = 'flight', amount = 4500, details }: BookingPaym
                 finalAmount,
                 'trip',
                 'TRIP_' + Date.now(),
-                (options: any) => {
-                     const rz = new Razorpay(options); 
-                     rz.open();
-                },
+                openRazorpay,
                 (successData) => {
                     toast.success('Payment Successful!');
                     console.log(successData);

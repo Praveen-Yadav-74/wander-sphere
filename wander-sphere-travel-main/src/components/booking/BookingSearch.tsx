@@ -159,7 +159,24 @@ const BookingSearch = () => {
     };
 
     const handleFlightSearch = () => {
-        navigate('/booking/flight', { state: { from: flightFrom, to: flightTo, departureDate, returnDate, tripType } });
+        // Extract IATA code from strings like "Mumbai (BOM)" → "BOM"
+        const extractIata = (val: string) => {
+            const match = val.match(/\(([A-Z]{3})\)/);
+            return match ? match[1] : val.trim().slice(0, 3).toUpperCase();
+        };
+        navigate('/flights', {
+            state: {
+                Origin: extractIata(flightFrom),
+                Destination: extractIata(flightTo),
+                DepartureDate: departureDate,
+                ReturnDate: returnDate,
+                TripType: tripType,
+                Adults: 1,
+                Children: 0,
+                Infants: 0,
+                CabinClass: 'Economy',
+            }
+        });
     };
 
     const handleHotelSearch = () => {

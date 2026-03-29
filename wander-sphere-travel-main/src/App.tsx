@@ -33,11 +33,13 @@ import BusBooking from "./pages/BusBooking";
 import BusSeatSelection from "./pages/BusSeatSelection";
 import BookingPayment from "./components/booking/BookingPayment";
 import FlightBooking from "./pages/FlightBooking";
+import Flights from "./pages/Flights";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import DataPolicy from "./pages/DataPolicy";
 import AccountDeletion from "./pages/AccountDeletion";
 import WalletPage from "./pages/WalletPage";
 import ManageClubs from "./pages/ManageClubs";
+import PaymentSuccess from "./pages/payment/PaymentSuccess";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -230,6 +232,18 @@ const AppRoutes = () => (
       }
     />
     <Route
+      path="/flights/*"
+      element={
+        <ProtectedRoute>
+          <Flights />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/flight-search"
+      element={<Navigate to="/flights/search" replace />}
+    />
+    <Route
       path="/booking/hotel"
       element={
         <ProtectedRoute>
@@ -250,6 +264,14 @@ const AppRoutes = () => (
       element={
         <ProtectedRoute>
           <WalletPage />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/payment/success"
+      element={
+        <ProtectedRoute>
+          <PaymentSuccess />
         </ProtectedRoute>
       }
     />

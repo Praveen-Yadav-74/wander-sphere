@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Wallet, CreditCard, Loader2, AlertCircle } from 'lucide-react';
-import { useRazorpay } from '@/hooks/useRazorpay';
+import { useRazorpay } from '@/hooks/payment/useRazorpay';
 import { paymentService } from '@/services/paymentService';
 import { walletService } from '@/services/walletService';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/components/ui/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { formatPrice } from '@/utils/etravDate';
 
 interface TripPaymentButtonProps {
   tripId: string;
@@ -66,7 +67,7 @@ export const TripPaymentButton: React.FC<TripPaymentButtonProps> = ({
     if (walletBalance < amount) {
       toast({
         title: 'Insufficient Balance',
-        description: `You need ₹${amount - walletBalance} more in your wallet`,
+        description: `You need ${formatPrice(amount - walletBalance)} more in your wallet`,
         variant: 'destructive',
       });
       return;
@@ -82,7 +83,7 @@ export const TripPaymentButton: React.FC<TripPaymentButtonProps> = ({
 
       toast({
         title: 'Payment Successful',
-        description: `₹${result.amountPaid} deducted from wallet. New balance: ₹${result.newBalance.toFixed(2)}`,
+        description: `${formatPrice(result.amountPaid)} deducted from wallet. New balance: ${formatPrice(result.newBalance)}`,
       });
 
       setIsModalOpen(false);
@@ -131,7 +132,7 @@ export const TripPaymentButton: React.FC<TripPaymentButtonProps> = ({
           // Success
           toast({
             title: 'Payment Successful',
-            description: `Trip booked successfully! Payment ID: ${result.transactionId}`,
+            description: `Trip booked successfully! Payment ID: ${result.data?.transactionId || 'Success'}`,
           });
           setIsModalOpen(false);
           setIsProcessing(false);
@@ -183,7 +184,7 @@ export const TripPaymentButton: React.FC<TripPaymentButtonProps> = ({
         ) : (
           <>
             <CreditCard className="w-4 h-4 mr-2" />
-            Pay Now - ₹{amount.toLocaleString('en-IN')}
+            Pay Now - {formatPrice(amount)}
           </>
         )}
       </Button>
@@ -194,7 +195,7 @@ export const TripPaymentButton: React.FC<TripPaymentButtonProps> = ({
           <DialogHeader>
             <DialogTitle>Choose Payment Method</DialogTitle>
             <DialogDescription>
-              Pay for "{tripTitle}" - ₹{amount.toLocaleString('en-IN')}
+              Pay for "{tripTitle}" - {formatPrice(amount)}
             </DialogDescription>
           </DialogHeader>
 
@@ -213,10 +214,7 @@ export const TripPaymentButton: React.FC<TripPaymentButtonProps> = ({
                       <span className="font-medium">Wallet Balance</span>
                     </div>
                     <span className="text-lg font-bold">
-                      ₹{walletBalance.toLocaleString('en-IN', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
+                      {formatPrice(walletBalance)}
                     </span>
                   </div>
                 </div>
@@ -243,14 +241,14 @@ export const TripPaymentButton: React.FC<TripPaymentButtonProps> = ({
                       )}
                     </Button>
                     <p className="text-xs text-center text-muted-foreground">
-                      ₹{(walletBalance - amount).toFixed(2)} will remain in wallet
+                      {formatPrice(walletBalance - amount)} will remain in wallet
                     </p>
                   </div>
                 ) : (
                   <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
-                      Insufficient wallet balance. You need ₹{(amount - walletBalance).toFixed(2)} more.
+                      Insufficient wallet balance. You need {formatPrice(amount - walletBalance)} more.
                     </AlertDescription>
                   </Alert>
                 )}
@@ -282,12 +280,12 @@ export const TripPaymentButton: React.FC<TripPaymentButtonProps> = ({
                         ) : (
                           <>
                             <CreditCard className="w-4 h-4 mr-2" />
-                            Pay Remaining ₹{(amount - walletBalance).toLocaleString('en-IN')}
+                            Pay Remaining {formatPrice(amount - walletBalance)}
                           </>
                         )}
                       </Button>
                       <p className="text-xs text-center text-muted-foreground">
-                        ₹{walletBalance.toFixed(2)} from wallet + ₹{(amount - walletBalance).toFixed(2)} via card/UPI
+                        {formatPrice(walletBalance)} from wallet + {formatPrice(amount - walletBalance)} via card/UPI
                       </p>
                     </>
                   ) : (

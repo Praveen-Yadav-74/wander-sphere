@@ -1,0 +1,30 @@
+{
+  "r1": {
+    "label": "MM/DD/YYYY",
+    "error": "Cannot read properties of undefined (reading 'Flight_Details')"
+  },
+  "r2": {
+    "label": "DD/MM/YYYY",
+    "status": 200,
+    "flightCount": 0,
+    "header": {
+      "Error_Code": "0001",
+      "Error_Desc": "Your request failed due to invalid request data / credentials. Check inner exception",
+      "Error_InnerException": "Invalid request data, Travel Date Format should be MM/dd/yyyy / Travel Date seems Invalid",
+      "Request_Id": "TEST-SEARCH",
+      "Status_Id": "22"
+    }
+  },
+  "r3": {
+    "label": "MM/DD/YYYY (2025)",
+    "status": 200,
+    "flightCount": 0,
+    "header": {
+      "Error_Code": "0001",
+      "Error_Desc": "Your request failed due to invalid request data / credentials. Check inner exception",
+      "Error_InnerException": "Invalid request data, Travel date seems invalid",
+      "Request_Id": "TEST-SEARCH",
+      "Status_Id": "22"
+    }
+  }
+}

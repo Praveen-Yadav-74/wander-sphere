@@ -1,0 +1,150 @@
+{
+  "Search_Key": "eyJzZWdtZW50cyI6W3sib3JpZ2luIjoiREVMIiwiZGVzdGluYXRpb24iOiJCT00iLCJvcmlnaW5Db3VudHJ5IjoiSU4iLCJkZXN0Q291bnRyeSI6IklOIiwidHJhdmVsRGF0ZSI6IjIwMjYtMDMtMjAiLCJ0cmlwVHJhdmVsdHlwZSI6IkRPTUVTVElDIn1dLCJhZHVsdENvdW50IjoxLCJjaGlsZENvdW50IjowLCJpbmZhbnRDb3VudCI6MCwiY2xhc3NUeXBlIjoiRUNPTk9NWSIsIm5vblN0b3AiOmZhbHNlLCJob3N0U2VhcmNoIjp0cnVlLCJpc1NwZWNpYWxSZXR1cm4iOmZhbHNlLCJjaXR5U2VhcmNoIjpmYWxzZSwiY2FjaGVJZCI6Ijk5MzQiLCJ0cmFja0lkIjoiRjI0ODA5RTgtRDA4MC00QTg0LTlCNUUtQ0ZCOTVBNzczNTZCIiwiYm9va2luZ1R5cGUiOiJPTkVXQVkiLCJ0cmF2ZWxUeXBlIjoiSU5URVJOQVRJT05BTCJ9",
+  "Flight": {
+    "Airline_Code": "H1",
+    "Block_Ticket_Allowed": true,
+    "Cached": false,
+    "Destination": "BOM",
+    "Fares": [
+      {
+        "FareDetails": [
+          {
+            "AirportTax_Amount": 8975,
+            "AirportTaxes": [
+              {
+                "Tax_Amount": 241,
+                "Tax_Code": "IN",
+                "Tax_Desc": "IN"
+              },
+              {
+                "Tax_Amount": 858,
+                "Tax_Code": "K3",
+                "Tax_Desc": "K3"
+              },
+              {
+                "Tax_Amount": 236,
+                "Tax_Code": "P2",
+                "Tax_Desc": "P2"
+              },
+              {
+                "Tax_Amount": 3140,
+                "Tax_Code": "YQ",
+                "Tax_Desc": "YQ"
+              },
+              {
+                "Tax_Amount": 4500,
+                "Tax_Code": "YR",
+                "Tax_Desc": "YR"
+              }
+            ],
+            "Basic_Amount": 9511,
+            "CancellationCharges": [
+              {
+                "Applicablility": 0,
+                "DurationFrom": null,
+                "DurationTo": null,
+                "DurationTypeFrom": 0,
+                "DurationTypeTo": 0,
+                "OfflineServiceFee": 0,
+                "OnlineServiceFee": 0,
+                "PassengerType": 0,
+                "Remarks": "Non Refundable",
+                "Return_Flight": false,
+                "Value": "100",
+                "ValueType": 1
+              }
+            ],
+            "Currency_Code": "INR",
+            "FareClasses": [
+              {
+                "CabinClass": "ECONOMY",
+                "Class_Code": "K",
+                "Class_Desc": "Spicejet Economy Clsas",
+                "FareBasis": "KOWSG",
+                "Privileges": null,
+                "Segment_Id": 0
+              }
+            ],
+            "Free_Baggage": {
+              "Check_In_Baggage": "1 Pieces",
+              "DisplayRemarks": null,
+              "Hand_Baggage": "7 Kg"
+            },
+            "GST": 0,
+            "Gross_Commission": 0,
+            "Net_Commission": 0,
+            "PAX_Type": 0,
+            "Promo_Discount": 0,
+            "RescheduleCharges": [
+              {
+                "Applicablility": 0,
+                "DurationFrom": null,
+                "DurationTo": null,
+                "DurationTypeFrom": 0,
+                "DurationTypeTo": 0,
+                "OfflineServiceFee": 0,
+                "OnlineServiceFee": 0,
+                "PassengerType": 0,
+                "Remarks": "Non Changeable",
+                "Return_Flight": false,
+                "Value": "100",
+                "ValueType": 1
+              }
+            ],
+            "Service_Fee_Amount": 0,
+            "TDS": 0,
+            "Total_Amount": 18486,
+            "Trade_Markup_Amount": 0,
+            "YQ_Amount": 0
+          }
+        ],
+        "FareType": "Spicejet Economy Clsas",
+        "Fare_Id": "MTdiNzNhNzctMzg4OC00ZjBjLWJjNTctMGUyNzMxMDc4MjdmXlNwaWNlamV0IEVjb25vbXkgQ2xzYXNeNjFMVDZeUkVWTWZFSlBUWHhJTVh3NE56UjhNakF5Tmkwd015MHlNQ0F5TVRveE1Id3lNREkyTFRBekxUSXdJREl6T2pNMWZBPT1eSDF8MDQ2fERFTC1CT018ODc0XkYyNDgwOUU4LUQwODAtNEE4NC05QjVFLUNGQjk1QTc3MzU2Ql42MjdefktefmZhbHNlXn5zZWFyY2g=",
+        "Fare_Key": null,
+        "Food_onboard": "P",
+        "GSTMandatory": false,
+        "LastFewSeats": "4",
+        "ProductClass": "K",
+        "PromptMessage": null,
+        "Refundable": true,
+        "Seats_Available": "4",
+        "Warning": ""
+      }
+    ],
+    "Flight_Id": "H1|046|DEL-BOM|874",
+    "Flight_Key": "UkVWTWZFSlBUWHhJTVh3NE56UjhNakF5Tmkwd015MHlNQ0F5TVRveE1Id3lNREkyTFRBekxUSXdJREl6T2pNMWZBPT1eSDF8MDQ2fERFTC1CT018ODc0Xn5ERUwqQk9NKklOVEVSTkFUSU9OQUwqRUNPTk9NWSpIMSpJTipJTip0cnVlKmZhbHNlKmZhbHNl",
+    "Flight_Numbers": "874-03/20/2026 21:10",
+    "GST_Entry_Allowed": false,
+    "HasMoreClass": false,
+    "Insta_Cancel_Allowed": false,
+    "InventoryType": 0,
+    "IsFareChange": false,
+    "IsLCC": false,
+    "Origin": "DEL",
+    "Post_SSR_Allowed": false,
+    "Repriced": false,
+    "Segments": [
+      {
+        "Aircraft_Type": "737",
+        "Airline_Code": "H1",
+        "Airline_Name": null,
+        "Arrival_DateTime": "03/20/2026 23:35",
+        "Departure_DateTime": "03/20/2026 21:10",
+        "Destination": "BOM",
+        "Destination_City": "Mumbai",
+        "Destination_Terminal": "1",
+        "Duration": "02:25",
+        "Flight_Number": "874",
+        "Leg_Index": 0,
+        "OperatedBy": "SG",
+        "Origin": "DEL",
+        "Origin_City": "New Delhi",
+        "Origin_Terminal": "1D",
+        "Return_Flight": false,
+        "Segment_Id": 0,
+        "Stop_Over": null
+      }
+    ],
+    "TravelDate": "03/20/2026"
+  }
+}

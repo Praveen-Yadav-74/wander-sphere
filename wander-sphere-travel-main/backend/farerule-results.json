@@ -1,0 +1,14 @@
+[
+  {
+    "label": "Fare_Id string",
+    "status": 200,
+    "success": true,
+    "error": "SUCCESS"
+  },
+  {
+    "label": "FareId string",
+    "status": 200,
+    "success": false,
+    "error": "Invalid request data, Fare Id required"
+  }
+]

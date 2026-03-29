@@ -25,10 +25,12 @@ export const config = {
   RATE_LIMIT_MAX_REQUESTS: process.env.RATE_LIMIT_MAX_REQUESTS || (process.env.NODE_ENV === 'development' ? 5000 : 1000), // Increased significantly
   MAX_FILE_SIZE: process.env.MAX_FILE_SIZE || 10485760,
   MAX_FILES_PER_REQUEST: process.env.MAX_FILES_PER_REQUEST || 5,
-  // Etrav API Configuration
-  ETRAV_API_URL: process.env.ETRAV_API_URL || 'http://api.etrav.in/',
-  ETRAV_CONSUMER_KEY: process.env.ETRAV_CONSUMER_KEY || '',
-  ETRAV_CONSUMER_SECRET: process.env.ETRAV_CONSUMER_SECRET || '',
+  // eTrav Production API Configuration
+  ETRAV_AIR_BASE_URL: process.env.ETRAV_AIR_BASE_URL || 'https://prod-api.etrav.in/Flight/AirAPIService.svc/JSONService/',
+  ETRAV_TRADE_BASE_URL: process.env.ETRAV_TRADE_BASE_URL || 'https://prod-api.etrav.in/trade/TradeAPIService.svc/JSONService/',
+  ETRAV_USER_ID: process.env.ETRAV_USER_ID || '',
+  ETRAV_PASSWORD: process.env.ETRAV_PASSWORD || '',
+  ETRAV_IMEI: process.env.ETRAV_IMEI || 'WS-APP-001',
   // Razorpay Configuration
   RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID || '',
   RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET || ''

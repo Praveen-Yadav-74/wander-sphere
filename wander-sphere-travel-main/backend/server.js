@@ -20,10 +20,11 @@ import mapRoutes from './routes/maps.js';
 import budgetRoutes from './routes/budget.js';
 import bookingRoutes from './routes/booking.js';
 import walletRoutes from './routes/wallet.js';
-import etravRoutes from './routes/etrav.js';
+// etrav.js routes removed – all flight operations now use /api/flights
 import followRoutes from './routes/follows.js';
 import paymentRoutes from './routes/paymentRoutes.js';
 import socialRoutes from './routes/social.js'; // Import Social Routes
+import flightRoutes from './routes/flights.js';
 
 const app = express();
 const PORT = config.PORT;
@@ -200,10 +201,11 @@ app.use('/api/map', mapRoutes);
 app.use('/api/budget', budgetRoutes);
 app.use('/api/booking', bookingRoutes);
 app.use('/api/wallet', walletRoutes);
-app.use('/api/etrav', etravRoutes);
+// Legacy /api/etrav removed – use /api/flights instead
 app.use('/api/follows', followRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/social', socialRoutes);
+app.use('/api/flights', flightRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

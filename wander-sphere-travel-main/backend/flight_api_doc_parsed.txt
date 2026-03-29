@@ -1,0 +1,4185 @@
+Welcome to Aggregator API Services. 
+The 
+Client 1.0 – AIR
+ 
+API
+ 
+manages the complete ﬂight booking process, from search to 
+Ɵ
+cke
+Ɵ
+ng. It 
+allows partners to search for ﬂights, check fare rules, revalidate prices, select op
+Ɵ
+onal services, hold 
+bookings, process payments, issue 
+Ɵ
+ckets, and reprint 
+Ɵ
+ckets.
+ 
+The API supports temporary (hold) bookings and works with or without SSR selec
+Ɵ
+on (such as seats, 
+meals, and baggage), providing ﬂexibility throughout the booking ﬂow. 
+Connec
+Ɵ
+vity (Staging URLs and Creden
+Ɵ
+als)
+ 
+These web services are accessible via JSON-based APIs. All methods accept POST requests only and 
+return responses in JSON format. 
+Service URLs (JSON) 
+
+ 
+Domain/airlinehost/AirAPIService.svc/JSONService 
+
+ 
+Domain.in/tradehost/TradeAPIService.svc/JSONService 
+Creden
+Ɵ
+als
+ 
+The Creden
+Ɵ
+als will be shared through E
+-mail. 
+BarCode Integra
+Ɵ
+on:
+ 
+To generate the barcode on the 
+Ɵ
+cket printout at your end, you must capture and format the data as 
+speciﬁed below. 
+Note:
+ 
+We do not provide any DDL or library for barcode genera
+Ɵ
+on. You are required to use a third
+-
+party DLL or library for implemen
+Ɵ
+ng the barcode.
+ 
+POST01 - Air_Search 
+ 
+The 
+Air_Search API
+ 
+allows clients to search for available ﬂights across mul
+Ɵ
+ple airlines based on the 
+selected route, travel date, travel type, and passenger count. The response includes a list of available 
+ﬂights with fare details, cabin class, availability, and other r
+elevant informa
+Ɵ
+on required to proceed 
+with pricing and booking. 
+a) APIAirSearchRequest
+ 
+Name
+ 
+Type
+ 
+Descrip
+Ɵ
+on
+ 
+Mandatory
+ 
+Auth_Header 
+Object 
+This object holds API Authen
+Ɵ
+ca
+Ɵ
+on details
+ 
+Yes 
+Travel_Type 
+Enum 
+This requires the Travel Type, Possible Values: 0 -
+DOMESTIC/1 - INTERNATIONAL 
+Yes 
+Booking_Type 
+Enum 
+This requires the BookingType. Values: 0 - ONE_WAY/ 1- 
+ROUNDTRIP/ 2- SPECIALROUNDTRIP/3-MULTICITY 
+Yes 
+TripInfo 
+Object 
+This object holds the property of TripInfo 
+Yes 
+Adult_Count 
+Integer 
+This requires the Total number of adult 
+Yes 
+Child_Count 
+Integer 
+This requires the Total number of child 
+No 
+Infant_Count
+ 
+Integer
+ 
+This requires the Total number of infant
+ 
+No
+ 
+Class_Of_Travel
+ 
+Enum 
+This requires the class of Travel. Possible values: 0- 
+ECONOMY/ 1- BUSINESS/ 2- FIRST/ 3- 
+PREMIUM_ECONOMY 
+Yes 
+InventoryType 
+Enum 
+This requires the Inventory type Possible Value : 0
+-
+RetailFare 
+Yes 
+Filtered_Airline
+ 
+List(Object)
+ 
+This object holds the list of AirlineCodes Ex: By search All 
+Airline "Filtered_Airline":[ { "Airline_Code":"" } ] By search 
+par
+Ɵ
+cular Airline "Filtered_Airline":[ { "Airline_Code":"6E" } 
+] By search more than one Airline "Filtered_Airline":[ { 
+"Airline_Code":"6E" }, { "Airline_Code":"SG" } ] 
+No 
+b) TripInfo
+ 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+Mandatory
+ 
+Origin 
+String 
+This requires the Origin details 
+Yes 
+Des
+Ɵ
+na
+Ɵ
+on
+ 
+String 
+This requires the Des
+Ɵ
+na
+Ɵ
+on details
+ 
+Yes 
+TravelDate
+ 
+String 
+This requires the Date of Journey. Date Format should be in 
+MM/DD/YYYY.
+ 
+Yes 
+Trip_Id 
+Integer
+ 
+For Ongoing the TripId value should be 0, For Return the TripId 
+value should be 1 
+Yes 
+c) Filtered_Airline
+ 
+Name
+ 
+Type
+ 
+Descrip
+Ɵ
+on
+ 
+Mandatory
+ 
+Airline_Code
+ 
+String
+ 
+This requires the Airline code
+ 
+No 
+Response Object : APIAirSearchResponse 
+a)
+APIAirSearchResponse
+ 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+Response_Header
+ 
+Object 
+This object holds the property of ResponseHeader
+ 
+Search_Key 
+String 
+This Key holds Search Details 
+TripDetails
+ 
+List(Object)
+ 
+This displays list of APITripDetail
+ 
+b)
+ 
+APITripDetail
+ 
+Name
+ 
+Type 
+Descrip
+Ɵ
+on
+ 
+Trip_Id
+ 
+String 
+This displays trip id of search 
+Flights
+ 
+List(Object)
+ 
+This object holds the list of APIFlight
+ 
+c)
+ 
+APIFlight
+ 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+Flight_Id 
+String 
+This displays the FlightId of the Flight. 
+Flight_Key 
+String 
+This key holds Flight details. 
+Origin
+ 
+String
+ 
+This displays the origin of the Journey
+ 
+Des
+Ɵ
+na
+Ɵ
+on
+ 
+String 
+This displays the des
+Ɵ
+na
+Ɵ
+on of the Journey
+ 
+TravelDate 
+String 
+This displays the travelDate of the Journey 
+Segments 
+List(Object)
+ 
+This object holds list of APISegment 
+Fares
+ 
+List(Object)
+ 
+This object holds list of APIFare
+ 
+Airline_Code 
+String 
+If passed value as true, search result is fetched from DB, If false, 
+data fetched from supplier. 
+Cached 
+Boolean 
+If passed value as true, search result is fetched from DB, If false, 
+data fetched from supplier. 
+IsLCC 
+Boolean 
+This displays true when the ﬂight is LCC 
+Block_Ticket_Allowed
+ 
+Boolean 
+If true, block 
+Ɵ
+cket allowed, If false, Block 
+Ɵ
+cket not allowed.
+ 
+GST_Entry_Allowed 
+Boolean 
+If true, GST entry allowed, If false,GST Entry not allowed. 
+Repriced
+ 
+Boolean
+ 
+It returns true a
+Ō
+er reprice done successfully. Otherwise false.
+ 
+HasMoreClass 
+Boolean 
+Check has more class 
+InventoryType 
+Enum 
+This has the Inventory type Possible Values : 0-RetailFare 
+PromoCode 
+String 
+This displays the Promo code from supplier 
+d)
+ 
+APISegment
+ 
+Name
+ 
+Type
+ 
+Descrip
+Ɵ
+on
+ 
+Segment_Id 
+Integer 
+This displays the Segment id. 
+LegIndex 
+Integer 
+This displays the 0 based leg index for the Flight 
+Origin 
+String 
+This displays the origin 
+OriginTerminal
+ 
+String
+ 
+This displays the Origin Terminal
+ 
+OriginCity 
+String 
+This displays the Origin City 
+Des
+Ɵ
+na
+Ɵ
+on
+ 
+String
+ 
+This displays the segment Des
+Ɵ
+na
+Ɵ
+on
+ 
+Des
+Ɵ
+na
+Ɵ
+onTerminal
+ 
+String 
+This displays the Des
+Ɵ
+na
+Ɵ
+onTerminal
+ 
+Des
+Ɵ
+na
+Ɵ
+onCity
+ 
+String 
+This displays the Des
+Ɵ
+na
+Ɵ
+onCity
+ 
+AirlineCode 
+String 
+This displays the Airline Code 
+AirlineName
+ 
+String
+ 
+This displays the AirlineName
+ 
+FlightNumber 
+String 
+This displays the FlightNumber 
+Aircra
+Ō
+Type
+ 
+String 
+This displays the Aircra
+Ō
+Type
+ 
+DepartureDateTime
+ 
+String 
+This displays the DepartureDateTime 
+ArrivalDateTime
+ 
+String
+ 
+This displays the ArrivalDateTime
+ 
+StopOver 
+List 
+(String) 
+This displays the StopOver 
+ReturnFlight 
+Boolean 
+It has true when the Segment is ReturnSegment 
+Dura
+Ɵ
+on
+ 
+String 
+This displays segment level Dura
+Ɵ
+on in HH:mm format. Using this 
+dura
+Ɵ
+on have to calculate the total Journey dura
+Ɵ
+on.
+ 
+e)
+ 
+APIFare
+ 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+FareId 
+Integer
+ 
+This displays the unique Fare Id which needs to be passed in the upcoming 
+requests 
+FareKey 
+Integers
+ 
+This displays the unique Fare Key value. 
+Refundable
+ 
+String
+ 
+This displays the whether the fare is refundable or not.(True or False)
+ 
+FareDetails 
+String 
+This displays the list of Fare Details passenger type wise 
+Foodonboard 
+String 
+This displays the meal is paid or free(P - Paid, F - Free) 
+SeatsAvailable 
+String 
+This displays the number of seats available in the fare 
+LastFewSeats
+ 
+String
+ 
+This displays the Last Few Seats
+ 
+Warning 
+String 
+This displays the warming message like diﬀerent des
+Ɵ
+na
+Ɵ
+on, vis required 
+etc. 
+PromptMessage
+ 
+String 
+This displays the PRompt message if conﬁgured 
+GSTMandatory 
+String 
+This displays whether the GST is mandatory (True or False) 
+FareType 
+String 
+This displays Fare Type. 
+f)
+ 
+APIFareDetails
+ 
+Name
+ 
+Type
+ 
+Descrip
+Ɵ
+on
+ 
+PAXType 
+String 
+This requires the pax type. Possible Values :0-ADT/1- CHD/ 2- INF
+ 
+FareClasses 
+List(Object)
+ 
+This displays list of APIFareClass 
+BasicAmount 
+Double 
+This displays the BasicAmount 
+YQAmount
+ 
+Double
+ 
+This displays the YQ Amount
+ 
+AirportTaxAmount 
+Double 
+This displays the AirportTaxAmount 
+AirportTaxes 
+List(Object)
+ 
+This displays list ofAPIAirportTax 
+ServiceFeeAmount 
+Double 
+This displays the ServiceFeeAmount 
+TradeMarkupAmount
+ 
+Double
+ 
+This displays the TradeMarkupAmount
+ 
+PromoDiscount 
+Double 
+This displays the PromoDiscount 
+GST 
+Double 
+This displays the GST 
+TDS 
+Double 
+This displays the TDS 
+GrossCommission
+ 
+Double
+ 
+This displays the GrossCommission
+ 
+NetCommission 
+Double 
+This displays the NetCommission 
+CurrencyCode 
+String 
+This displays the CurrencyCode 
+TotalAmount 
+Double 
+This displays the TotalAmount 
+FreeBaggage
+ 
+Object
+ 
+This displays the FreeBaggage
+ 
+g)
+ 
+APIFareClass
+ 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+Segment_Id
+ 
+Integer 
+This provides the segmentId of the ﬂight. 
+ClassCode 
+String 
+This displays class code of the segment. 
+ClassDesc
+ 
+String
+ 
+This displays the class desrip
+Ɵ
+on fo the segment
+ 
+FareBasis 
+String 
+This displays the fare basis code for the segment 
+Privileges 
+List(String)
+ 
+This displays the privileges conﬁgured for the fare.
+ 
+h)
+ 
+APIAirportTax
+ 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+TaxCode 
+String 
+This displays the TaxCode 
+TaxDesc 
+String 
+This displays the TaxDesc 
+TaxAmount
+ 
+Double
+ 
+This displays the TaxAmount
+ 
+Request Headers
+ 
+Content-Type 
+applica
+Ɵ
+on/json
+ 
+Accept 
+applica
+Ɵ
+on/json
+ 
+Body
+raw (json) 
+{ 
+   "Auth_Header": { 
+        "UserId": "nomad", 
+        "Password": "6ozJI769@U", 
+        "IP_Address": "127.0.0.1", 
+        "Request_Id": "7FB45BA7-5A98-4B0A-B5ED-0DD591F7A572", 
+        "IMEI_Number": "xxxxxxxxxx" 
+    }, 
+  "Travel_Type": 0, 
+  "Booking_Type": 2, 
+  "TripInfo": [ 
+    { 
+      "Origin": "DEL", 
+      
+"Des
+Ɵ
+na
+Ɵ
+on": "BOM",
+ 
+      "TravelDate": "03/22/2026", 
+      "Trip_Id": 0 
+    }, 
+    { 
+      "Origin": "BOM", 
+      
+"Des
+Ɵ
+na
+Ɵ
+on": "DEL",
+ 
+      "TravelDate": "03/24/2026", 
+      "Trip_Id": 1 
+    } 
+  ], 
+  "Adult_Count": 1, 
+  "Child_Count": 1, 
+  "Infant_Count": 1, 
+  "Class_Of_Travel": 0, 
+  "InventoryType": 0, 
+  "Filtered_Airline": null 
+} 
+ 
+POST02 - Air_FareRule 
+The Air_FareRule API is used to retrieve the detailed fare rules and condi
+Ɵ
+ons applicable to the 
+selected ﬂight op
+Ɵ
+on. This API provides important informa
+Ɵ
+on such as cancella
+Ɵ
+on charges, 
+rescheduling charges, refund policies, baggage allowances, and other fare-
+related restric
+Ɵ
+ons 
+deﬁned by the airline. The fare rules returned by this API should be reviewed before proceeding with 
+repricing and booking to ensure the selected ﬂight meets the customer’s requirements. 
+API Air Fare Rule Request 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+Mandatory
+ 
+AuthHeader
+ 
+Object
+ 
+This object holds API Authen
+Ɵ
+ca
+Ɵ
+on details
+ 
+Yes 
+Search_Key
+ 
+String
+ 
+This key holds ﬂight journey search detail 
+Yes 
+Flight_Key 
+String
+ 
+This key holds selected ﬂight detail 
+Yes 
+Fare_Id 
+String
+ 
+This holds selected Fare Id 
+Yes 
+API Air Fare Rule Response 
+Name
+ 
+Type
+ 
+Descrip
+Ɵ
+on
+ 
+ResponseHeader
+ 
+Object 
+This object holds the property of Response Header
+ 
+FareRules 
+List(Object)
+ 
+This object holds list of Fare Rule detail 
+a) FareRules
+ 
+Name 
+Type
+ 
+Descrip
+Ɵ
+on
+ 
+Segment_Id 
+String
+ 
+This displays the segment id 
+FareRuleName
+ 
+String
+ 
+This displays the fare rule name
+ 
+FareRuleDesc 
+String
+ 
+This displays the fare rule descrip
+Ɵ
+on
+ 
+Body
+raw (json) { 
+    "Auth_Header": { 
+        "UserId": "xxxxxxxxxx", 
+        "Password": "xxxxxxxxxx", 
+        "IP_Address": "xxxxxxxxxx", 
+        "Request_Id": "xxxxxxxxxx", 
+        "IMEI_Number": "xxxxxxxxxx" 
+    }, 
+    "Search_Key": 
+"hZJGvxjxVtO7FHSsgfqjDJqMuFbsH02S9SFBPYAzVCNwvKo54vZl6hhwN4jnan3bAOpEpU+q6//MMTfJ
+HYiIB0O5IGm8NRgL+YnaS27X3mh4sQZDJbOi/52YY+HnGb6UlyGANCyE8LomwWw+lqIJonuHx2TmAjP
+7Tr/JjieMRVyfUCopx84+0zU1XDGofF35hnmW1apfsKJvAdqrcZxedxFSoe/lsHcKsyBpipU+yQtx7Yv7QoU
+xl+suVcbml19FLTyhMSaR9BRSsvprJc5gwxA/UQDjb/747WbCMFxxGd+SJSsip7z0lejt/uptjiYO6AsYinkxX
+9YSOyywVpmtsVBqhcE8apybCTA7k54wsa3tq+JCBlV9QeKSxKU+GBgrJLWx6Y3HGyKeo95a7U09/DvlL3
+2EZ26I/78PH+qa/JBS9do4Mm0aCe+jmg66YTWV5jj6mXS/gy3Hlz5MAuAKHIwHn8fuVYGXANAYwLwTp
+7pdVqv85ewx1KU8p5utEl+Setgz/2eOhoPSJv0r68QZBgaL1sEJRZE6SKecSVbotILlranLSAiAXUin3N4XUX
+aaLTQTtC+2Nueaaa0SvmKSo
+ĩ
+vD5Ki2lcD3/7kPPAQRN5+J3SxxeYu/k3ad4C5H23l9Rir0Ezc497XKUXyQo
+ELP0DSRqVADD9O8BqL0FpMnA/iGCgaY3OaCj4f7KXalBl4",    
+    "Flight_Key": 
+"FK5632349256982866754$FK5533397719290506861$FK5543488752756723127$FK498924380115
+0943403" 
+ 
+POST03 - Air_Reprice 
+The Air_Reprice API is used to revalidate and reprice the selected ﬂight fare with the supplier before 
+proceeding with the booking. This API ensures that the fare, availability, and other pricing 
+components are s
+Ɵ
+ll valid and up to date. The response ret
+urns the latest ﬂight details with the 
+repriced ﬂag set to true, conﬁrming whether the fare has changed or remains the same. This step is 
+mandatory before booking to avoid fare mismatch or booking failures due to price changes.  
+API Air Reprice Request 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+Mandatory
+ 
+AuthHeader 
+Object 
+This object holds API Authen
+Ɵ
+ca
+Ɵ
+on details
+ 
+Yes 
+Search_Key
+ 
+String
+ 
+This key holds search ﬂight details
+ 
+Yes
+ 
+AirRepriceRequests
+ 
+List(Object)
+ 
+This object holds list of APIRepriceRequest detail 
+Yes 
+CustomerMobile 
+String 
+This requires customer mobile number. If you had pass 
+the customer mobile number. Otherwise, pass the 
+default AGENCY REGISTERED MOBILE NUMBER 
+Yes 
+GSTInput 
+String 
+This requires GST Input 
+No 
+a) Air Reprice Request
+ 
+Name
+ 
+Type
+ 
+Descrip
+Ɵ
+on 
+ 
+Mandatory
+ 
+Flight_Key
+ 
+String
+ 
+This Flight key has selected ﬂight details 
+Yes 
+Fare_Id 
+String
+ 
+This requires selected FareId from Flight searchresponse
+ 
+Yes 
+API Air Reprice Response 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+ResponseHeader
+ 
+Object
+ 
+This object holds the property of Response Header
+ 
+AirRepriceResponses 
+List(Object)
+ 
+This object holds the list of API Air Reprice Response 
+FrequentFlyerAccepted
+ 
+Boolean 
+If true, Frequent Flyer accepted, If false, ,Frequent Flyer not 
+accepted. 
+a) AirRepriceResponses
+ 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+Flight 
+Object 
+This object holds the property of Flight details 
+RequiredPAXDetails
+ 
+List(Object)
+ 
+This object holds the list of API Required PAX Detail for each PAXs. 
+The property in the class deﬁnes the required values for the 
+APITempBooking 
+b) RequiredPAXDetails
+ 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+Title
+ 
+Boolean
+ 
+If true, Title is required
+ 
+FirstName 
+Boolean
+ 
+If true, First Name is required 
+LastName 
+Boolean
+ 
+If true, Last Name is required 
+Gender 
+Boolean
+ 
+If true, Gender is required 
+Age
+ 
+Boolean
+ 
+If true, Age required
+ 
+DOB 
+Boolean
+ 
+If true, DOB required 
+PassportNumber 
+Boolean
+ 
+If true, Passport Number required 
+PassportIssuingCountry
+ 
+Boolean
+ 
+If true, Passport Issuing Country required
+ 
+PassportExpiry 
+Boolean
+ 
+If true, Passport Expiry required 
+Na
+Ɵ
+onality
+ 
+Boolean
+ 
+If true, Na
+Ɵ
+onality required
+ 
+Paxtype 
+Enum 
+This requires the Pax type. Possible Values :ADT-0/ CHD-1/ INF-2
+ 
+c) Flight
+ 
+Name
+ 
+Type
+ 
+Descrip
+Ɵ
+on
+ 
+Flight_Id 
+String 
+This displays the Flight Id of the Flight. 
+Flight_Key 
+String 
+This key holds Flight details 
+Origin 
+String 
+This displays the origin of the Journey 
+Des
+Ɵ
+na
+Ɵ
+on
+ 
+String
+ 
+This displays the des
+Ɵ
+na
+Ɵ
+on of the Journey
+ 
+TravelDate 
+String 
+This displays the travel Date of the Journey 
+Segments 
+List(Object)
+ 
+This object holds list of API Segment 
+Fares 
+List(Object)
+ 
+This object holds list of API Fare 
+Airline_Code
+ 
+String
+ 
+This displays the airline code.
+ 
+Cached 
+Boolean 
+If passed value as true, search result is fetched from DB, If false, 
+data fetched from supplier. 
+IsLCC 
+Boolean 
+This displays true when the ﬂight is LCC 
+Block_Ticket_Allowed
+ 
+Boolean 
+If true, block 
+Ɵ
+cket allowed, If false,Block 
+Ɵ
+cket not allowed.
+ 
+GST_Entry_Allowed 
+Boolean 
+If true, GST entry allowed, If false, GST Entry not allowed. 
+Repriced
+ 
+Boolean
+ 
+It returns true a
+Ō
+er reprice done successfully. Otherwise false.
+ 
+HasMoreClass 
+Boolean 
+Check has more class 
+InventoryType 
+Enum 
+This has the Inventory type Possible Values : RetailFare-0 
+PromoCode 
+String 
+This displays the Promo code from supplier 
+d) API Segment
+ 
+Name
+ 
+Type
+ 
+Descrip
+Ɵ
+on
+ 
+Segment_Id 
+Integer 
+This displays the Segment id. 
+LegIndex 
+Integer 
+This displays the 0 based leg index for the Flight 
+Origin
+ 
+String
+ 
+This displays the origin
+ 
+OriginTerminal 
+String 
+This displays the Origin Terminal 
+OriginCity 
+String 
+This displays the Origin City 
+Des
+Ɵ
+na
+Ɵ
+on
+ 
+String 
+This displays the segment Des
+Ɵ
+na
+Ɵ
+on
+ 
+Des
+Ɵ
+na
+Ɵ
+onTerminal
+ 
+String
+ 
+This displays the Des
+Ɵ
+na
+Ɵ
+on Terminal
+ 
+Des
+Ɵ
+na
+Ɵ
+onCity
+ 
+String 
+This displays the Des
+Ɵ
+na
+Ɵ
+on City
+ 
+AirlineCode 
+String 
+This displays the Airline Code 
+AirlineName 
+String 
+This displays the Airline Name 
+FlightNumber
+ 
+String
+ 
+This displays the Flight Number
+ 
+Aircra
+Ō
+Type
+ 
+String 
+This displays the Aircra
+Ō
+ Type
+ 
+DepartureDateTime
+ 
+String 
+This displays the Departure Date Time 
+ArrivalDateTime 
+String 
+This displays the Arrival Date Time 
+StopOver 
+List 
+(String) 
+This displays the Stop Over 
+ReturnFlight
+ 
+Boolean
+ 
+It has true when the Segment is Return Segment
+ 
+Dura
+Ɵ
+on
+ 
+String 
+This displays segment level Dura
+Ɵ
+on in HH : mm format. Using this 
+dura
+Ɵ
+on have to calculate the total Journey dura
+Ɵ
+on.
+ 
+e) API Fare
+ 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+FareId 
+String 
+This displays the Fare Id 
+FareKey 
+String 
+This displays the selected Fare Key 
+Refundable
+ 
+Boolean
+ 
+This denotes whether the fare is Refundable or not
+ 
+FareDetails 
+List 
+(Object) 
+This object has list of API Fare Detail 
+Foodonboard 
+String 
+This displays the Food onboard 
+SeatsAvailable 
+String 
+This displays the Seats Available 
+LastFewSeats 
+String 
+This displays the Last Few Seats 
+Warning 
+String 
+This displays the Warning 
+PromptMessage
+ 
+String
+ 
+This displays the Prompt Message
+ 
+GSTMandatory 
+String 
+This displays the GST Mandatory 
+FareType 
+String 
+This requires the Fare type Possible Values :RetailFare -0/CouponFare-
+1/CorporateFare-2/SMEFare-3/RTSPLFare-4/DealFare-5 
+f) API Fare Detail
+ 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+PAXType 
+String 
+This requires the pax type. Possible Values :ADT-0/ CHD-1/ INF-2
+ 
+FareClasses
+ 
+List(Object)
+ 
+This displays list ofAPI Fare Class
+ 
+BasicAmount 
+Double 
+This displays the Basic Amount 
+YQAmount 
+Double 
+This displays the YQ Amount 
+AirportTaxAmount 
+Double 
+This displays the Airport Tax Amount 
+AirportTaxes
+ 
+List(Object)
+ 
+This displays list of API Airport Tax
+ 
+ServiceFeeAmount 
+Double 
+This displays the Service Fee Amount 
+TradeMarkupAmount
+ 
+Double 
+This displays the Trade Markup Amount 
+PromoDiscount 
+Double 
+This displays the Promo Discount 
+GST
+ 
+Double
+ 
+This displays the GST
+ 
+TDS 
+Double 
+This displays the TDS 
+GrossCommission 
+Double 
+This displays the Gross Commission 
+NetCommission 
+Double 
+This displays the Net Commission 
+CurrencyCode
+ 
+Double
+ 
+This displays the Currency Code
+ 
+TotalAmount 
+Double 
+This displays the Total Amount 
+FreeBaggage 
+Object 
+This displays the FreeBaggage 
+g) Fare Classes
+ 
+Naem 
+Type 
+Descrip
+Ɵ
+on
+ 
+Segment_Id
+ 
+Integer
+ 
+This displays the Segment Id
+ 
+ClassCode 
+String 
+This displays the Class Code 
+ClassDesc 
+String 
+This displays the Class Descrip
+Ɵ
+on
+ 
+FareBasis
+ 
+String
+ 
+This displays the Fare Basis
+ 
+Privileges 
+List (string)
+ 
+This displays the Privileges list 
+h) Airport Taxes
+ 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+TaxCode 
+String 
+This displays the Tax Code 
+TaxDesc
+ 
+String
+ 
+This displays the Tax Descrip
+Ɵ
+on
+ 
+TaxAmount
+ 
+Double
+ 
+This displays the Tax Amount 
+{ 
+   "Auth_Header": { 
+        "UserId": "xxxxxxxxxx", 
+        "Password": "***********", 
+        "IP_Address": "127.0.0.1", 
+        "Request_Id": "7FB45BA7-5A98-4B0A-B5ED-0DD591F7A572", 
+        "IMEI_Number": "xxxxxxxxxx" 
+    }, 
+    "Search_Key": 
+"Sn2bwFI42VW/pGQ/O11uM90v1lgxTeGvyctVEk8PTUbhmhu1eT8JQnMVPcsJ/eoZie2yVS0GWt/sXm4
+9gKtNXmT9rpXNVhJt4ceewnyy8YFr4YnTVﬀsB7HaM+LfNJQpOvXVeLGuLaMwx4nsgu98MAmmpF52rE
+UpCBZﬁma8HF9rDA78NMSdUvZ2u/6Oxybh789PqMC/Adbe64izgnO7AiCpDRlu9TY1XrF0M9jxNbdHHJ
+qsRHMVaisrG4Hs5N5myy8sFN4Z5ILskNNvkVxCsXyJ+fuVpLi8PU7Uvj0Jw6IIml2113MBGuo5ysyCaywM
+m1y/ ==", 
+    "AirRepriceRequests": [ 
+        { 
+            "Flight_Key": 
+"KEYZUS3soIEDavvG+Mmp4rgfGiBLQbSbeEcEg/AieJZuU33QqXSNl5rFkjXqnDy+Y0ub4ThbxdvGuIw+tP
+3f5+ws+3Yve2iOvPh/5hVOBrqUhDtWvrG3lAyxHyI7u9eiAitT66mXoclh5uRYpHJCyDLvC1BUiGvYGFBwG
+ey1i1J4x6pCngiI+LdQ4EzODCmcMQXsFdK+W6QI9JsBf5RLpSXNDlexebH6/Gwiug4BrV+cPuek2SC6TYV
+GedfG3uHISI0seAT3r7bOiLSBAr 
+            "Fare_Id": "O5348078347583492490" 
+ 
+ 
+        } 
+        ,{ 
+            "Flight_Key": 
+"KEY4NZIOGRXBnjjRnnXxFJty76CuNQe7Pa2xrW9GJ20lWbPPNM5scv+ZoFaak4WNB/NMYFoihCfnH1p
+B22zF0jkeT4sLH6hrBAiGh+BIulHevpKggmok+WCDDaZz6bcCjyBa71l86MIgml/S9r7HTSjMBwZv9KeNq
+NUAGIG7Xh30S7UQ4o7sYM68T9mGA6yNwbG7mSl3eUtlSEw5CXYDcuI3j5L6uHwOQaI/DxuwnAggkNL
+fcO8FPMqqp+”, 
+ 
+            "Fare_Id": "O5686649742382815696" 
+        } 
+ 
+    ], 
+    "Customer_Mobile": "9173456988", 
+    "GST_Input": false, 
+    "SinglePricing": true 
+}, 
+      "Fare_Id": "O4791733020558609072" 
+} 
+ 
+POST04 - Air_GetSSR 
+The Air_GetSSR API is used to retrieve the list of available special service requests for the selected 
+ﬂight, such as meals, baggage, seat preferences, and other airline-speciﬁc services. This API must be 
+called using the Flight_Key obtained from the Air_Reprice API response to ensure that the SSR 
+informa
+Ɵ
+on is fetched for the correct and latest priced ﬂight. The response provides the complete list 
+of op
+Ɵ
+onal and mandatory services that can be added before proceeding with seat selec
+Ɵ
+on and 
+booking. 
+Air API SSR Request 
+Name
+ 
+Type
+ 
+Descrip
+Ɵ
+on
+ 
+Mandatory
+ 
+AuthHeader 
+Object 
+This object holds API Authen
+Ɵ
+ca
+Ɵ
+on details
+ 
+Yes 
+Search_Key 
+String 
+This requires the ﬂight search key 
+Yes 
+AirSSRRequestDetails
+ 
+List(Object)
+ 
+This object holds list of Air SSR Request Detail
+ 
+Yes 
+a)Air SSR Request Details
+ 
+Name
+ 
+Type
+ 
+Descrip
+Ɵ
+on
+ 
+Mandatory
+ 
+Flight_Key
+ 
+String
+ 
+This requires the selected ﬂight key from Air_Reprice
+ 
+Yes 
+Air API SSR Response 
+Name
+ 
+Type
+ 
+Descrip
+Ɵ
+on
+ 
+ResponseHeader
+ 
+Object 
+This object holds the property of Response Header 
+SSRFlightDetails
+ 
+List(Object)
+ 
+This object holds the property of API SSR Flight Detail
+ 
+a)SSR Flight Detail
+ 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+SSRDetails
+ 
+List(Object)
+ 
+This object holds the list of API SSR Detail
+ 
+b) SSR Detail
+ 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+SSR_Type 
+Enum 
+This displays the SST type. Possible values: 0-BAGGAGE / 1-MEALS/ 2-
+COMPLIMENTORY_MEALS/ 3-SEAT/ 4-SPORTS/ 5-BAGOUTFIRST/ 6-
+LOUNGE/ 7-CELEBRATION/ 8-CARRYMORE/ 9-FASTFORWARD/ 10-
+WHEELCHAIR/ 11-FREQUENTFLYER/ 15-OTHERS 
+SSR_TypeName 
+String 
+This displays SSR_Type Name 
+SSR_TypeDesc 
+String 
+This displays SSR_Type Desc 
+SegmentWise 
+Boolean
+ 
+This returns true for the SSR is by Segment Wise. It will false for 
+Journey Wise 
+LegIndex 
+Integer
+ 
+This displays Leg Index 
+Segment_Id 
+Integer
+ 
+This displays Segment_Id 
+FlightID 
+String 
+This displays Flight ID 
+CurrencyCode 
+String 
+This displays Currency Code 
+TotalAmount 
+Double
+ 
+This displays Total Amount 
+ApplicablePaxTypes
+ 
+List
+ 
+This displays Applicable Pax Types. Possible values are ADT/ CHD/ INF
+ 
+SSR_Key 
+String 
+This displays SSR_Key 
+SSR_Status 
+Enum 
+This displays SSR Status. It is meaningless in SSR response. The SSR 
+Status is meaningful in Air_GetSeatMap response only. 
+{ 
+  "trackId": null, 
+  "Auth_Header": { 
+        "UserId": "xxxxxxxxxx", 
+        "Password": "***********", 
+        "IP_Address": "127.0.0.1", 
+        "Request_Id": "7FB45BA7-5A98-4B0A-B5ED-0DD591F7A572", 
+        "IMEI_Number": "xxxxxxxxxx" 
+    }, 
+  "Search_Key": 
+"oUnUPIR7p9eRpHXfZC6HGodmBFKv7H7WwQYh4AkpviL5ZzjkqbWieqeeQZWVKxPjlaemIzcQGQPvZQ
+9ZtTomzZnAecG1AhgLMq0KBqY2E2duTTUo4FZMiHmyl2ruJjAYNSlshvXWYhAzP9RNh2XxK/szujG1TcN
+Ty+0UNhB4oCZiy9/jkRZFtwqDj1ueskZYEoJyQ2uBupuSPGI2xYf/zvSszya77k0tIT7ve5XfHvjfaz+o8O0wIv
+91T0jboIBRoGpkWgrC+L8lv8jiDTC2h+l04abqJohBDHXVoiy35SR4cAqCyvB75GQa02WRLe1OUFoNXA
+ĩ
+2/2+F/dhdHcOvQXFAxfZHrLP9woZR3gN3QRqeQrbCtN9m4Nhz2zHYc1LQszQurEf4VrC7RwhMNByPQL
+G4aAT8GZr3zUtpYIm/K5tcMQPLrUmDOvqpsiBA1yiEQZSI8VLoeHjLFZuoeMiQ+p+R7KoGfSzi41r+dv+1
+GsHyFVkp29KdPjjl8zneX6FknXeTjgp0oﬁM7hdyl+lxyYVkDZWK3KC+KsyagVzAHMbwy8MOTHtWu8p7b
+BbHwEWTjo2sa81dllQHaMrgsAzR3vi7pupQJmNUO4hn4+DmZHvrb7DlBM0PVngCAdeJ8EP6ztGY6AhY
+3hYrE5S24/4t30FJ6CPRP98wyxzaDjYEWWntuMPwwO8rUaMemXmN0R6JOJQVxpiEe1fBADeotWFhq
+Ns5HqwD2nH7n0CHhXYRQM=", 
+  "AirSSRRequestDetails": [ 
+    { 
+      "Flight_Key": 
+"KEY1LvAqSdrqfTTnAy1RqTDElVdBjyxz76sAQ3+a8rlvYSa81k8johlmG/RZbKZez/Hc9UbCNZ2R9dkJGQrZ
+d3z+Irwswa0vn6FcrvnTH94WGsVXRE9BvAaMcRzu8ddtEuGKB+8TfgTq1CDs++/eI0R1mjND5J40xrxUws
++uBFD0bSXHFhto3H8XBKw8P4t+ ==" 
+    } 
+  ] 
+} 
+ 
+POST05 - Air_GetSeatMap 
+The Air_GetSeatMap API is used to retrieve the seat layout and available seat op
+Ɵ
+ons for the 
+selected ﬂight segments. This API must be called using the Flight_Key obtained from the Air_Reprice 
+API response to ensure that seat availability is fetched for the correct and latest priced ﬂight. The 
+response provides detailed seat informa
+Ɵ
+on, including available, occupied, and chargeable seats, 
+which allows the user to select preferred seats before proceeding with the booking.  
+API Air Seat Map Request 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+Mandatory
+ 
+AuthHeader
+ 
+Object 
+This object holds API Authen
+Ɵ
+ca
+Ɵ
+on details
+ 
+Yes 
+Search_Key
+ 
+String 
+This requires Search key from Flight search response 
+Yes 
+Flight_Key 
+List(string)
+ 
+This requires the selected ﬂight key from Air_Reprice
+ 
+Yes 
+PAXDetails
+ 
+List(Object)
+ 
+This objects requires the list of Booking PAX Detail
+ 
+Yes
+ 
+a)PAX Details
+ 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+Mandatory
+ 
+Pax_Id 
+Integer 
+This requires PAX id 
+Yes 
+Pax_type 
+String 
+This requires Pax type 
+Yes 
+Title
+ 
+String
+ 
+This requires Title
+ 
+Yes
+ 
+FirstName 
+String 
+This requires First Name 
+Yes 
+LastName 
+String 
+This requires Last Name 
+Yes 
+Gender 
+String 
+This requires Gender. Possible values 0/1 (0-Male, 
+1-Female) 
+Yes 
+Age 
+String 
+This requires Age 
+No 
+DOB
+ 
+String
+ 
+This requires DOB
+ 
+No
+ 
+PassportNumber 
+String 
+This requires Passport Number 
+No 
+PassportIssuingCountry
+ 
+String 
+This requires Passport Issuing Country 
+No 
+PassportExpiry 
+String 
+This requires Passport Expiry 
+No 
+Na
+Ɵ
+onality
+ 
+String
+ 
+This requires Na
+Ɵ
+onality
+ 
+No
+ 
+FrequentFlyerDetails 
+List(object)
+ 
+This requires list of Frequent Flyer Detail 
+No 
+b) Frequent Flyer Detail
+ 
+Name 
+Type
+ 
+Descrip
+Ɵ
+on
+ 
+Mandatory
+ 
+AirLineCode 
+String
+ 
+This requires airline code 
+No 
+FrequentFlyerNumber
+ 
+String
+ 
+This requiresFrequentFlyerNumber
+ 
+No
+ 
+API Air Seat Map Response 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+ResponseHeader
+ 
+Object 
+This object holds the property of Response Header
+ 
+AirSeatMaps 
+List(Object)
+ 
+This holds list of API Air Seat Map 
+a) Air Seat Map
+ 
+Name
+ 
+Type
+ 
+Descrip
+Ɵ
+on
+ 
+FlightId 
+String 
+This displays ﬂight id 
+SeatSegments
+ 
+List(Object)
+ 
+This object holds list of API Seat_Segment
+ 
+b)Seat Segments
+ 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+LegIndex
+ 
+Integer 
+This displays leg index 
+SeatRow
+ 
+List(Object)
+ 
+This object holds list of API Seat_Row
+ 
+c) Seat Row
+ 
+Name
+ 
+Type
+ 
+Descrip
+Ɵ
+on
+ 
+SeatDetails
+ 
+List(Object)
+ 
+This object holds list of 
+APISSRDetail
+ 
+d) SSR Details
+ 
+Nam
+e 
+T
+y
+p
+e
+ 
+Descrip
+Ɵ
+on
+ 
+SSR_
+Type
+ 
+St
+ri
+n
+g
+ 
+This displays value of SSR type. Possible values: 0
+-
+BAGGAGE/ 1
+-
+MEALS/ 2
+-
+COMPLIMENTORY_MEALS/ 3-SEAT/ 4-SPORTS/ 5-BAGOUTFIRST/ 6-LOUNGE/ 7-
+CELEBRATION/ 8-CARRYMORE/ 9-FASTFORWARD/ 10-WHEELCHAIR/ 11-FREQUENTFLYER/ 
+15-OTHERS 
+SSR_
+Type
+Nam
+e 
+St
+ri
+n
+g
+ 
+This displays SSR_Type Name 
+SSR_
+Type
+Desc
+ 
+St
+ri
+n
+g
+ 
+This displays SSR_Type Desc 
+Segm
+entW
+ise 
+St
+ri
+n
+g
+ 
+This displays Segment Wise 
+LegIn
+dex 
+In
+te
+g
+er
+ 
+This displays Leg Index 
+Segm
+ent_I
+d 
+In
+te
+g
+er
+ 
+This displays Segment_Id 
+Flight
+ID 
+St
+ri
+n
+g
+ 
+This displays Flight ID 
+Curre
+ncyC
+ode 
+St
+ri
+n
+g
+ 
+This displays Currency Code 
+Total
+Amo
+unt 
+D
+o
+u
+bl
+e
+ 
+This displays Total Amount 
+Appli
+cable
+PaxTy
+pes 
+St
+ri
+n
+g
+ 
+This displays Applicable Pax Types. possible values are ADT/CHD/INF 
+SSR_
+Key 
+St
+ri
+n
+g
+ 
+This displays SSRKey 
+SSR_
+Statu
+s 
+E
+n
+u
+m
+ 
+This displays SSR Status. Possible values are 0-ISLE\ 1-AVAILABLE\ 2-BLOCKED\ 3-BOOKED 
+Note: SSR_Status In SEAT, 0-ISLE means its not seat, It denotes, it is an ISLE pathway to 
+show in seatmap. 
+{ 
+     "Auth_Header": { 
+        "UserId": "xxxxxxxxxx", 
+        "Password": "***********", 
+        "IP_Address": "127.0.0.1", 
+        "Request_Id": "7FB45BA7-5A98-4B0A-B5ED-0DD591F7A572", 
+        "IMEI_Number": "xxxxxxxxxx" 
+    }, 
+    "Search_Key": 
+"oUnUPIR7p9eRpHXfZC6HGodmBFKv7H7WwQYh4AkpviL5ZzjkqbWieqeeQZWVKxPjlaemIzc
+QGQPvZQ9ZtTomzZnAecG1AhgLMq0KBqY2E2duTTUo4FZMiHmyl2ruJjAYNSlshvXWYhAzP9
+RNh2XxK//4t30FJ6CPRP98wyxzaDjYEWWntuMPwwO8rUaMemXmN0R6JOJQVxpiEe1fBAD
+eotWFhqNs5HqwD2nH7n0CHhXYRQM=", 
+    "Flight_Keys": [ 
+        
+"KEY1LvAqSdrqfTTnAy1RqTDElVdBjyxz76sAQ3+a8rlvYSa81k8johlmG/RZbKZez/Hc9UbCNZ2
+R9dkJGQrZd3z+Irwswa0vn6FcrvnTH94WGsVXRE9BvAaMcRzu8ddtEuGKB+8TfgTq1CDs++/eI
+0R1mjND5J40xrxUws+ 
++vzIwBPtlLIiu9xlNs3dpWntw5cECMF58WNQLD+tCZlUwo7FfJDLKh4RgdlV6aSIkOnnYwEvTqk
+Jx046hCzlaCRPtQBJ3zE8RJg7ye43Zb7nuCL1plIIdFZ559KAwBWNsAMGJuKN44cNKSjhKxhz2
+N4G+JltCn18M1K+RQA==" 
+    ] 
+} 
+POST06 - Air_TempBooking 
+The Air_TempBooking API is used to generate a temporary booking reference number using the 
+provided passenger and ﬂight details. This API must be called using the Flight_Key obtained from the 
+Air_Reprice API response to ensure that the reference is generated for the correct and latest priced 
+ﬂight. The number of passengers provided in this request must be the same as the number of 
+passengers used in the Air_Search API. 
+Air Temp Booking Request 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+Mandatory
+ 
+AuthHeader 
+Object 
+This object holds API Authen
+Ɵ
+ca
+Ɵ
+on details
+ 
+Yes 
+CustomerMobile 
+String 
+This requires the 
+AGENCY REGISTERED MOBILE 
+NUMBER Mandatory.
+ 
+Yes 
+PassengerMobile
+ 
+String
+ 
+This requires the passenger mobile number
+ 
+No
+ 
+PassengerEmail 
+String 
+This requires the passenger email 
+No 
+PAXDetails 
+List(Object)
+ 
+This object requires the Passenger details 
+Yes 
+GST 
+Boolean 
+This GST ﬂag should be true when passing GST details 
+to the booking. 
+No 
+GST_Number 
+String 
+This requires the Customer GST Number 
+No 
+GST_HolderName
+ 
+String
+ 
+This requires the GST holder name
+ 
+No
+ 
+GST_Address 
+String 
+This requires the GST holder address 
+No 
+GST_Phone 
+String 
+This requires the GST holder phone Number 
+No 
+GST_Email 
+String 
+This requires the GST holder EmailId 
+No 
+BookingFlightDetails
+ 
+List(object)
+ 
+This requires the Booking Flight Details 
+Yes 
+CostCenterId
+ 
+Integer
+ 
+This requires the Cost Center Id
+ 
+No
+ 
+ProjectId 
+Integer 
+This requires the Project Id 
+No 
+BookingRemark 
+String 
+This requires the BookingRemark 
+No 
+a)PAX Details
+ 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+Mandatory
+ 
+Pax_Id
+ 
+Integer
+ 
+This requires the Pax id (1 based star
+Ɵ
+ng index)
+ 
+Yes
+ 
+Pax_type 
+String 
+This requires the PAX type 0-ADT/ 1-CHD/ 2-INF 
+Yes 
+Title 
+String 
+This requires the 
+Ɵ
+tle Adult 
+- MR, MRS, MS Child - 
+MSTR, MISS Infant - MSTR, MISS 
+Yes 
+FirstName 
+String 
+This requires the ﬁrst name 
+Yes 
+LastName 
+String 
+This requires the last name 
+Yes 
+Gender 
+String 
+This requires the gender. Possible values 0/1 (0
+-
+Male, 1-Female) 
+Yes 
+Age
+ 
+String
+ 
+This requires the Age
+ 
+No
+ 
+DOB 
+String 
+This requires the DOB and the format should be 
+MM/DD/YYYY
+ format. 
+No 
+PassportNumber 
+String 
+This requires the Passport Number 
+No 
+PassportIssuingCountry
+ 
+String 
+This requires the Passport Issuing Country 
+No 
+PassportExpiry 
+String 
+This requires the Passport Expiry and the format 
+should be 
+MM/DD/YYYY
+ format. 
+No 
+Na
+Ɵ
+onality
+ 
+String 
+This requires the Na
+Ɵ
+onality
+ 
+No 
+Pan Card Number
+ 
+String
+ 
+This requires the Pan Card Number
+ 
+No
+ 
+FrequentFlyerDetails 
+List(object)
+ 
+This requires list of Frequent Flyer Detail 
+No 
+b) Frequent Flyer Detail
+ 
+Name 
+Type
+ 
+Descrip
+Ɵ
+on
+ 
+Mandatory
+ 
+AirLineCode 
+String
+ 
+This requires the AirLineCode 
+No 
+FrequentFlyerNumber
+ 
+String
+ 
+This requires the Frequent Flyer Number
+ 
+No
+ 
+c) Booking Flight Detail
+ 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+Mandatory
+ 
+Search_Key 
+String 
+This requires ﬂight journey search APIAirSearchRequest 
+details as Key 
+Yes 
+Flight_Key 
+String 
+This requires the selected ﬂight key from Air_Reprice 
+Yes 
+BookingSSRDetails
+ 
+List(Object)
+ 
+This requires list of Booking SSR Detail 
+No 
+d) Booking SSR Detail
+ 
+Name
+ 
+Type
+ 
+Descrip
+Ɵ
+on
+ 
+Mandatory
+ 
+Pax_Id 
+Integer
+ 
+This requires the pax id 
+Yes 
+SSR_Key
+ 
+String 
+This requires the SSR key
+ 
+Yes 
+Air Temp Booking Response 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+ResponseHeader
+ 
+Object
+ 
+This object holds the property of Response Header
+ 
+BookingRefNo 
+String
+ 
+This displays the booking reference number, this reference no. you have to 
+use in Ref No in Add Payment method 
+{ 
+    "Auth_Header": { 
+        "UserId": "xxxxxxxxxx", 
+        "Password": "***********", 
+        "IP_Address": "127.0.0.1", 
+        "Request_Id": "7FB45BA7-5A98-4B0A-B5ED-0DD591F7A572", 
+        "IMEI_Number": "xxxxxxxxxx" 
+    }, 
+    "Customer_Mobile": "917987293535", 
+    "Passenger_Mobile": "917987293535", 
+    "WhatsAPP_Mobile": null, 
+    "Passenger_Email": "john4537@gmail.com", 
+    "PAX_Details": [ 
+        { 
+            "Pax_Id": 1, 
+            "Pax_type": 0, 
+            "Title": "Mr", 
+            "First_Name": "JOHN", 
+            "Last_Name": "SMITH", 
+            "Gender": 0, 
+            "Age": "30", 
+            "DOB": "11/30/1995", 
+            "Passport_Number": null, 
+            "Passport_Issuing_Country": null, 
+            "Passport_Expiry": null, 
+            
+"Na
+Ɵ
+onality": null,
+ 
+            "Pancard_Number": null, 
+            "FrequentFlyerDetails": null 
+        }, 
+        { 
+            "Pax_Id": 2, 
+            "Pax_type": 0, 
+            "Title": "Mrs", 
+            "First_Name": "MARY", 
+            "Last_Name": "SMITH", 
+            "Gender": 1, 
+            "Age": "26", 
+            "DOB": "02/15/1999", 
+            "Passport_Number": null, 
+            "Passport_Issuing_Country": null, 
+            "Passport_Expiry": null, 
+            
+"Na
+Ɵ
+onality": null,
+ 
+            "Pancard_Number": null, 
+            "FrequentFlyerDetails": null 
+        }, 
+        { 
+            "Pax_Id": 3, 
+            "Pax_type": 1, 
+            "Title": "Master", 
+            "First_Name": "ALEX", 
+            "Last_Name": "SMITH", 
+            "Gender": 0, 
+            "Age": "7", 
+            "DOB": "07/13/2018", 
+            "Passport_Number": null, 
+            "Passport_Issuing_Country": null, 
+            "Passport_Expiry": null, 
+            
+"Na
+Ɵ
+onality": null,
+ 
+            "Pancard_Number": null, 
+            "FrequentFlyerDetails": null 
+        }, 
+        { 
+            "Pax_Id": 4, 
+            "Pax_type": 1, 
+            "Title": "Miss", 
+            "First_Name": "EMMA", 
+            "Last_Name": "SMITH", 
+            "Gender": 1, 
+            "Age": "8", 
+            "DOB": "05/05/2017", 
+            "Passport_Number": null, 
+            "Passport_Issuing_Country": null, 
+            "Passport_Expiry": null, 
+            
+"Na
+Ɵ
+onality": null,
+ 
+            "Pancard_Number": null, 
+            "FrequentFlyerDetails": null 
+        }, 
+        { 
+            "Pax_Id": 5, 
+            "Pax_type": 2, 
+            "Title": "Master", 
+            "First_Name": "NOAH", 
+            "Last_Name": "SMITH", 
+            "Gender": 0, 
+            "Age": "0", 
+            "DOB": "09/02/2025", 
+            "Passport_Number": null, 
+            "Passport_Issuing_Country": null, 
+            "Passport_Expiry": null, 
+            
+"Na
+Ɵ
+onality": null,
+ 
+            "Pancard_Number": null, 
+            "FrequentFlyerDetails": null 
+        }, 
+        { 
+            "Pax_Id": 6, 
+            "Pax_type": 2, 
+            "Title": "Master", 
+            "First_Name": "LIFY", 
+            "Last_Name": "SMITH", 
+            "Gender": 0, 
+            "Age": "1", 
+            "DOB": "12/22/2024", 
+            "Passport_Number": null, 
+            "Passport_Issuing_Country": null, 
+            "Passport_Expiry": null, 
+            
+"Na
+Ɵ
+onality": null,
+ 
+            "Pancard_Number": null, 
+            "FrequentFlyerDetails": null 
+        } 
+    ], 
+    "GST": true, 
+    "GST_Number": "26AAQCS4259Q1ZC", 
+    "GST_HolderName": "Code Private Limited", 
+    "GST_Address": "C/o Krishna Packaging, Part No. 6, SR. 336/2 6, Nearby Cricket Ground, Dadra and 
+Nagar Haveli and Daman and Diu, 396210", 
+    "BookingFlightDetails": [ 
+        { 
+            "Search_Key": 
+"oUnUPIR7p9eRpHXfZC6HGodmBFKv7H7WwQYh4AkpviL5ZzjkqbWieqeeQZWVKxPjlaemIzcQGQPvZQ
+9ZtTomzZnAecG1AhgLvrb7DlBM0PVngCAdeJ8EP6ztGY6AhY3hYrE5S24/4t30FJ6CPRP98wyxzaDjYEWW
+ntuMPwwO8rUaMemXmN0R6JOJQVxpiEe1fBADeotWFhqNs5HqwD2nH7n0CHhXYRQM=", 
+            "Flight_Key": 
+"KEY1LvAqSdrqfT9xsAEctjLLyCn3pCyMxJx7e9l0nNZfWteXTzok4ddo2NO8nGyB3Br2QZcavm+vzIwBPtlL
+Iiu9xlNs3dpWntw5cECMF58WNQLD+tCZlUwo7FfJDLKh4RgdlV6aSIkOnnYwEvTqkJx046hCzlaCRPtQBJ3
+zE8RJg7ye43Zb7nuCL1plIIdFZ559KAwBWNsAMGJuKN44cNKSjhKxhz2N4G+JltCn18M1K+RQA==", 
+            "BookingSSRDetails": [ 
+                { 
+                    "Pax_Id": 1, 
+                    "SSR_Key": 
+"b6ByoxguAz8RiCG8ukVPAv0CyHurcAC3vYqB65gPgM1aywbSUQ3Vm1lYmV1j8q5E85F0jZpXqsufuDV
+ƞ
++ 
++fnF1oKBFeGe9Q2XA57lIT0cu5Vk7SClC0
+Ĭ
+NjFdJIOKCc7KDQF8d5"
+ 
+                }, 
+                { 
+                    "Pax_Id": 1, 
+                    "SSR_Key": 
+"H9vMLpjAhFfV0hV8vk6VOrmuHVosVnqqojCnSiR1O/YaTrp0g9KwL+taEgqyHe/Vx5lUTUBV8p
+Ĭ
+Ms+R6
+Ljep+ 
+/KHlt3qDjXzE2X7WyIKFcnzygk0032
+Ĭ
+dWLC8gkAyTXSYJjgv791msNM4SrX2QZhLYwBw=="
+ 
+                }, 
+                { 
+                    "Pax_Id": 1, 
+                    "SSR_Key": "IYaqSyi+y/ouyPOl/ 
+/tbRSPnH1V8z13IbKbzstNljpD/Q5q5NuVm9hSTBesQZ4eMnVOvsﬁ+wmkXVxhDgED9Obcs/ugny/YgOU
+13Eo4apXiNVW2k2LobwXE1WoN/856o0699GjeOf45X0ﬂULX9MXUE/qeyUScTxSX4Anj69yWuWFmNI
+RND3X8qZGw==" 
+                }, 
+                { 
+                    "Pax_Id": 1, 
+                    "SSR_Key": "QUlGM6Dsg2sIkjLHEdZ17+t//NjxFyfK+ =" 
+                }, 
+                { 
+                    "Pax_Id": 1, 
+                    "SSR_Key": 
+"4HMUgHgkMUTIrsYPOSNMCKZLVW0OySKYB1QwahRFBSl/Qgp6jzZ396XirQSSEaxtMSSAGZ1k8nglWD
+PhhMR9ZRteN6l38SbzOumi/O2+ +/Ocg==" 
+                }, 
+                { 
+                    "Pax_Id": 2, 
+                    "SSR_Key": 
+"QrKZLePLlDNshWDAVvOJBmXmkvpIilLbVHJyvSR5VZO2yyvETgVkiahA/M30Wuax/ 
+/Y7BRgWc2Aa+pO/wi8TvR1b1glvEeghbLi79ICb1w" 
+                }, 
+                { 
+                    "Pax_Id": 2, 
+                    "SSR_Key": "G6nxw36Y7Ej0jw59+ =" 
+                }, 
+                { 
+                    "Pax_Id": 2, 
+                    "SSR_Key": 
+"IYaqSyi+y/ouyPOl/hqn57QmRWFoC99wrv+10n8fBeCIbTbX6+4Tz4tqpl2NwupQI43n6QOghP6fc+ik4P
+z1KOBrsUS1Q1Cw/qmXzWR1
+Ņ
+oEw/
+ ==" 
+                }, 
+                { 
+                    "Pax_Id": 2, 
+                    "SSR_Key": "QUlGM6Dsg2sIkjLHEdZ17+t//NjxFyfK+ =" 
+                }, 
+                { 
+                    "Pax_Id": 2, 
+                    "SSR_Key": "b6ByoxguAz8RiCG8ukVPAjGf/3rjNLv+/Du5nyqp1jqKa9U2KcCuQ/ 
+/uRnhyxZiiTRjYpvNz8xg2RDDMgvSuxTD//v/etN/6pCnpucnWUsCxlQPndSHGOlU" 
+                }, 
+                { 
+                    "Pax_Id": 3, 
+                    "SSR_Key": 
+"Hsi2VSBd7gzkabkYUY8qCklpcTS+Yg4O31zI0BCMdGhjsLD8f6GWLpaHVCucvlsknsMyDBM4S/krTNfSJy
+zQOWK+ 
+/MZWoyHHBmCEFbAII9vwqBtw1Oobe8v5bQ1285ZIkZKVIIXrGslAVJYWQJyjvA5dBAWAIEgRXKHRoYMt
+PnlUd3cLVQX0bRw==" 
+                }, 
+                { 
+                    "Pax_Id": 3, 
+                    "SSR_Key": 
+"uY4eq7huAGhuRdKTDNMuhN34AMScR2ONcajoV3VXqv+PO3zKVCy7mM91LDDBj70MUmKerDwzPc
+BP8UrPrHKwL2MVoh9Oy4A/ 
+/vXf+YsVHJrWjjCOq5fccAVdiCSLR3WzDDuna5oJvNMHHGAkTUvMFlBzcPja4IJlIlddJn6E8BHj" 
+                }, 
+                { 
+                    "Pax_Id": 3, 
+                    "SSR_Key": "IYaqSyi+y/ouyPOl/ 
+/m5JaXQQLmKgpmz0dUmpS3Y1RLGw+hNi/S8/foWET8Mx
+Ɵ
+pscbSiN4XcCJ587cSovXYvXW16G63A0w=
+=" 
+                }, 
+                { 
+                    "Pax_Id": 3, 
+                    "SSR_Key": "ipvxIhifvdtIUhjj4vpXdczvjmb+RTjlL3CneIUcah1mmPGQifv0vpG/ 
+/4rdZyhMt7QDLSkUYLlbJJ42M9Uc0NmRe96dIFFqvi2M4E
+ł
+Q0EuvjVY2uMhSm7uMA3cHJ
+wkCwK62uG
+3/RY0S2YHoa8ac/xMoHL7xmMuw==" 
+                }, 
+                { 
+                    "Pax_Id": 3, 
+                    "SSR_Key": 
+"b6ByoxguAz8RiCG8ukVPAoA1wXYJdnio1xiHzQyEbEsuDvq5h6b6p55lin8vND9XzhYz0WwC5drXcw9oU
+0iNZxy/N0g6nNND8KkwkTxteSDarS487eJHwwYcT7IVI1WJkHi81PgGGR/pvoDX8me2DQuW8/ENcrpFq
+0uE7fogvgXyqUZGtMQ/cxUcZMXZdnZto/ ==" 
+                }, 
+                { 
+                    "Pax_Id": 4, 
+                    "SSR_Key": 
+"6a73hPMyqO0uFlItbA8KUeAIifEeQiHcqF6G3zB6i
+ł
+yfmAzDbo+SW5+uw+1Ghz4G3F8GT7V1Eu0Kkh/
+ 
+rg4Nmlqe1zDPSDDxiwuVqoNnR4WRHcuo3AVhvfe58xnK7KQlZHtVzuf9OLYI5X94euFU+Jcsv+Ff8QYyhD
+PpOnoNVxsiPSws8PRxe4ejjWRVXyr+XDWl0f5GzULU5IjC1Ed99ay6zUHM0F/9T3B5Fp" 
+                }, 
+                { 
+                    "Pax_Id": 4, 
+                    "SSR_Key": "G6nxw36Y7Ej0jw59+ 
++hNYgd9QM9fULGJ/my32WoyFDLOovofCG1AtLv+ohAvJ/EDHv6rRzKFdDaSxwuowzIbE243too3r2AQ9
+GARbBm//g0uQPuJMrGFqc0zbQUu8fSxk4Y8L9yvvtVZs1QAhd9EC84ExO72uitXWmf6zQ38OZaWCXeh
+EkjJIHPLZ7fmhWZs1YCmEM=" 
+                }, 
+                { 
+                    "Pax_Id": 4, 
+                    "SSR_Key": 
+"IYaqSyi+y/ouyPOl/hqn57QmRWFoC99wrv+10n8fBeCIbTbX6+4Tz4tqpl2NwupQI43n6QOghP6fc+ik4P
+z1KOBrsUS1Q1Cw/qmXzWR1
+Ņ
+oEw/RfRkvrfFE9j5sMlawi7E28Aovr7sx2nuSngUf5MbBNGerQVoRnjLjgj
+DwI31seA3jYW00nmzazr6o/9NuHXkWb 
+/m5JaXQQLmKgpmz0dUmpS3Y1RLGw+hNi/S8/foWET8Mx
+Ɵ
+pscbSiN4XcCJ587cSovXYvXW16G63A0w=
+=" 
+                }, 
+                { 
+                    "Pax_Id": 4, 
+                    "SSR_Key": 
+"QUlGM6Dsg2sIkjLHEdZ17+t//NjxFyfK+CZxAyqv9GJTCXwi7ZIkT5odu6eHxLB1k7c3z4lKBiIUyBuNetcqfE
+uXRup4tavXMfseJB9kvP /J8uL04PDGzmd2mDiIkKxe/crUCPDgje7JsW3uuﬁNaO0Q=" 
+                }, 
+                { 
+                    "Pax_Id": 4, 
+                    "SSR_Key": 
+"XZKAqAXnA8/WKqz2l+c8xBq5v8Cc7sQAsoDC9o7+qdcNJcJbA6az7vKmYOm/r3F++TxlB7lBH9bjrykT0
+WnfNUZe83bCJrdfWZkIyutcCDRlq2tho9m6pJ6WpuDy4QpG3z4Fm93xxLYdT4SKAbW4Eair+fn3jW8PO
+RQOkImbckMyH2SmpkCX+ldr1
+ĩ
+cr59iwRqYO9VU5qJMMkE2m"
+ 
+                } 
+            ] 
+        } 
+    ], 
+    "CostCenterId": 0, 
+    "ProjectId": 0, 
+    "BookingRemark": "Online Booking", 
+    "CorporateStatus": 0, 
+    "CorporatePaymentMode": 0, 
+    "MissedSavingReason": null, 
+    "CorpTripType": null, 
+    "CorpTripSubType": null, 
+    "TripRequestId": null, 
+    "BookingAlertIds": null 
+} 
+ 
+POST07-Add-Payment 
+The AddPayment API is used to record or process the agent payment for a booking. This API is 
+typically called a
+Ō
+er the Air_TempBooking API for normal bookings where immediate payment is 
+required. In the case of hold bookings, the payment step can be skipp
+ed ini
+Ɵ
+ally, and payment can be 
+made later to conﬁrm the booking. A
+Ō
+er successful payment, the Air_Ticke
+Ɵ
+ng API should be called 
+to complete and conﬁrm the booking. 
+APIPaymentDebitRequest 
+Name
+ 
+Type
+ 
+Descrip
+Ɵ
+on
+ 
+Mandatory
+ 
+AuthHeader 
+Object
+ 
+This object holds APIAuthen
+Ɵ
+ca
+Ɵ
+on details
+ 
+Yes 
+RefNo 
+String
+ 
+This require the Booking reference number, which you get 
+while Air_TempBooking response. 
+Yes 
+ProductId 
+Int 
+This denotes the booking Products id For Airline its 1 
+Yes 
+Transac
+Ɵ
+onType
+ 
+Int 
+This denotes the Transac
+Ɵ
+onType Transac
+Ɵ
+onType 
+- 0 
+(BOOKING) Transac
+Ɵ
+onType 
+- 
+1(SSR) Transca
+Ɵ
+onType 
+- 2 
+(Reschedule Online and for future use) 
+Yes 
+ClientRefNo 
+String
+ 
+This requires the client reference number. It uses for tracking 
+the transac
+Ɵ
+on in future.
+ 
+No 
+APIPaymentDebitResponse 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+ResponseHeader
+ 
+Object
+ 
+This object holds the property of ResponseHeader
+ 
+Amount 
+Double
+ 
+Total amount. 
+Commission
+ 
+Double
+ 
+Commission amount
+ 
+SGST 
+Double
+ 
+SGST Amount 
+CGST 
+Double
+ 
+CGST Amount 
+IGST 
+Double
+ 
+IGST Amount 
+TDS
+ 
+Double
+ 
+TDS Amount
+ 
+PaymentID 
+String 
+Payment ID 
+POST08 - 
+Air_Ticke
+Ɵ
+ng
+ 
+The Air_Ticke
+Ɵ
+ng API is used to conﬁrm and commit the booking at the supplier or airline side and 
+generate the ﬁnal airline PNR. This API should be called a
+Ō
+er the temporary booking reference has 
+been generated and payment has been completed successfully. 
+In some cases, the Air_Ticke
+Ɵ
+ng API may return an error with code "22
+-Failed". In such scenarios, the 
+booking status must not be treated as failed immediately. Instead, the client must call the 
+Air_Reprint API using the booking reference number to check t
+he latest 
+Ɵ
+cket status.
+ 
+If the Ticket_Status_Id is 4, the booking status should be treated as Success. If the Ticket_Status_Id is 
+0, 2, 3, or 22, the booking status should be treated as InProcess and the booking status should be 
+checked again a
+Ō
+er some 
+Ɵ
+me using the Air_Reprint
+ API. For all other cases, the booking status 
+should be treated as Failed. 
+API Air Ticke
+Ɵ
+ng Request
+ 
+Name
+ 
+Type
+ 
+Descrip
+Ɵ
+on
+ 
+Mandatory
+ 
+AuthHeader 
+Object
+ 
+This object holds API Authen
+Ɵ
+ca
+Ɵ
+on details
+ 
+Yes 
+BookingRefNo
+ 
+String
+ 
+This require the Booking reference number 
+Yes 
+Ticke
+Ɵ
+ng_Type
+ 
+String
+ 
+This requires 
+Ɵ
+cke
+ƫ
+ng types , Possible values : Block_Ticket 
+-0/ 
+Book_Ticket- 1/ Book_Blocked_Ticket -2 You have to allow user 
+Block_Ticket and Book_Blocked_Ticked based on the ﬂag 
+Block_Ticket_Allowed in API Flight object in Search\RePrice 
+response. 
+Yes 
+API Air Ticke
+Ɵ
+ng Response
+ 
+Name
+ 
+Type
+ 
+Descrip
+Ɵ
+on
+ 
+ResponseHeader
+ 
+Object 
+This object holds the property of Response Header
+ 
+BookingRefNo 
+String 
+This displays the Booking reference number 
+AirlinePNRDetails
+ 
+List(Object)
+ 
+This displays the Airline PNR Detail
+ 
+a)AirlinePNRDetails
+ 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+Flight_Id 
+String 
+This Displays the Flight Id 
+Status_Id 
+String 
+This requires the Status Id 11-Success, 22-Failed, 33-Block.
+ 
+FailureRemark
+ 
+String
+ 
+This Displays the Failure Remark
+ 
+AirlinePNRs 
+List(Object)
+ 
+This Displays the 
+AirlinePNR
+ 
+b)AirlinePNR
+ 
+Name 
+Type
+ 
+Descrip
+Ɵ
+on
+ 
+AirlineCode 
+String
+ 
+This displays the Airline Code 
+AirlinePNR
+ 
+String
+ 
+This displays the AirlinePNR
+ 
+SupplierRefNo
+ 
+String
+ 
+This displays the SupplierRefNo
+ 
+RecordLocator
+ 
+String
+ 
+This displays the RecordLocator
+ 
+CRSPNR 
+String
+ 
+This displays the CRSPNR 
+CRSCode
+ 
+String
+ 
+This displays the CRSCode
+ 
+{ 
+ "Auth_Header": { 
+        "UserId": "xxxxxxxxxx", 
+        "Password": "***********", 
+        "IP_Address": "127.0.0.1", 
+        "Request_Id": "7FB45BA7-5A98-4B0A-B5ED-0DD591F7A572", 
+        "IMEI_Number": "xxxxxxxxxx" 
+    }, 
+  "Booking_RefNo": "F-O06JAN264LMQX", 
+  
+"Ticke
+Ɵ
+ng_Type": "1"
+ 
+} 
+ 
+POST09 - Air_Reprint 
+StartFragmentThe Air_Reprint API is used to retrieve the complete booking details for a given 
+booking reference number or airline PNR. This API returns the full i
+Ɵ
+nerary, passenger details, 
+Ɵ
+cke
+Ɵ
+ng informa
+Ɵ
+on, fare details, and current booking status. 
+This API is commonly used to check 
+the latest status of a booking, to display booking details to the customer, or to validate the ﬁnal 
+Ɵ
+cke
+Ɵ
+ng result a
+Ō
+er the Air_Ticke
+Ɵ
+ng process.EndFragment
+ 
+Request Object - API Air Reprint Request
+ 
+API Air_ReQuery Request 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+Mandatory
+ 
+AuthHeader 
+Object
+ 
+This object holds API Authen
+Ɵ
+ca
+Ɵ
+on details
+ 
+Yes 
+BookingRefNo
+ 
+String
+ 
+This requires Booking reference number
+ 
+Yes
+ 
+AirlinePNR 
+String
+ 
+This requires the airline PNR 
+No 
+Response Object - API Air Reprint Response
+ 
+API Air_Reprint Response 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+ResponseHeader 
+Object 
+This object holds the property of Response Header 
+BookingRefNo 
+String 
+This displays Booking reference number 
+BookingDateTime 
+String 
+This displays Booking Date Time 
+RetailerDetail 
+Object 
+This displays Retailer Detail 
+CustomerDetail 
+Object 
+This displays Customer Detail 
+CompanyDetail 
+Object 
+This displays Company Detail 
+BookingType 
+Enum 
+This displays Booking Type. Possible values : 0-ONEWAY/1-
+ROUNDTRIP/ 2-SPECIALROUNDTRIP 
+TravelType 
+Enum 
+This displays Travel Type. Possible values : 0-DOMESTIC/1-
+INTERNATIONAL 
+AdultCount 
+Integer 
+This displays Adult Count 
+ChildCount 
+Integer 
+This displays Child Count 
+InfantCount 
+Integer 
+This displays Infant Count 
+ClassofTravel 
+Enum 
+This displays class of Travel 0
+-
+ECONOMY/1
+-
+BUSINESS / 2
+-
+FIRST/3-PREMIUMECONOMY 
+GST
+ 
+Boolean
+ 
+This displays GST
+ 
+GSTIN 
+String 
+This displays GSTIN 
+PAXEmailId
+ 
+String
+ 
+This displays PAX Email Id
+ 
+PAXMobile 
+String 
+This displays PAX Mobile 
+InvoiceNumber 
+String 
+This displays Invoice Number 
+BillerId 
+Integer 
+This displays Biller Id 
+AirPNRDetails 
+List 
+(Object) 
+This displays list of API Air PNR With Detail 
+BookingPaymentDetail 
+List 
+(Object) 
+This displays list of Payment Detail 
+Remark
+ 
+String
+ 
+This displays Remark
+ 
+CorporatePaymentMode
+ 
+Integer 
+This displays Corporate Payment Mode 
+AirRequeryResponseKey
+ 
+String 
+This displays Air Requery Response Key 
+a)Air PNR Detail 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+Ticket_Status_Id 
+String 
+This displays Ticket_Status_Id Possible values 0
+-
+Payment 
+Pending ,1-Payment Failed, 2-Payment Received , 3-
+Onprogress, 4-Conﬁrmed, 5-Failed, 6-Cancelled, 7-Blocked, 8-
+Rejected 
+Ticket_Status_Desc 
+String 
+This displays Ticket Status Desc Possible values : Unknown, 
+Conﬁrmed, Failed, Cancelled 
+Ticke
+Ɵ
+ngDate
+ 
+String 
+This displays Ticke
+Ɵ
+ng Date
+ 
+Airline_Code 
+String 
+This displays Airline Code 
+Airline_Name
+ 
+String
+ 
+This displays Airline Name
+ 
+Airline_PNR 
+String 
+This displays Airline PNR 
+Supplier_RefNo 
+String 
+This displays Supplier RefNo 
+CRS_PNR 
+String 
+This displays CRS PNR 
+Record_Locator
+ 
+String
+ 
+This displays Record Locator
+ 
+CRS_Code 
+String 
+This displays CRS Code 
+Gross_Amount 
+String 
+This displays Gross Amount 
+Post_Markup 
+String 
+This displays Post Markup 
+Flights 
+List(object)
+ 
+This object holds list of API Flight details 
+PAXTicketDetails
+ 
+List(object)
+ 
+This object holds list of API PAX Ticket Detail
+ 
+BookingChangeRequests
+ 
+List(object)
+ 
+This object holds list of Booking Change Request 
+RetailerPostMarkup 
+Double 
+This displays Retailer Post Markup 
+FailureRemark 
+String 
+This displays Failure Remark 
+b)Booking Payment Detail 
+Name
+ 
+Type
+ 
+Descrip
+Ɵ
+on
+ 
+Payment_Mode 
+Enum
+ 
+This displays PaymentMode 0-PrePaid_Money / 1-
+Payment_Gateway/ 2-Prepaid_Money1/ 3-Prepaid_Money2 
+Currency_Code 
+String
+ 
+This displays Currency Code 
+PaymentConﬁrma
+Ɵ
+on_Number
+ 
+String
+ 
+This displays Payment Conﬁrma
+Ɵ
+on Number
+ 
+Payment_Amount 
+String
+ 
+This displays Payment Amount 
+Gateway_Charges
+ 
+String
+ 
+This displays Gateway Charges
+ 
+c) PAX Ticket Detail 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+TicketDetails 
+List(Object)
+ 
+This holds the list of Ticket Detail 
+Pax_Id 
+Integer 
+This displays Pax id 
+Pax_type
+ 
+String
+ 
+Possible values are: 0
+-
+ADT/ 1
+-
+CHD/ 2
+-
+INF
+ 
+Title 
+String 
+This displays Customer 
+Ɵ
+tle
+ 
+FirstName 
+String 
+This displays Customer ﬁrst name 
+LastName 
+String 
+This displays Customer Last name 
+Gender
+ 
+String
+ 
+This displays Gender
+ 
+Age 
+String 
+This displays Age 
+DOB 
+String 
+This displays DOB 
+PassportNumber 
+String 
+This displays Passport Number 
+PassportIssuingCountry
+ 
+String
+ 
+This displays Passport Issuing Country
+ 
+PassportExpiry 
+String 
+This displays Passport Expiry 
+Na
+Ɵ
+onality
+ 
+String 
+This displays Na
+Ɵ
+onality
+ 
+Fares
+ 
+List(Object)
+ 
+This holds the list of API Fare
+ 
+SSRDetails 
+List(Object)
+ 
+This holds the list of API SSR Detail 
+TicketStatus 
+String 
+This displays the Ticket Status 
+FrequentFlyerDetails 
+List(Object)
+ 
+This holds Frequent Flyer Details 
+d) Booking Change Request 
+Name
+ 
+Type
+ 
+Descrip
+Ɵ
+on
+ 
+FlightId 
+String 
+This displays Flight Id 
+ChangeType 
+Enum 
+This displays change type. Possible values are 0-
+Cancella
+Ɵ
+on / 1
+-
+Reschedule/2-SSR/3-Others 
+ChangeDateTime
+ 
+String 
+This displays Change Date Time 
+ChangeFee 
+Double
+ 
+This displays Change Fee 
+ChangeFare
+ 
+Double
+ 
+This displays Change Fare
+ 
+GrossCommission
+ 
+Double
+ 
+This displays Gross Commission 
+NetCommission 
+Double
+ 
+This displays Net Commission 
+CurrencyCode 
+String 
+This displays Currency Code 
+TotalAmount
+ 
+Double
+ 
+This displays Total Refund Amount
+ 
+e) Ticket Detail 
+Name 
+Type
+ 
+Descrip
+Ɵ
+on
+ 
+Flight_Id 
+String
+ 
+This displays the Flight Id 
+Ticket_Number
+ 
+String
+ 
+This displays Currency Code
+ 
+f) Company Detail 
+Name
+ 
+Type
+ 
+Descrip
+Ɵ
+on
+ 
+CompanyName
+ 
+String
+ 
+This displays Company Name
+ 
+Address 
+String
+ 
+This displays Address 
+City 
+String
+ 
+This displays City 
+State
+ 
+String
+ 
+This displays State
+ 
+Country 
+String
+ 
+This displays Country 
+Pincode
+ 
+String
+ 
+This displays Pin code
+ 
+Fax 
+String
+ 
+This displays Fax 
+PhoneNo 
+String
+ 
+This displays Phone No 
+MobileNo 
+String
+ 
+This displays Mobile No 
+Email
+ 
+String
+ 
+This displays Email
+ 
+Website 
+String
+ 
+This displays Website 
+ContactPerson
+ 
+String
+ 
+This displays Contact Person
+ 
+PANNo 
+String
+ 
+This displays PAN No 
+GSTNo
+ 
+String
+ 
+This displays GST No
+ 
+SACCode 
+String
+ 
+This displays SAC Code 
+Logo 
+String
+ 
+This displays Logo 
+g) Customer Detail 
+Name 
+Type
+ 
+Descrip
+Ɵ
+on
+ 
+CustomerName
+ 
+String
+ 
+This displays customer name
+ 
+CustomerMobile
+ 
+String
+ 
+This displays customer mobile
+ 
+CustomerEmail 
+String
+ 
+This displays customer email 
+h) Retailer Detail 
+Name 
+Type
+ 
+Descrip
+Ɵ
+on
+ 
+RetailerId
+ 
+String
+ 
+This displays Retailer Id
+ 
+RetailerCompanyName 
+String
+ 
+This displays Retailer Company Name 
+SubRetailerId 
+String
+ 
+This displays Sub Retailer Id 
+SubRetailerCompanyName
+ 
+String
+ 
+This displays Sub Retailer Company Name
+ 
+RetailerName
+ 
+String
+ 
+This displays Retailer Name
+ 
+OperatorName 
+String
+ 
+This displays Operator Name 
+BookedByOperatorName 
+String
+ 
+This displays Booked By Operator Name 
+RetailerAddress 
+String
+ 
+This displays Retailer Address 
+RetailerArea 
+String
+ 
+This displays Retailer Area 
+RetailerLandmark
+ 
+String
+ 
+This displays Retailer Landmark
+ 
+RetailerCity 
+String
+ 
+This displays Retailer City 
+RetailerState 
+String
+ 
+This displays Retailer State 
+RetailerPincode 
+String
+ 
+This displays Retailer Pincode 
+RetailerMobileNumber
+ 
+String
+ 
+This displays Retailer Mobile Number
+ 
+RetailerEmailId 
+String
+ 
+This displays Retailer Email Id 
+RetailerPANno 
+String
+ 
+This displays Retailer PAN no 
+RetailerGSTno 
+String
+ 
+This displays Retailer GST no 
+postman request POST 'h
+Ʃ
+ps://BASE_URL/airlinehost/AirAPIService.svc/JSONService/Air_Reprint' 
+\ 
+  --header 'Content-
+Type: applica
+Ɵ
+on/json' 
+\ 
+  --body '{ 
+    "Auth_Header": { 
+        "UserId": "xxxxxxxxxx", 
+        "Password": "***********", 
+        "IP_Address": "127.0.0.1", 
+        "Request_Id": "7FB45BA7-5A98-4B0A-B5ED-0DD591F7A572", 
+        "IMEI_Number": "xxxxxxxxxx" 
+    }, 
+    "Booking_RefNo": "F-O06JAN264LMQX" 
+}' 
+ 
+POST10 - Air_History 
+The Air_History API is used to retrieve the list of bookings based on the speciﬁed search criteria or 
+condi
+Ɵ
+ons. This API allows clients to fetch booking records for repor
+Ɵ
+ng, reconcilia
+Ɵ
+on, and 
+customer service purposes. The response can include booking details such as reference number, 
+PNR, travel dates, passenger informa
+Ɵ
+on, and current booking status depending on the ﬁlters 
+applied in the request.  
+Request Object - APIAirHistoryRequest
+ 
+AirHistory Request 
+Name
+ 
+Type
+ 
+Descrip
+Ɵ
+on
+ 
+Mandatory
+ 
+AuthHeader
+ 
+Object
+ 
+This object holds API Authen
+Ɵ
+ca
+Ɵ
+on details
+ 
+Yes 
+Month
+ 
+String
+ 
+This requires Month of booking for July (eg: 07)
+ 
+No
+ 
+Year 
+String
+ 
+This requires year of booking(eg:2020) 
+No 
+Type 
+String
+ 
+This require Type. Possible values are 0 - BOOKING_DATE/ 1 - 
+BOOKING_DATE_LIVE/ 2 - BOOKING_DATE_CANCELLED/ 3-BLOCKED
+ 
+No 
+Fromdate 
+String
+ 
+This requires From date (MM/dd/YYYY) 
+No 
+Todate 
+String
+ 
+This requires To date(MM/dd/YYYY) 
+No 
+AirHistory Response 
+Name
+ 
+Type
+ 
+Descrip
+Ɵ
+on
+ 
+ResponseHeader
+ 
+Object 
+This object holds the property of Response Header
+ 
+TicketHistory 
+List(Object)
+ 
+This object holds the list of Ticket History 
+a)Ticket History
+ 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+Refno
+ 
+String
+ 
+This displays booking reference number
+ 
+CustomerMobile 
+String 
+This displaysCustomerMobile 
+CustomerName 
+String 
+This displaysCustomerName 
+PassengerName 
+String 
+This displaysPassengerName 
+BookingType
+ 
+String
+ 
+String This displaysBookingType
+ 
+TravelType 
+String 
+This displaysTravelType 
+TripDetails 
+String 
+This displaysTripDetails 
+ReqDate 
+String 
+This displaysReqDate 
+GrossAmount
+ 
+String
+ 
+This displays GrossAmount
+ 
+Cancella
+Ɵ
+onCharges
+ 
+String 
+This displays Cancella
+Ɵ
+onCharges
+ 
+GatewayCharges 
+String 
+This displays GatewayCharges 
+AirlinePNR 
+String 
+This displays AirlinePNR 
+InvoiceNumber
+ 
+String
+ 
+This displays InvoiceNumber
+ 
+TicketHistoryTrips 
+List(Object)
+ 
+This object holds list of TicketHistoryTrip
+ 
+b)Ticket History Trip
+ 
+Name 
+Type
+ 
+Descrip
+Ɵ
+on
+ 
+Refno 
+String
+ 
+This displays booking reference number
+ 
+FlightId 
+String
+ 
+This displays Flight Id 
+AirlinesName
+ 
+String
+ 
+This displays Airlines Name
+ 
+Origin 
+String
+ 
+This displays Origin 
+Des
+Ɵ
+na
+Ɵ
+on
+ 
+String
+ 
+This displays Des
+Ɵ
+na
+Ɵ
+on
+ 
+TravelDate 
+String
+ 
+This displays Travel Date 
+TicketDate
+ 
+String
+ 
+This displays Ticket Date
+ 
+StatusDesc 
+String
+ 
+This displays Status Descrip
+Ɵ
+on
+ 
+Remarks 
+String
+ 
+This displays Remarks 
+Status 
+String
+ 
+This displays Status 
+BlockedExpiryDate
+ 
+String
+ 
+This displays Blocked Expiry Date 
+{ 
+     "Auth_Header": { 
+        "UserId": "xxxxxxxxxx", 
+        "Password": "***********", 
+        "IP_Address": "127.0.0.1", 
+        "Request_Id": "7FB45BA7-5A98-4B0A-B5ED-0DD591F7A572", 
+        "IMEI_Number": "xxxxxxxxxx" 
+    }, 
+    "Fromdate": "01/04/2024", 
+    "Month": "4", 
+    "Todate": "20/04/2024", 
+    "Type": "0", 
+    "Year": "2024" 
+} 
+ 
+POST11 - 
+Air_Cancella
+Ɵ
+on
+ 
+The Air_Cancella
+Ɵ
+on API is used to submit a cancella
+Ɵ
+on request for an exis
+Ɵ
+ng booking to the 
+supplier or airline system. This API sends the cancella
+Ɵ
+on request to the cancella
+Ɵ
+on queue for 
+processing. The ﬁnal cancella
+Ɵ
+on status and applicable charges can be veriﬁed later using the 
+appropriate booking status or reprint API.  
+Request Object
+ - 
+AirTicketCancella
+Ɵ
+onRequest
+ 
+AirTicketCancella
+Ɵ
+onRequest
+ 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+Mandatory
+ 
+AuthHeader 
+Object 
+This object holds API Authen
+Ɵ
+ca
+Ɵ
+on details
+ 
+Yes 
+RefNo 
+String 
+This requires Booking reference number. 
+Yes 
+ReqRemarks
+ 
+String
+ 
+This requires Request Remarks.
+ 
+No
+ 
+CancelCode 
+String 
+This object holds list of 
+Air Ticket Cancella
+Ɵ
+on Type
+ 
+No 
+AirTicketCancelDetails
+ 
+List(object)
+ 
+This object holds list of 
+Air Ticket Cancel Detail
+ 
+Yes 
+Cancella
+Ɵ
+onType
+ 
+Integer 
+Full = 1,Par
+Ɵ
+alSegmentAllPax = 
+2,Par
+Ɵ
+alPaxAllSegment = 3,Par
+Ɵ
+alPaxPar
+Ɵ
+alSegment 
+= 4 
+Yes 
+Cancella
+Ɵ
+on Type and its Implementa
+Ɵ
+ons
+ 
+0-Normal Cancel:
+ 
+Online Cancella
+Ɵ
+on 
+- Selected Passengers and Sectors will be Auto cancelled with 
+Applicable Penalty as per Airline. 
+1-Full Refund:
+ 
+Oﬄine Cancella
+Ɵ
+on 
+- Selected Passengers and Sectors will be cancelled only if Full 
+Refund is applicable. 
+2-No Show:
+ 
+Oﬄine Cancella
+Ɵ
+on.
+ 
+a)AirTicketCancelDetail
+ 
+Name 
+Type
+ 
+Descrip
+Ɵ
+on
+ 
+CancelCode
+ 
+FlightId 
+String
+ 
+This requires Flight Id Remarks. 
+No 
+PassengerId
+ 
+String
+ 
+This requires Passenger Id Remarks.
+ 
+No 
+SegmentId 
+String
+ 
+This requires Segment_Id Remarks.
+ 
+No 
+b)AirTicketCancella
+Ɵ
+onType
+ 
+Cancella
+Ɵ
+onType
+ 
+CancelCode
+ 
+Descrip
+Ɵ
+on
+ 
+0 
+015 
+Please cancel my 
+Ɵ
+cket with Applicable Penalty
+ 
+0 
+005 
+I cancelled the 
+Ɵ
+cket directly with Airline
+ 
+0
+ 
+001
+ 
+Other 
+–
+ 
+Men
+Ɵ
+oned the reason in Request Remarks
+ 
+Cancella
+Ɵ
+onType
+ 
+CancelCode
+ 
+Descrip
+Ɵ
+on
+ 
+1 
+016 
+Flight Schedule Changed by Airline 
+1
+ 
+005
+ 
+I cancelled the 
+Ɵ
+cket directly with Airline
+ 
+1 
+004 
+Received a communica
+Ɵ
+on from Airline that Flight is not Opera
+Ɵ
+onal
+ 
+1 
+008 
+Flight Cancelled by the Airline 
+1 
+001 
+Other – 
+Men
+Ɵ
+oned the reason in Request Remarks
+ 
+Cancella
+Ɵ
+onType
+ 
+CancelCode
+ 
+Descrip
+Ɵ
+on
+ 
+2 
+011 
+Claim No Show Tax Refund 
+2 
+001 
+Other – 
+Men
+Ɵ
+oned the reason in Request Remarks
+ 
+Response Object-
+AirTicketCancella
+Ɵ
+onResponse
+ 
+APIAirTicketCancella
+Ɵ
+onResponse
+ 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+ResponseHeader
+ 
+Object
+ 
+This object holds the property of Response Header
+ 
+ErrorDesc 
+String
+ 
+This displays Error Descrip
+Ɵ
+on
+ 
+{ 
+    "Auth_Header": { 
+        "UserId": "xxxxxxxxxx", 
+        "Password": "***********", 
+        "IP_Address": "127.0.0.1", 
+        "Request_Id": "7FB45BA7-5A98-4B0A-B5ED-0DD591F7A572", 
+        "IMEI_Number": "xxxxxxxxxx" 
+    }, 
+ 
+"AirTicketCancelDetails":[ 
+        { 
+            "PassengerId": "1", 
+            "SegmentId": "0" 
+ 
+    } 
+    ], 
+ 
+"Airline_PNR": "FIGHKD", 
+ 
+"RefNo": "F-O06JAN264LMQX", 
+ 
+"CancelCode": "005", 
+ 
+"ReqRemarks": "I cancelled the 
+Ɵ
+cket directly with Airline",
+ 
+    
+"Cancella
+Ɵ
+onType" : 0
+ 
+} 
+POST12 - Air_ReleasePNR 
+The Air_ReleasePNR API is used to release or cancel a previously blocked or held 
+Ɵ
+cket. This API frees 
+the reserved booking reference or PNR from the system when the booking is not intended to be 
+completed, allowing the inventory and fare to be made available again for other bookings. 
+Request Object
+ : AirReleasePNRRequest 
+AirReleasePNRRequest 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+Mandatory
+ 
+AuthHeader
+ 
+Object
+ 
+This object holds API Authen
+Ɵ
+ca
+Ɵ
+on details
+ 
+Yes
+ 
+Booking_RefNo
+ 
+String
+ 
+This requires Booking reference number 
+Yes 
+Airline_PNR 
+String
+ 
+Airline PNR Number is given 
+No 
+Response Object-AirReleasePNRResponse
+ 
+Name 
+Type 
+Descrip
+Ɵ
+on
+ 
+ResponseHeader
+ 
+Object
+ 
+This object holds the property of Response Header
+ 
+ErrorDesc 
+String
+ 
+This displays Error Descrip
+Ɵ
+on
+ 
+{ 
+    "Airline_PNR": "KEVG6H", 
+    "Auth_Header": { 
+        "UserId": "xxxxxxxxxx", 
+        "Password": "***********", 
+        "IP_Address": "127.0.0.1", 
+        "Request_Id": "7FB45BA7-5A98-4B0A-B5ED-0DD591F7A572", 
+        "IMEI_Number": "xxxxxxxxxx" 
+    }, 
+    "Booking_RefNo": "F-O06JAN264LMQX" 
+} 

@@ -17,12 +17,6 @@
 			"permissions": [
 				"location"
 			]
-		},
-		"Camera": {
-			"permissions": [
-				"camera",
-				"photos"
-			]
 		}
 	}
 }

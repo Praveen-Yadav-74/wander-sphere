@@ -42,6 +42,14 @@ class PaymentService {
     return response;
   }
 
+  async payFromWallet(data: { tripId: string; amount: number }): Promise<any> {
+    const response = await apiRequest<any>(`${apiConfig.baseURL}/payment/pay-from-wallet`, {
+      method: 'POST',
+      body: data,
+    });
+    return response.data || response;
+  }
+
   /**
    * Complete payment flow: Create order → Open Razorpay OR Redirect to PhonePe
    * 

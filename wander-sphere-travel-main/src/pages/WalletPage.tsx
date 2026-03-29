@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Wallet, Plus, ArrowDown, ArrowUp, Loader2, History, RefreshCw, Download, TrendingDown, TrendingUp, ArrowUpRight, ArrowDownLeft } from "lucide-react";
 import { walletService, WalletDetails } from "@/services/walletService";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRazorpay } from "@/hooks/useRazorpay";
+import { useRazorpay } from "@/hooks/payment/useRazorpay";
 import AddMoneyModal from "@/components/wallet/AddMoneyModal";
 import { toast } from "@/components/ui/use-toast";
 import {

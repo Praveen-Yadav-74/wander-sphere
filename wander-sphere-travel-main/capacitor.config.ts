@@ -18,9 +18,8 @@ const config: CapacitorConfig = {
     Geolocation: {
       permissions: ['location']
     },
-    Camera: {
-      permissions: ['camera', 'photos']
-    }
+    // Camera plugin: direct capture only; no photo library permission needed.
+    // The System Photo Picker is used instead (via <input type="file">).
   }
 };
 

@@ -8,6 +8,7 @@ import { walletService } from "@/services/walletService";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
+import { formatPrice } from "@/utils/etravDate";
 
 interface TripPaymentModalProps {
   open: boolean;
@@ -111,7 +112,7 @@ const TripPaymentModal: React.FC<TripPaymentModalProps> = ({
               
               toast({
                 title: "Payment Successful",
-                description: `₹${tripAmount} paid successfully!`,
+                description: `${formatPrice(tripAmount)} paid successfully!`,
               });
 
               onOpenChange(false);
@@ -156,7 +157,7 @@ const TripPaymentModal: React.FC<TripPaymentModalProps> = ({
         // Payment completed with wallet only
         toast({
           title: "Payment Successful",
-          description: `₹${walletAmountUsed} paid from wallet!`,
+          description: `${formatPrice(walletAmountUsed)} paid from wallet!`,
         });
 
         onOpenChange(false);
@@ -200,7 +201,7 @@ const TripPaymentModal: React.FC<TripPaymentModalProps> = ({
           <div className="bg-muted/50 rounded-lg p-4">
             <p className="text-sm text-muted-foreground mb-1">Trip</p>
             <p className="font-semibold">{tripTitle || `Trip #${tripId}`}</p>
-            <p className="text-2xl font-bold mt-2">₹{tripAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+            <p className="text-2xl font-bold mt-2">{formatPrice(tripAmount)}</p>
           </div>
 
           {/* Wallet Balance */}
@@ -212,7 +213,7 @@ const TripPaymentModal: React.FC<TripPaymentModalProps> = ({
                     <Wallet className="w-5 h-5 text-primary" />
                     <div>
                       <p className="text-sm text-muted-foreground">Wallet Balance</p>
-                      <p className="text-xl font-bold">₹{walletBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                      <p className="text-xl font-bold">{formatPrice(walletBalance)}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -241,7 +242,7 @@ const TripPaymentModal: React.FC<TripPaymentModalProps> = ({
                       Wallet Payment
                     </span>
                     <span className="font-semibold text-green-600">
-                      -₹{paymentSplit.walletAmountUsed.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      -{formatPrice(paymentSplit.walletAmountUsed)}
                     </span>
                   </div>
                 )}
@@ -252,13 +253,13 @@ const TripPaymentModal: React.FC<TripPaymentModalProps> = ({
                       Razorpay Payment
                     </span>
                     <span className="font-semibold text-blue-600">
-                      ₹{paymentSplit.razorpayAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      {formatPrice(paymentSplit.razorpayAmount)}
                     </span>
                   </div>
                 )}
                 <div className="flex justify-between items-center pt-2 border-t font-semibold">
                   <span>Total</span>
-                  <span>₹{tripAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  <span>{formatPrice(tripAmount)}</span>
                 </div>
               </div>
             </div>
@@ -279,7 +280,7 @@ const TripPaymentModal: React.FC<TripPaymentModalProps> = ({
             ) : (
               <>
                 <CheckCircle2 className="w-5 h-5 mr-2" />
-                Pay ₹{tripAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                Pay {formatPrice(tripAmount)}
               </>
             )}
           </Button>

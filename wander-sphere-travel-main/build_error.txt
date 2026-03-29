@@ -1,0 +1,105 @@
+﻿
+> wandersphere-frontend@1.0.0 build
+> vite build
+
+[36mvite v7.1.3 [32mbuilding for production...[36m[39m
+transforming...
+[32mΓ£ô[39m 3229 modules transformed.
+node.exe : [31mΓ£ù[39m Build 
+failed in 4.97s
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program Files\nodejs/node_mo 
+...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~
+    + CategoryInfo          : No 
+   tSpecified: ([31mΓ£ù[39m B  
+  uild failed in 4.97s:String)   
+  [], RemoteException
+    + FullyQualifiedErrorId : Na 
+   tiveCommandError
+ 
+[31merror during build:
+[31msrc/utils/api.ts (31:9): 
+"getBaseURL" is not exported by 
+"src/config/api.ts", imported by 
+"src/utils/api.ts".[31m
+file: [36mC:/Users/prave/Downloa
+ds/wander-sphere-travel-main/wand
+er-sphere-travel-main/src/utils/a
+pi.ts:31:9[31m
+[33m
+29:  * @returns Promise with the 
+response data
+30:  */
+31: import { getBaseURL } from 
+'@/config/api';
+             ^
+32: 
+33: export async function 
+apiRequest<T>(url: string, 
+options: ApiOptions = {}): 
+Promise<T> {
+[31m
+    at getRollupError (file:///C:
+/Users/prave/Downloads/wander-sph
+ere-travel-main/wander-sphere-tra
+vel-main/node_modules/rollup/dist
+/es/shared/parseAst.js:401:41)
+    at error (file:///C:/Users/pr
+ave/Downloads/wander-sphere-trave
+l-main/wander-sphere-travel-main/
+node_modules/rollup/dist/es/share
+d/parseAst.js:397:42)
+    at Module.error (file:///C:/U
+sers/prave/Downloads/wander-spher
+e-travel-main/wander-sphere-trave
+l-main/node_modules/rollup/dist/e
+s/shared/node-entry.js:16915:16)
+    at Module.traceVariable (file
+:///C:/Users/prave/Downloads/wand
+er-sphere-travel-main/wander-sphe
+re-travel-main/node_modules/rollu
+p/dist/es/shared/node-entry.js:17
+367:29)
+    at ModuleScope.findVariable (
+file:///C:/Users/prave/Downloads/
+wander-sphere-travel-main/wander-
+sphere-travel-main/node_modules/r
+ollup/dist/es/shared/node-entry.j
+s:15037:39)
+    at 
+FunctionScope.findVariable (file:
+///C:/Users/prave/Downloads/wande
+r-sphere-travel-main/wander-spher
+e-travel-main/node_modules/rollup
+/dist/es/shared/node-entry.js:562
+6:38)
+    at 
+FunctionBodyScope.findVariable (f
+ile:///C:/Users/prave/Downloads/w
+ander-sphere-travel-main/wander-s
+phere-travel-main/node_modules/ro
+llup/dist/es/shared/node-entry.js
+:5626:38)
+    at BlockScope.findVariable (f
+ile:///C:/Users/prave/Downloads/w
+ander-sphere-travel-main/wander-s
+phere-travel-main/node_modules/ro
+llup/dist/es/shared/node-entry.js
+:5626:38)
+    at Identifier.bind (file:///C
+:/Users/prave/Downloads/wander-sp
+here-travel-main/wander-sphere-tr
+avel-main/node_modules/rollup/dis
+t/es/shared/node-entry.js:5400:40
+)
+    at CallExpression.bind (file:
+///C:/Users/prave/Downloads/wande
+r-sphere-travel-main/wander-spher
+e-travel-main/node_modules/rollup
+/dist/es/shared/node-entry.js:279
+1:23)[39m

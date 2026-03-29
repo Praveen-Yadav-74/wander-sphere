@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Loader2, Wallet } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRazorpay } from "@/hooks/useRazorpay";
+import { useRazorpay } from '@/hooks/payment/useRazorpay';
 import { paymentService } from "@/services/paymentService";
+import { formatPrice } from "@/utils/etravDate";
 
 interface AddMoneyModalProps {
   open: boolean;
@@ -32,7 +33,7 @@ const AddMoneyModal: React.FC<AddMoneyModalProps> = ({ open, onOpenChange, onSuc
     if (!numAmount || numAmount < 100) {
       toast({
         title: "Invalid Amount",
-        description: "Minimum amount is ₹100",
+        description: `Minimum amount is ${formatPrice(100)}`,
         variant: "destructive"
       });
       return;
@@ -82,7 +83,7 @@ const AddMoneyModal: React.FC<AddMoneyModalProps> = ({ open, onOpenChange, onSuc
           // Success callback
           toast({
             title: "Success",
-            description: `₹${result.data?.amountAdded?.toFixed(2) || '0.00'} added to your wallet!`,
+            description: `${formatPrice(result.data?.amountAdded || 0)} added to your wallet!`,
           });
 
           onOpenChange(false);
@@ -132,7 +133,7 @@ const AddMoneyModal: React.FC<AddMoneyModalProps> = ({ open, onOpenChange, onSuc
         
         <div className="space-y-6 py-4">
           <div>
-            <label className="text-sm font-medium mb-2 block">Amount (₹)</label>
+            <label className="text-sm font-medium mb-2 block">Amount (\u20B9)</label>
             <Input
               type="number"
               placeholder="Enter amount"
@@ -142,7 +143,7 @@ const AddMoneyModal: React.FC<AddMoneyModalProps> = ({ open, onOpenChange, onSuc
               step="100"
               className="text-lg"
             />
-            <p className="text-xs text-muted-foreground mt-1">Minimum: ₹100</p>
+            <p className="text-xs text-muted-foreground mt-1">Minimum: {formatPrice(100)}</p>
           </div>
 
           <div>
@@ -156,7 +157,7 @@ const AddMoneyModal: React.FC<AddMoneyModalProps> = ({ open, onOpenChange, onSuc
                   onClick={() => handleQuickAmount(quickAmount)}
                   className={amount === quickAmount.toString() ? "bg-primary text-primary-foreground" : ""}
                 >
-                  +₹{quickAmount.toLocaleString()}
+                  +{formatPrice(quickAmount)}
                 </Button>
               ))}
             </div>
