@@ -28,6 +28,7 @@ interface ApiOptions {
  * @param options Request options including method, headers, body, and timeout
  * @returns Promise with the response data
  */
+
 export async function apiRequest<T>(url: string, options: ApiOptions = {}): Promise<T> {
   const {
     method = 'GET',

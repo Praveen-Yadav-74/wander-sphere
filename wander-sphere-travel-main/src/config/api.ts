@@ -10,7 +10,7 @@ import { supabase } from './supabase';
 // Development: http://localhost:5000
 // Android Emulator: http://10.0.2.2:5000
 
-const PRODUCTION_BACKEND = 'https://wander-sphere-ue7e.onrender.com';
+const PRODUCTION_BACKEND = import.meta.env.VITE_API_URL || 'https://wander-sphere-ue7e.onrender.com';
 const LOCAL_BACKEND = 'http://localhost:5000';
 const EMULATOR_BACKEND = 'http://10.0.2.2:5000'; // Android emulator host access
 
@@ -65,6 +65,17 @@ const isAndroidEmulator = (): boolean => {
  * 4. Fallback to production Render backend
  */
 const getApiBaseUrl = async (): Promise<string> => {
+  // CRITICAL: Detect if running in Capacitor (mobile app)
+  const isCapacitor = !!(window as any).Capacitor;
+  
+  // If in Capacitor app, always use production backend to prevent localhost bugs on mobile
+  if (isCapacitor) {
+    console.log('[API Config] 🌐 Capacitor app detected natively, forcing production backend:', PRODUCTION_BACKEND);
+    cachedBackendUrl = PRODUCTION_BACKEND;
+    lastHealthCheck = Date.now();
+    return PRODUCTION_BACKEND;
+  }
+
   // If explicitly set in env, use that (highest priority)
   if (import.meta.env.VITE_API_BASE_URL) {
     console.log('[API Config] 🎯 Using explicit VITE_API_BASE_URL:', import.meta.env.VITE_API_BASE_URL);
@@ -84,14 +95,10 @@ const getApiBaseUrl = async (): Promise<string> => {
   
   const isProduction = import.meta.env.MODE === 'production' || 
                        import.meta.env.PROD === true;
-
-  // CRITICAL: Detect if running in Capacitor (mobile app)
-  const isCapacitor = !!(window as any).Capacitor;
   
-  // If in Capacitor app OR production build, always use production backend
-  if (isCapacitor || isProduction) {
-    const reason = isCapacitor ? 'Capacitor app' : 'Production build';
-    console.log(`[API Config] 🌐 ${reason} detected, using production backend: ${PRODUCTION_BACKEND}`);
+  // If production build, always use production backend
+  if (isProduction) {
+    console.log('[API Config] 🌐 Production build detected, using production backend:', PRODUCTION_BACKEND);
     cachedBackendUrl = PRODUCTION_BACKEND;
     lastHealthCheck = now;
     return PRODUCTION_BACKEND;

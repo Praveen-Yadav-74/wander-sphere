@@ -520,6 +520,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         password: userData.password,
         name: `${userData.firstName} ${userData.lastName}`.trim(),
         username: userData.username || '',
+        firstName: userData.firstName,  // Add firstName explicitly
+        lastName: userData.lastName,     // Add lastName explicitly
         confirmPassword: userData.password
       };
       const response = await authService.register(registerData);

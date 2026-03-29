@@ -28,6 +28,8 @@ export interface RegisterData {
   email: string;
   username: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
   password: string;
   confirmPassword: string;
 }
@@ -133,8 +135,9 @@ class AuthService {
       throw new Error('Passwords do not match');
     }
 
-    const [firstName, ...lastNameParts] = userData.name.split(' ');
-    const lastName = lastNameParts.join(' ');
+    // Prefer explicit firstName/lastName if provided, otherwise parse from name
+    const firstName = userData.firstName || userData.name.split(' ')[0] || '';
+    const lastName = userData.lastName || userData.name.split(' ').slice(1).join(' ') || '';
 
     // Sign up with Supabase Auth
     const { data, error } = await supabase.auth.signUp({
